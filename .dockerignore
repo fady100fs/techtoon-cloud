@@ -1,0 +1,148 @@
+# flyctl launch added from .gitignore
+**/<<<<<<< HEAD
+**/﻿# Build outputs
+**/[Bb]in
+**/[Oo]bj
+**/[Dd]ebug
+**/[Rr]elease
+
+# IDE files
+**/.vs
+**/.vscode
+**/*.user
+**/*.suo
+
+# Secrets (تأكد دائمًا من عدم رفع كلمات المرور)
+**/appsettings.json
+**/appsettings.Development.json
+
+# Temp files
+**/_dbcheck
+**/*.tmp
+**/*.log
+**/=======
+# ═══════════ Environment / Secrets ═══════════
+**/.env
+**/.env.*
+!**/.env.example
+**/.streamlit/secrets.toml
+**/.sessions.json
+**/.login_attempts.json
+
+# ═══════════ Local SQLite Mirror ═══════════
+**/data
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/local_mirror.db*
+
+# ═══════════ WebView Data ═══════════
+**/.webview_data
+
+# ═══════════ Backups ═══════════
+**/*.backup_*
+**/*.before_*
+**/*.bak
+**/*.bak2
+**/*.bak3
+**/*.bak_*
+**/services.py.bak*
+**/launcher.py.bak*
+
+# ═══════════ Logs ═══════════
+**/streamlit.log
+**/launcher_error.log
+**/*.log
+
+# ═══════════ Build Artifacts ═══════════
+**/build
+**/dist
+**/*.spec
+**/TechtoonAccounting.spec
+**/__pycache__
+**/*.pyc
+**/*.pyo
+
+# ═══════════ Virtual Environments ═══════════
+**/venv
+**/.venv
+**/env
+**/node_modules
+
+# ═══════════ IDE ═══════════
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+
+# ═══════════ OS ═══════════
+**/Thumbs.db
+**/.DS_Store
+**/desktop.ini
+
+# ═══════════ Fonts (binary, too big) ═══════════
+**/fonts/*.ttf
+**/fonts/*.otf
+**/fonts/*.woff
+
+# ═══════════ Test Artifacts ═══════════
+**/test_pythonw.txt
+**/_fix_*.py
+**/_initial_sync.py
+**/_*.txt
+
+# ═══════════ Temporary scripts ═══════════
+**/create_shortcut.ps1
+# ═══════════ WebView (Edge Runtime cache) ═══════════
+**/.webview_data
+**/.webview_data
+
+# ═══════════ Database files (لا ترفع) ═══════════
+**/*.db.toupload
+**/accounting.db.toupload
+**/backups
+**/*.xlsx
+!**/requirements.xlsx
+**/template_items.xlsx
+
+# ═══════════ Config with secrets ═══════════
+**/backup_config.json
+
+# ═══════════ Old cache backups ═══════════
+**/cache_helpers_original.txt
+
+# ═══════════ Build artifacts ═══════════
+**/build
+**/dist
+**/*.spec
+**/>>>>>>> 8325fba6af09ee66ab808da0e5526f6efad8e4c5
+
+# flyctl launch added from Techtoon.Streamlit/.gitignore
+# Secrets - NEVER commit these
+Techtoon.Streamlit/**/.env
+Techtoon.Streamlit/**/*.env
+Techtoon.Streamlit/**/database.py
+Techtoon.Streamlit/**/secrets.json
+Techtoon.Streamlit/**/connection.enc
+Techtoon.Streamlit/**/*.key
+
+# Python
+Techtoon.Streamlit/**/__pycache__
+Techtoon.Streamlit/**/*.py[cod]
+Techtoon.Streamlit/**/*.class
+Techtoon.Streamlit/**/*.so
+Techtoon.Streamlit/**/.Python
+Techtoon.Streamlit/**/venv
+Techtoon.Streamlit/**/env
+Techtoon.Streamlit/**/.venv
+Techtoon.Streamlit/**/.pytest_cache
+
+# Streamlit
+Techtoon.Streamlit/**/.streamlit/secrets.toml
+
+# OS
+Techtoon.Streamlit/**/Thumbs.db
+Techtoon.Streamlit/**/.Desktop.ini
+Techtoon.Streamlit/**/.DS_Store
+fly.toml

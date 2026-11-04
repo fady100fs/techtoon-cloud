@@ -1,0 +1,38 @@
+<Window x:Class="Techtoon.UI.Views.AccountEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding WindowTitle}" Height="450" Width="500"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource BackgroundBrush}" FlowDirection="RightToLeft">
+    <Grid Margin="20">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="{Binding WindowTitle}" Style="{StaticResource PageTitle}"/>
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,15">
+                        <TextBlock Text="الكود:" Margin="0,0,0,5"/>
+                        <TextBox Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,15">
+                        <TextBlock Text="النوع:" Margin="0,0,0,5"/>
+                        <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding TypeOption}" Padding="8,6"/>
+                    </StackPanel>
+                </Grid>
+                <StackPanel Margin="0,0,0,15">
+                    <TextBlock Text="الاسم:" Margin="0,0,0,5"/>
+                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="الحساب الأب:" Margin="0,0,0,5"/>
+                    <ComboBox ItemsSource="{Binding AllAccounts}" DisplayMemberPath="Name" SelectedItem="{Binding Parent}" Padding="8,6"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,20,0"/>
+            <Button Content="إلغاء" Style="{StaticResource PrimaryButton}" Command="{Binding CancelCommand}" Background="#757575" Margin="0,0,10,0"/>
+            <Button Content="💾 حفظ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

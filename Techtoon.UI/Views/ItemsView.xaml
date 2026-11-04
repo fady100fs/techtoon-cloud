@@ -1,0 +1,65 @@
+<UserControl x:Class="Techtoon.UI.Views.ItemsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma"
+             Loaded="UserControl_Loaded">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="LblTitle" Grid.Column="0" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+            <Button x:Name="BtnRefresh" Grid.Column="1" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding RefreshCommand}"/>
+            <Button x:Name="BtnAdd" Grid.Column="2" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding AddCommand}"/>
+            <Button x:Name="BtnEdit" Grid.Column="3" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding EditCommand}"/>
+            <Button x:Name="BtnMoveWarehouse" Grid.Column="4" Background="#6A1B9A" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding BulkMoveWarehouseCommand}"/>
+            <Button x:Name="BtnToggleActive" Grid.Column="5" Background="#FB8C00" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding BulkToggleActiveCommand}"/>
+            <Button x:Name="BtnExport" Grid.Column="6" Background="#2E7D32" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding ExportExcelCommand}"/>
+            <Button x:Name="BtnDelete" Grid.Column="7" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
+        </Grid>
+        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="LblSearch" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="300" Padding="6,4" BorderBrush="#B0BEC5" BorderThickness="1"/>
+                <Button x:Name="BtnImport" Background="#F9A825" Foreground="White" FontWeight="SemiBold" Padding="10,6" BorderThickness="0" Cursor="Hand" Margin="10,0,0,0" Command="{Binding ImportExcelCommand}"/>
+            </StackPanel>
+        </Border>
+        <Border Grid.Row="2" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Margin="0,0,0,10" Padding="5">
+            <CheckBox x:Name="ChkSelectAll" IsChecked="{Binding SelectAll}" VerticalAlignment="Center" Margin="5,0"/>
+        </Border>
+        <Border Grid.Row="3" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DataGrid x:Name="DgItems" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" Background="White" FontSize="13" AlternatingRowBackground="#FAFAFA" MouseDoubleClick="DgItems_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn x:Name="ColSelect" Width="40">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" Click="CheckBox_Click"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn x:Name="ColName" Binding="{Binding Name}" Width="*"/>
+                    <DataGridTextColumn x:Name="ColBarcode" Binding="{Binding Barcode}" Width="120"/>
+                    <DataGridTextColumn x:Name="ColStock" Binding="{Binding StockDisplay}" Width="80"/>
+                    <DataGridTextColumn x:Name="ColSell" Binding="{Binding SellPriceDisplay}" Width="100"/>
+                    <DataGridTextColumn x:Name="ColCost" Binding="{Binding CostPriceDisplay}" Width="100"/>
+                    <DataGridTextColumn x:Name="ColValue" Binding="{Binding StockValueDisplay}" Width="100"/>
+                    <DataGridTextColumn x:Name="ColStatus" Binding="{Binding StatusDisplay}" Width="80"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+        <TextBlock Grid.Row="0" Grid.RowSpan="4" Text="{Binding StatusMessage}" FontSize="12" Foreground="#00897B" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="10,0,0,5"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,6 @@
+@Techtoon.Api_HostAddress = http://localhost:5190
+
+GET {{Techtoon.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

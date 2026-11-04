@@ -1,0 +1,85 @@
+# keyboard_nav.py
+import streamlit as st
+import streamlit.components.v1 as components
+
+
+def enable_enter_navigation(form_key=None):
+    javascript_code = """
+    <script>
+    (function() {
+        setTimeout(function() {
+            const inputs = document.querySelectorAll(
+                'input[type="text"], input[type="number"], input[type="email"], textarea'
+            );
+            inputs.forEach(function(input, index) {
+                input.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter') {
+                        if (event.shiftKey && this.tagName === 'TEXTAREA') return;
+                        event.preventDefault();
+                        if (index < inputs.length - 1) {
+                            inputs[index + 1].focus();
+                            inputs[index + 1].select();
+                        }
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', function(event) {
+                if (!event.altKey) return;
+                const key = event.key.toLowerCase();
+                let clicked = false;
+                const btns = document.querySelectorAll('button');
+
+                if (key === 's') {
+                    for (const btn of btns) {
+                        if (btn.textContent.includes('حفظ') || btn.textContent.includes('💾')) {
+                            btn.click(); clicked = true; break;
+                        }
+                    }
+                }
+                if (key === 'n') {
+                    for (const btn of btns) {
+                        if (btn.textContent.includes('جديد') || btn.textContent.includes('➕')) {
+                            btn.click(); clicked = true; break;
+                        }
+                    }
+                }
+                if (key === 'p') {
+                    for (const btn of btns) {
+                        if (btn.textContent.includes('طباعة') || btn.textContent.includes('🖨')) {
+                            btn.click(); clicked = true; break;
+                        }
+                    }
+                }
+                if (key === 'f') {
+                    const search = document.querySelector('input[aria-label*="بحث"]') ||
+                                   document.querySelector('input[placeholder*="بحث"]');
+                    if (search) { search.focus(); search.select(); clicked = true; }
+                }
+                if (clicked) event.preventDefault();
+            });
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    const closeBtns = document.querySelectorAll('button[aria-label*="Close"], button[aria-label*="إغلاق"]');
+                    closeBtns.forEach(btn => btn.click());
+                }
+            });
+        }, 500);
+    })();
+    </script>
+    """
+    components.html(javascript_code, height=0, width=0)
+
+
+def add_enter_hint():
+    st.markdown("""
+    <style>
+        .kb-hint {
+            position: fixed; bottom: 10px; left: 10px;
+            background: rgba(16, 185, 129, 0.9); color: white;
+            padding: 6px 10px; border-radius: 6px; font-size: 11px; z-index: 9999;
+        }
+    </style>
+    <div class="kb-hint">💡 Enter: تنقل | Alt+S: حفظ | Alt+N: جديد | Alt+F: بحث</div>
+    """, unsafe_allow_html=True)

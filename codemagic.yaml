@@ -1,0 +1,20 @@
+workflows:
+  ios-workflow:
+    name: Techtoon iOS Build
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      groups:
+        - github
+    scripts:
+      - name: Install dependencies
+        script: |
+          cd Techtoon.Mobile
+          flutter pub get
+      - name: Build iOS
+        script: |
+          cd Techtoon.Mobile
+          flutter build ios --release --no-codesign
+    artifacts:
+      - Techtoon.Mobile/build/ios/ipa/*.ipa
+      - Techtoon.Mobile/build/ios/*.zip

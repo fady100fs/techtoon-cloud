@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────
+#  .gitignore — Techtoon Accounting
+#  يمنع رفع الأسرار وملفات التشغيل المحلية إلى GitHub
+# ─────────────────────────────────────────────
+
+# ملفات البيئة والأسرار (الأهم — لا تُرفع أبداً)
+.env
+.env.*
+secrets.toml
+.streamlit/secrets.toml
+
+# ملفات التشغيل المحلية (تحتوي بيانات جلسات حساسة)
+.sessions.json
+.login_attempts.json
+audit_log.db
+
+# بيانات محلية
+data/
+backups/
+backup_*/
+*.db
+
+# سجلات وكاش
+streamlit.log
+__pycache__/
+*.pyc
+*.pyo
+.cache/
+
+# بيانات نافذة سطح المكتب
+.webview_data/
+
+# ملفات البناء
+build/
+dist/
+_build_log.txt
+
+# ملفات عمل مؤقتة
+for_claude.txt
+pages_backup/
+_pages_backup/

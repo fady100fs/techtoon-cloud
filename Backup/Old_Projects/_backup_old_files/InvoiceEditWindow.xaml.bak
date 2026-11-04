@@ -1,0 +1,427 @@
+﻿<Window x:Class="Techtoon.UI.Views.InvoiceEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Techtoon.UI.Views"
+        Title="ÙØ§ØªÙˆØ±Ø© Ø¬Ø¯ÙŠØ¯Ø©" Height="820" Width="1180"
+        WindowStartupLocation="CenterScreen"
+        FlowDirection="RightToLeft"
+        Background="#F5F7FA"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <Style x:Key="HeaderLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#37474F"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="InputBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderBrush" Value="#B0BEC5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+        <Style x:Key="InputCombo" TargetType="ComboBox">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="BorderBrush" Value="#B0BEC5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+        <Style x:Key="PrimaryBtn" TargetType="Button">
+            <Setter Property="Background" Value="#00897B"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="20,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="SecondaryBtn" TargetType="Button">
+            <Setter Property="Background" Value="#ECEFF1"/>
+            <Setter Property="Foreground" Value="#37474F"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="20,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style x:Key="AddBtn" TargetType="Button">
+            <Setter Property="Background" Value="#26A69A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ======================= Ø§Ù„ØªØ±ÙˆÙŠØ³Ø© ======================= -->
+        <Border Grid.Row="0" Background="White" Padding="16,10" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="ðŸ§¾" FontSize="28" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <StackPanel>
+                        <TextBlock Text="ÙØ§ØªÙˆØ±Ø©" FontSize="18" FontWeight="Bold" Foreground="#00695C"/>
+                        <TextBlock Text="{Binding InvoiceTypeDisplay}" FontSize="12" Foreground="#78909C"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <Grid Grid.Column="1" Margin="20,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="18"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="18"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="120"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="8"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Ø§Ù„Ø±Ù‚Ù…:" Style="{StaticResource HeaderLabel}"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SerialNumber}" Style="{StaticResource InputBox}" IsReadOnly="True"/>
+
+                    <TextBlock Grid.Row="0" Grid.Column="3" Text="Ø§Ù„ØªØ§Ø±ÙŠØ®:" Style="{StaticResource HeaderLabel}"/>
+                    <DatePicker Grid.Row="0" Grid.Column="4" SelectedDate="{Binding InvoiceDate}" FontSize="13"/>
+
+                    <TextBlock Grid.Row="0" Grid.Column="6" Text="Ø§Ù„Ù†ÙˆØ¹:" Style="{StaticResource HeaderLabel}"/>
+                    <ComboBox Grid.Row="0" Grid.Column="7" Style="{StaticResource InputCombo}"
+                              SelectedValue="{Binding InvoiceType}" SelectedValuePath="Tag">
+                        <ComboBoxItem Content="Ù…Ø¨ÙŠØ¹Ø§Øª" Tag="sales"/>
+                        <ComboBoxItem Content="Ù…Ø´ØªØ±ÙŠØ§Øª" Tag="purchase"/>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Ø§Ù„Ø·Ø±Ù:" Style="{StaticResource HeaderLabel}"/>
+                    <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4" Style="{StaticResource InputCombo}"
+                              ItemsSource="{Binding Parties}" DisplayMemberPath="Name"
+                              SelectedValuePath="Id" SelectedValue="{Binding PartyId}"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="6" Text="Ø§Ù„Ù…Ø®Ø²Ù†:" Style="{StaticResource HeaderLabel}"/>
+                    <ComboBox Grid.Row="2" Grid.Column="7" Style="{StaticResource InputCombo}"
+                              ItemsSource="{Binding Warehouses}" DisplayMemberPath="Name"
+                              SelectedValuePath="Id" SelectedValue="{Binding WarehouseId}"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ======================= Ø¨Ù†ÙˆØ¯ Ø§Ù„ÙØ§ØªÙˆØ±Ø© + Ø§Ù„Ø¨Ø­Ø« ======================= -->
+        <Border Grid.Row="1" Background="White" Margin="10,8,10,4" Padding="8" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Ø´Ø±ÙŠØ· Ø§Ù„Ø¨Ù†ÙˆØ¯ -->
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Ø¨Ù†ÙˆØ¯ Ø§Ù„ÙØ§ØªÙˆØ±Ø©" FontSize="15" FontWeight="Bold" Foreground="#37474F" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="+ Ø¥Ø¶Ø§ÙØ© ØµÙ†Ù" Style="{StaticResource AddBtn}" Command="{Binding AddLineCommand}"/>
+                </Grid>
+
+                <!-- Ø´Ø¨ÙƒØ© Ø§Ù„Ø¨Ù†ÙˆØ¯ Ù…Ø¹ Ø§Ù„Ø¨Ø­Ø« Ø§Ù„ÙÙˆØ±ÙŠ -->
+                <DataGrid x:Name="LinesGrid" Grid.Row="1"
+                          ItemsSource="{Binding Lines}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#ECEFF1"
+                          BorderBrush="#E0E0E0"
+                          BorderThickness="1"
+                          Background="White"
+                          RowBackground="White"
+                          AlternatingRowBackground="#FAFAFA"
+                          FontSize="13"
+                          MinHeight="180">
+                    <DataGrid.Columns>
+                        <!-- Ø§Ù„Ø¨Ø­Ø« + Ø§Ø³Ù… Ø§Ù„ØµÙ†Ù -->
+                        <DataGridTemplateColumn Header="ðŸ” Ø§Ù„ØµÙ†Ù (Ø§ÙƒØªØ¨ Ù„Ù„Ø¨Ø­Ø« Ø¨Ø§Ù„Ø§Ø³Ù…/Ø§Ù„Ø¨Ø§Ø±ÙƒÙˆØ¯)" Width="320">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <!-- Popup Ù†ØªØ§Ø¦Ø¬ Ø§Ù„Ø¨Ø­Ø« -->
+                                        <Popup IsOpen="{Binding IsPopupOpen}" Placement="Bottom"
+                                               PlacementTarget="{Binding ElementName=SearchBoxInner}"
+                                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide">
+                                            <Border Background="White" BorderBrush="#00897B" BorderThickness="1" CornerRadius="2"
+                                                    MaxHeight="260" MinWidth="300">
+                                                <ListBox x:Name="SearchList"
+                                                         ItemsSource="{Binding FilteredItems}"
+                                                         SelectedIndex="{Binding SearchSelectedIndex}"
+                                                         SelectionChanged="SearchList_SelectionChanged"
+                                                         BorderThickness="0">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Margin="2">
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#263238"/>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="Ø¨Ø§Ø±ÙƒÙˆØ¯: " Foreground="#78909C" FontSize="11"/>
+                                                                    <TextBlock Text="{Binding Barcode}" Foreground="#00897B" FontSize="11"/>
+                                                                    <TextBlock Text="  |  Ù…Ø®Ø²ÙˆÙ†: " Foreground="#78909C" FontSize="11"/>
+                                                                    <TextBlock Text="{Binding CurrentStock}" Foreground="#EF6C00" FontSize="11"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </Border>
+                                        </Popup>
+
+                                        <TextBox x:Name="SearchBoxInner"
+                                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Tag="search"
+                                                 Padding="6,4"
+                                                 BorderBrush="#80CBC4" BorderThickness="1,1,1,2"
+                                                 Background="White"
+                                                 KeyDown="SearchBox_KeyDown"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ø§Ù„Ø¨Ø§Ø±ÙƒÙˆØ¯ -->
+                        <DataGridTextColumn Header="Ø¨Ø§Ø±ÙƒÙˆØ¯" Width="110" Binding="{Binding Barcode}" IsReadOnly="True"/>
+
+                        <!-- Ø§Ù„ÙˆØ­Ø¯Ø© -->
+                        <DataGridTextColumn Header="Ø§Ù„ÙˆØ­Ø¯Ø©" Width="70" Binding="{Binding Unit}" IsReadOnly="True"/>
+
+                        <!-- Ø§Ù„ÙƒÙ…ÙŠØ© -->
+                        <DataGridTemplateColumn Header="Ø§Ù„ÙƒÙ…ÙŠØ©" Width="90">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                             Tag="qty" Padding="4,3" BorderBrush="#E0E0E0" KeyDown="Cell_KeyDown"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ø§Ù„Ø³Ø¹Ø± -->
+                        <DataGridTemplateColumn Header="Ø§Ù„Ø³Ø¹Ø±" Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding Price, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                             Tag="price" Padding="4,3" BorderBrush="#E0E0E0" KeyDown="Cell_KeyDown"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ø§Ù„Ø®ØµÙ… -->
+                        <DataGridTemplateColumn Header="Ø®ØµÙ…" Width="80">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding Discount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                             Tag="discount" Padding="4,3" BorderBrush="#E0E0E0" KeyDown="Cell_KeyDown"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ -->
+                        <DataGridTextColumn Header="Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ" Width="110" Binding="{Binding Total, StringFormat=N2}" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="HorizontalAlignment" Value="Right"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="Foreground" Value="#00695C"/>
+                                </Style>
+                            </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <!-- Ø­Ø°Ù -->
+                        <DataGridTemplateColumn Header="Ø­Ø°Ù" Width="60">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="ðŸ—‘" Background="Transparent" BorderThickness="0" FontSize="14" Cursor="Hand"
+                                            Command="{Binding DataContext.DeleteLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- ======================= Ù‚Ø³Ù… Ø§Ù„Ø¯ÙØ¹ Ù…ØªØ¹Ø¯Ø¯ Ø§Ù„Ø·Ø±Ù‚ (ÙŠØ¸Ù‡Ø± Ø¯Ø§Ø¦Ù…Ø§Ù‹) ======================= -->
+        <Border x:Name="PaymentsSection" Grid.Row="2" Background="White" Margin="10,4,10,4" Padding="10" BorderBrush="#80CBC4" BorderThickness="1" CornerRadius="4">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Ø¹Ù†ÙˆØ§Ù† Ø§Ù„Ù‚Ø³Ù… -->
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="ðŸ’³" FontSize="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Ø·Ø±Ù‚ Ø§Ù„Ø¯ÙØ¹ Ø§Ù„Ù…ØªØ¹Ø¯Ø¯Ø©" FontSize="15" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="+ Ø¥Ø¶Ø§ÙØ© Ø¯ÙØ¹Ø©" Style="{StaticResource AddBtn}" Command="{Binding AddPaymentCommand}"/>
+                </Grid>
+
+                <!-- Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø¯ÙØ¹Ø§Øª -->
+                <DataGrid x:Name="PaymentsGrid" Grid.Row="1"
+                          ItemsSource="{Binding Payments}"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#ECEFF1"
+                          BorderBrush="#E0E0E0"
+                          BorderThickness="1"
+                          Background="White"
+                          FontSize="13"
+                          MaxHeight="140"
+                          CellEditEnding="PaymentsGrid_CellEditEnding">
+                    <DataGrid.Columns>
+                        <!-- Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø¯ÙØ¹ -->
+                        <DataGridTemplateColumn Header="Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø¯ÙØ¹" Width="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox SelectedValue="{Binding Method, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag" Padding="4,2">
+                                        <ComboBoxItem Content="Ù†Ù‚Ø¯ÙŠ" Tag="cash"/>
+                                        <ComboBoxItem Content="Ø¨Ø·Ø§Ù‚Ø©" Tag="card"/>
+                                        <ComboBoxItem Content="ØªØ­ÙˆÙŠÙ„ Ø¨Ù†ÙƒÙŠ" Tag="bank"/>
+                                        <ComboBoxItem Content="Ø´ÙŠÙƒ" Tag="check"/>
+                                        <ComboBoxItem Content="Ø¢Ø¬Ù„" Tag="credit"/>
+                                    </ComboBox>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ø§Ù„Ù…Ø¨Ù„Øº -->
+                        <DataGridTemplateColumn Header="Ø§Ù„Ù…Ø¨Ù„Øº" Width="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding Amount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                             Padding="4,3" BorderBrush="#E0E0E0" TextAlignment="Right"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ø§Ù„Ù…Ø±Ø¬Ø¹ -->
+                        <DataGridTextColumn Header="Ù…Ø±Ø¬Ø¹ / Ø±Ù‚Ù…" Width="180" Binding="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <!-- Ø§Ù„ØªØ§Ø±ÙŠØ® -->
+                        <DataGridTemplateColumn Header="ØªØ§Ø±ÙŠØ® Ø§Ù„Ø¯ÙØ¹" Width="150">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <DatePicker SelectedDate="{Binding PaymentDate}" FontSize="12"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Ù…Ù„Ø§Ø­Ø¸Ø§Øª -->
+                        <DataGridTextColumn Header="Ù…Ù„Ø§Ø­Ø¸Ø§Øª" Width="*" Binding="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <!-- Ø­Ø°Ù -->
+                        <DataGridTemplateColumn Header="Ø­Ø°Ù" Width="60">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="ðŸ—‘" Background="Transparent" BorderThickness="0" FontSize="14" Cursor="Hand"
+                                            Command="{Binding DataContext.DeletePaymentCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- ======================= Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ§Øª ÙˆØ§Ù„Ø£Ø²Ø±Ø§Ø± ======================= -->
+        <Border Grid.Row="3" Background="White" Padding="16,10" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="8"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- ØµÙ Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠØ§Øª + Ø±Ø³Ø§Ù„Ø© Ø§Ù„Ø­Ø§Ù„Ø© -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="300"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock x:Name="StatusText" Text="{Binding StatusMessage}" FontSize="12" Foreground="#00897B" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <Grid Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹:" FontSize="13" Foreground="#546E7A" Padding="0,2"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SubtotalDisplay}" FontSize="13" FontWeight="SemiBold" Foreground="#37474F" TextAlignment="Left" Padding="0,2"/>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="Ø®ØµÙ…:" FontSize="13" Foreground="#546E7A" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                     Width="80" Margin="6,0,0,0" Padding="3,2" FontSize="12" BorderBrush="#E0E0E0" TextAlignment="Right"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DiscountAmount, StringFormat=N2}" FontSize="13" Foreground="#E53935" TextAlignment="Left"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ:" FontSize="14" FontWeight="Bold" Foreground="#00695C" Padding="0,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding TotalDisplay}" FontSize="15" FontWeight="Bold" Foreground="#00695C" TextAlignment="Left" Padding="0,2"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ø§Ù„Ù…Ø¯ÙÙˆØ¹:" FontSize="13" Foreground="#2E7D32" Padding="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TotalPaidDisplay}" FontSize="13" FontWeight="SemiBold" Foreground="#2E7D32" TextAlignment="Left" Padding="0,2"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ø§Ù„Ù…ØªØ¨Ù‚ÙŠ:" FontSize="14" FontWeight="Bold" Foreground="#E65100" Padding="0,2"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding RemainingDisplay}" FontSize="14" FontWeight="Bold" Foreground="#E65100" TextAlignment="Left" Padding="0,2"/>
+                    </Grid>
+                </Grid>
+
+                <!-- ØµÙ Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ø­ÙØ¸ ÙˆØ§Ù„Ø¥Ù„ØºØ§Ø¡ -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" FlowDirection="LeftToRight">
+                    <Button Content="ðŸ’¾ Ø­ÙØ¸ Ø§Ù„ÙØ§ØªÙˆØ±Ø©" Background="#00897B" Foreground="White" FontWeight="Bold" FontSize="14" Padding="24,10" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0"
+                            Command="{Binding SaveCommand}"/>
+                    <Button Content="ðŸ–¨ Ø­ÙØ¸ ÙˆØ·Ø¨Ø§Ø¹Ø©" Background="#00695C" Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="18,10" BorderThickness="0" Cursor="Hand" Margin="0,0,8,0"
+                            Command="{Binding SaveAndPrintCommand}"/>
+                    <Button Content="âœ– Ø¥Ù„ØºØ§Ø¡" Background="#ECEFF1" Foreground="#37474F" FontWeight="SemiBold" FontSize="13" Padding="18,10" BorderThickness="0" Cursor="Hand"
+                            Command="{Binding CancelCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

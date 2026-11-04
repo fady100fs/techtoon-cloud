@@ -1,0 +1,74 @@
+<Window x:Class="Techtoon.UI.Views.LoanEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x642;&#x631;&#x636; &#x62C;&#x62F;&#x64A;&#x62F;"
+        Height="700" Width="500"
+        WindowStartupLocation="CenterOwner"
+        FlowDirection="RightToLeft" FontFamily="Tahoma" Background="#F5F7FA">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="&#x628;&#x64A;&#x627;&#x646;&#x627;&#x62A; &#x627;&#x644;&#x642;&#x631;&#x636;" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+
+            <TextBlock Text="&#x627;&#x633;&#x645; &#x627;&#x644;&#x642;&#x631;&#x636; *" FontSize="13" Margin="0,0,0,4"/>
+            <TextBox x:Name="txtName" Height="32" FontSize="13" Padding="6,4" Margin="0,0,0,10"/>
+
+            <TextBlock Text="&#x646;&#x648;&#x639; &#x627;&#x644;&#x62A;&#x645;&#x648;&#x64A;&#x644; *" FontSize="13" Margin="0,0,0,4"/>
+            <ComboBox x:Name="cmbType" Height="32" FontSize="13" Margin="0,0,0,10" SelectedIndex="0">
+                <ComboBoxItem Content="&#x642;&#x631;&#x636; &#x623;&#x642;&#x633;&#x627;&#x637;" Tag="installment"/>
+                <ComboBoxItem Content="&#x62C;&#x627;&#x631;&#x64A; &#x645;&#x62F;&#x64A;&#x646;" Tag="overdraft"/>
+            </ComboBox>
+
+            <TextBlock Text="&#x62D;&#x633;&#x627;&#x628; &#x627;&#x644;&#x628;&#x646;&#x643;" FontSize="13" Margin="0,0,0,4"/>
+            <ComboBox x:Name="cmbBank" DisplayMemberPath="Name" SelectedValuePath="Id" Height="32" FontSize="13" Margin="0,0,0,10"/>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="&#x627;&#x644;&#x645;&#x628;&#x644;&#x639; &#x627;&#x644;&#x623;&#x635;&#x644;&#x64A; / &#x62D;&#x62F; &#x627;&#x644;&#x627;&#x626;&#x62A;&#x645;&#x627;&#x646; *" FontSize="13" Margin="0,0,0,4"/>
+                    <TextBox x:Name="txtAmount" Height="32" FontSize="13" Padding="6,4"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="&#x633;&#x639;&#x631; &#x627;&#x644;&#x641;&#x627;&#x626;&#x62F;&#x629; (%) *" FontSize="13" Margin="0,0,0,4"/>
+                    <TextBox x:Name="txtRate" Height="32" FontSize="13" Padding="6,4"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="&#x62A;&#x627;&#x631;&#x64A;&#x62E; &#x627;&#x644;&#x635;&#x631;&#x641;" FontSize="13" Margin="0,0,0,4"/>
+                    <DatePicker x:Name="dpDisburse" Height="32"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="&#x62A;&#x627;&#x631;&#x64A;&#x62E; &#x623;&#x648;&#x644; &#x642;&#x633;&#x637;" FontSize="13" Margin="0,0,0,4"/>
+                    <DatePicker x:Name="dpFirstPay" Height="32"/>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="&#x639;&#x62F;&#x62F; &#x627;&#x644;&#x623;&#x642;&#x633;&#x627;&#x637;" FontSize="13" Margin="0,0,0,4" x:Name="lblNum"/>
+            <TextBox x:Name="txtNum" Height="32" FontSize="13" Padding="6,4" Margin="0,0,0,10"/>
+
+            <TextBlock Text="&#x637;&#x631;&#x64A;&#x642;&#x629; &#x62D;&#x633;&#x627;&#x628; &#x627;&#x644;&#x641;&#x627;&#x626;&#x62F;&#x629;" FontSize="13" Margin="0,0,0,4" x:Name="lblMethod"/>
+            <ComboBox x:Name="cmbMethod" Height="32" FontSize="13" Margin="0,0,0,10" SelectedIndex="0">
+                <ComboBoxItem Content="&#x645;&#x62A;&#x646;&#x627;&#x642;&#x635;&#x629; (Declining)" Tag="declining"/>
+                <ComboBoxItem Content="&#x62B;&#x627;&#x628;&#x62A;&#x629; (Flat)" Tag="flat"/>
+            </ComboBox>
+
+            <TextBlock Text="&#x645;&#x644;&#x627;&#x62D;&#x638;&#x627;&#x62A;" FontSize="13" Margin="0,0,0,4"/>
+            <TextBox x:Name="txtNotes" Height="50" AcceptsReturn="True" TextWrapping="Wrap" FontSize="13" Padding="6,4" Margin="0,0,0,15"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="btnSave" Content="&#x62D;&#x641;&#x638;" Width="100" Height="38" Margin="0,0,8,0" Click="BtnSave_Click" Background="#FF00897B" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+                <Button Content="&#x625;&#x644;&#x63A;&#x627;&#x621;" Width="100" Height="38" Click="BtnCancel_Click" Background="#FFECEFF1" Foreground="#FF37474F" FontWeight="Bold" BorderThickness="0"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

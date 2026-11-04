@@ -1,0 +1,16 @@
+WARNING: Static file serving is enabled, but no static folder found at D:\PROG\Accounting Prog\Techtoon Accounting C+\static. To disable static file serving, set server.enableStaticServing to false.
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://127.0.0.1:8501
+
+WARNING: Static file serving is enabled, but no static folder found at D:\PROG\Accounting Prog\Techtoon Accounting C+\static. To disable static file serving, set server.enableStaticServing to false.
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://127.0.0.1:8501
+
+Usage: streamlit run [OPTIONS] TARGET [ARGS]...
+Try 'streamlit run --help' for help.
+
+Error: Invalid value: File does not exist: D:\PROG\Accounting_Prog\Techtoon_Accounting_C+\app.py

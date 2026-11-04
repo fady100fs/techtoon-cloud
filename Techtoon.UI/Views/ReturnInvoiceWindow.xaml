@@ -1,0 +1,93 @@
+<Window x:Class="Techtoon.UI.Views.ReturnInvoiceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x641;&#x627;&#x62A;&#x648;&#x631;&#x629;"
+        Height="720" Width="1050"
+        WindowStartupLocation="CenterOwner"
+        FlowDirection="RightToLeft"
+        FontFamily="Tahoma"
+        Background="#FFF5F5F5">
+    <DockPanel Margin="16">
+        <!-- Top: Select original invoice -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x641;&#x627;&#x62A;&#x648;&#x631;&#x629; (&#x625;&#x631;&#x62C;&#x627;&#x639; &#x62C;&#x632;&#x626;&#x64A;)" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="300"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="120"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="&#x627;&#x644;&#x641;&#x627;&#x62A;&#x648;&#x631;&#x629; &#x627;&#x644;&#x623;&#x635;&#x644;&#x64A;&#x629;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                <ComboBox x:Name="cmbInvoice" Grid.Column="1" DisplayMemberPath="Display" SelectedValuePath="Id" Height="32" FontSize="13" SelectionChanged="CmbInvoice_SelectionChanged"/>
+                <TextBlock Grid.Column="3" Text="&#x62A;&#x627;&#x631;&#x64A;&#x62E; &#x627;&#x644;&#x645;&#x631;&#x62A;&#x62C;&#x639;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                <DatePicker x:Name="dpDate" Grid.Column="4" Height="32" FontSize="13"/>
+                <TextBlock Grid.Column="6" Text="&#x627;&#x644;&#x646;&#x648;&#x639;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                <ComboBox x:Name="cmbType" Grid.Column="7" Height="32" FontSize="13">
+                    <ComboBoxItem Content="&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x645;&#x628;&#x64A;&#x639;&#x627;&#x62A;" IsSelected="True"/>
+                    <ComboBoxItem Content="&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x645;&#x634;&#x62A;&#x631;&#x64A;&#x627;&#x62A;"/>
+                </ComboBox>
+            </Grid>
+
+            <!-- Original invoice summary -->
+            <Border Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#x627;&#x644;&#x639;&#x645;&#x64A;&#x644;: " FontWeight="Bold"/>
+                    <TextBlock x:Name="lblParty" Margin="0,0,20,0"/>
+                    <TextBlock Text="&#x625;&#x62C;&#x645;&#x627;&#x644;&#x64A;: " FontWeight="Bold"/>
+                    <TextBlock x:Name="lblTotal" Margin="0,0,20,0"/>
+                    <TextBlock Text="&#x645;&#x62F;&#x641;&#x648;&#x639;: " FontWeight="Bold"/>
+                    <TextBlock x:Name="lblPaid" Margin="0,0,20,0"/>
+                    <TextBlock Text="&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x633;&#x627;&#x628;&#x642;: " FontWeight="Bold" Foreground="#FF6A1B9A"/>
+                    <TextBlock x:Name="lblPrevReturn" Foreground="#FF6A1B9A"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Helper text -->
+            <TextBlock Text="&#x1F4CB; &#x627;&#x644;&#x645;&#x644;&#x62D;&#x648;&#x636;&#x629;: &#x62D;&#x62F;&#x62F; &#x643;&#x645;&#x64A;&#x629; &#x627;&#x644;&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x644;&#x643;&#x644; &#x635;&#x646;&#x641;. &#x64A;&#x645;&#x643;&#x646; &#x625;&#x631;&#x62C;&#x627;&#x639; &#x623;&#x633;&#x641;&#x627;&#x631; &#x645;&#x62D;&#x62F;&#x62F;&#x629; &#x641;&#x642;&#x637; (&#x62A;&#x631;&#x643; &#x627;&#x644;&#x628;&#x627;&#x642;&#x64A; = 0)." 
+                       FontSize="11" Foreground="#FF666666" FontStyle="Italic" Margin="0,0,0,8" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- Bottom: Total + Save/Cancel buttons -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Border Background="White" CornerRadius="4" Padding="12,8" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="&#x625;&#x62C;&#x645;&#x627;&#x644;&#x64A; &#x627;&#x644;&#x645;&#x631;&#x62A;&#x62C;&#x639;: " FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="lblReturnTotal" Text="0.00" FontSize="18" FontWeight="Bold" Foreground="#FF00897B" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="btnSave" Content="&#x62D;&#x641;&#x638; &#x627;&#x644;&#x645;&#x631;&#x62A;&#x62C;&#x639;" 
+                        Width="180" Height="40" FontSize="14" FontWeight="Bold" 
+                        Margin="0,0,12,0" Click="BtnSave_Click" 
+                        Background="#FF00897B" Foreground="White" BorderThickness="0"/>
+                <Button x:Name="btnCancel" Content="&#x625;&#x644;&#x63A;&#x627;&#x621;" 
+                        Width="120" Height="40" FontSize="14" FontWeight="Bold" 
+                        Click="BtnCancel_Click" 
+                        Background="#FFECEFF1" Foreground="#FF37474F" BorderThickness="0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Middle: Items grid -->
+        <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DataGrid x:Name="dgItems" AutoGenerateColumns="False" CanUserAddRows="False" 
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" FontSize="13"
+                      CellEditEnding="DgItems_CellEditEnding">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x635;&#x646;&#x641;" Binding="{Binding ItemName}" Width="*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x643;&#x645;&#x64A;&#x629; &#x627;&#x644;&#x623;&#x635;&#x644;&#x64A;&#x629;" Binding="{Binding OriginalQty, StringFormat=0.00}" Width="120" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x645;&#x631;&#x62A;&#x62C;&#x639; &#x633;&#x627;&#x628;&#x642;" Binding="{Binding AlreadyReturned, StringFormat=0.00}" Width="100" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x645;&#x62A;&#x628;&#x642;&#x64A; &#x644;&#x644;&#x625;&#x631;&#x62C;&#x627;&#x639;" Binding="{Binding AvailableToReturn, StringFormat=0.00}" Width="120" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x633;&#x639;&#x631;" Binding="{Binding Price, StringFormat=0.00}" Width="80" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x643;&#x645;&#x64A;&#x629; &#x627;&#x644;&#x645;&#x631;&#x62A;&#x62C;&#x639;" Binding="{Binding ReturnQty, StringFormat=0.00, UpdateSourceTrigger=PropertyChanged}" Width="130"/>
+                    <DataGridTextColumn Header="&#x642;&#x64A;&#x645;&#x629; &#x627;&#x644;&#x645;&#x631;&#x62A;&#x62C;&#x639;" Binding="{Binding ReturnTotal, StringFormat=0.00}" Width="120" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </DockPanel>
+</Window>

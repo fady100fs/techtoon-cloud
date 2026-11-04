@@ -1,0 +1,19 @@
+# Render.com configuration (backup option if Fly.io doesn't work)
+services:
+  - type: web
+    name: techtoon-api
+    runtime: docker
+    plan: free
+    dockerfilePath: Techtoon.Api/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Secret
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        sync: false

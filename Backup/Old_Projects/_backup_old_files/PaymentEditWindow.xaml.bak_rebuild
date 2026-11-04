@@ -1,0 +1,32 @@
+<Window x:Class="Techtoon.UI.Views.PaymentEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding WindowTitle}" Height="600" Width="650"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource BackgroundBrush}" FlowDirection="RightToLeft">
+    <Grid Margin="20">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="{Binding WindowTitle}" Style="{StaticResource PageTitle}" Foreground="{StaticResource PrimaryBrush}"/>
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,15"><TextBlock Text="التاريخ:" Margin="0,0,0,5"/><DatePicker SelectedDate="{Binding Date}" Padding="8,6"/></StackPanel>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,15"><TextBlock Text="طريقة الدفع:" Margin="0,0,0,5"/><ComboBox SelectedValue="{Binding PaymentMethod}" SelectedValuePath="Tag" Padding="8,6"><ComboBoxItem Content="نقدي" Tag="cash"/><ComboBoxItem Content="شيك" Tag="cheque"/><ComboBoxItem Content="تحويل" Tag="bank_transfer"/></ComboBox></StackPanel>
+                </Grid>
+                <StackPanel Margin="0,0,0,15"><TextBlock Text="العميل/المورد:" Margin="0,0,0,5"/><ComboBox ItemsSource="{Binding Parties}" DisplayMemberPath="Name" SelectedItem="{Binding Party}" Padding="8,6"/></StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,10,15"><TextBlock Text="الخزينة:" Margin="0,0,0,5"/><ComboBox ItemsSource="{Binding CashBoxes}" DisplayMemberPath="Name" SelectedItem="{Binding CashBox}" Padding="8,6"/></StackPanel>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,15"><TextBlock Text="الحساب المقابل:" Margin="0,0,0,5"/><ComboBox ItemsSource="{Binding Accounts}" DisplayMemberPath="Name" SelectedItem="{Binding CounterAccount}" Padding="8,6"/></StackPanel>
+                </Grid>
+                <StackPanel Margin="0,0,0,15"><TextBlock Text="المبلغ:" Margin="0,0,0,5"/><TextBox Text="{Binding Amount, UpdateSourceTrigger=LostFocus}" Padding="8,6" FontSize="18" FontWeight="Bold"/></StackPanel>
+                <StackPanel><TextBlock Text="ملاحظات:" Margin="0,0,0,5"/><TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" AcceptsReturn="True" TextWrapping="Wrap" Height="60"/></StackPanel>
+            </StackPanel>
+        </Border>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,20,0" TextWrapping="Wrap" MaxWidth="350"/>
+            <Button Content="إلغاء" Style="{StaticResource PrimaryButton}" Command="{Binding CancelCommand}" Background="#757575" Margin="0,0,10,0"/>
+            <Button Content="💾 حفظ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

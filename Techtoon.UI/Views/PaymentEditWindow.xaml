@@ -1,0 +1,71 @@
+<Window x:Class="Techtoon.UI.Views.PaymentEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x633;&#x646;&#x62F;"
+        Height="600" Width="480"
+        WindowStartupLocation="CenterOwner"
+        FlowDirection="RightToLeft"
+        FontFamily="Tahoma"
+        Background="#FFF5F5F5">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock x:Name="lblParty" Text="&#x627;&#x644;&#x637;&#x631;&#x641;" FontWeight="Bold" Margin="0,0,0,4"/>
+            <ComboBox x:Name="cmbParty" DisplayMemberPath="Name" SelectedValuePath="Id"
+                      SelectionChanged="CmbParty_SelectionChanged" Height="28" Margin="0,0,0,12"/>
+
+            <TextBlock Text="&#x623;&#x648; &#x62D;&#x633;&#x627;&#x628; (&#x645;&#x635;&#x627;&#x631;&#x64A;&#x641; &#x628;&#x64A;&#x62A; &#x648;&#x623;&#x62E;&#x631;&#x649;)" FontWeight="Bold" Margin="0,0,0,4" Foreground="#FF6A1B9A"/>
+            <ComboBox x:Name="cmbAccount" DisplayMemberPath="Name" SelectedValuePath="Id"
+                      SelectionChanged="CmbAccount_SelectionChanged" Height="28" Margin="0,0,0,12"/>
+
+            <TextBlock Text="&#x627;&#x644;&#x641;&#x627;&#x62A;&#x648;&#x631;&#x629;" FontWeight="Bold" Margin="0,0,0,4"/>
+            <ComboBox x:Name="cmbInvoice" DisplayMemberPath="Number" SelectedValuePath="Id"
+                      Height="28" Margin="0,0,0,12"/>
+
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="&#x627;&#x644;&#x645;&#x628;&#x644;&#x63A;" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <TextBox x:Name="txtAmount" Height="28" FontSize="16" TextAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="&#x627;&#x644;&#x62A;&#x627;&#x631;&#x64A;&#x62E;" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <DatePicker x:Name="dpDate" Height="28"/>
+                </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="&#x635;&#x646;&#x62F;&#x648;&#x642;" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="cmbCashBox" DisplayMemberPath="Name" SelectedValuePath="Id" Height="28"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="&#x637;&#x631;&#x64A;&#x642;&#x629; &#x627;&#x644;&#x62F;&#x641;&#x639;" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="cmbMethod" Height="28"/>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="&#x645;&#x631;&#x62C;&#x639;" FontWeight="Bold" Margin="0,0,0,4"/>
+            <TextBox x:Name="txtRef" Height="28" Margin="0,0,0,12"/>
+
+            <TextBlock Text="&#x645;&#x644;&#x627;&#x62D;&#x638;&#x627;&#x62A;" FontWeight="Bold" Margin="0,0,0,4"/>
+            <TextBox x:Name="txtNotes" AcceptsReturn="True" TextWrapping="Wrap" Height="70"
+                     VerticalScrollBarVisibility="Auto" Margin="0,0,0,16"/>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="btnSave" Content="&#x62D;&#x641;&#x638;" Width="110" Height="38"
+                        Margin="0,0,14,0" Click="BtnSave_Click" FontSize="14" FontWeight="Bold"/>
+                <Button x:Name="btnCancel" Content="&#x625;&#x644;&#x63A;&#x627;&#x621;" Width="110" Height="38"
+                        Click="BtnCancel_Click" FontSize="14"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

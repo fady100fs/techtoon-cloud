@@ -1,0 +1,14 @@
+using System.Windows;
+using System.Windows.Controls;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views;
+
+public partial class PaymentsView : UserControl
+{
+    public PaymentsView() { InitializeComponent(); }
+    private async void PaymentsView_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is PaymentsViewModel vm) await vm.LoadAsync();
+    }
+}

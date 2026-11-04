@@ -1,0 +1,247 @@
+﻿using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views
+{
+    public partial class InvoiceEditWindow : Window
+    {
+        private readonly InvoiceEditViewModel _vm;
+        private readonly int? _editId;
+
+        public InvoiceEditWindow(int? editId = null)
+        {
+            InitializeComponent();
+            _editId = editId;
+            _vm = new InvoiceEditViewModel();
+            if (editId.HasValue) _vm.Id = editId.Value;
+            DataContext = _vm;
+            _vm.RequestClose += () => { DialogResult = _vm.DialogResult; Close(); };
+        }
+
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            SetArabicTexts();
+            FillTypeCombo();
+            await _vm.LoadAsync();
+            if (_editId.HasValue) await _vm.LoadFromInvoiceAsync(_editId.Value);
+        }
+
+        private void SetArabicTexts()
+        {
+            try { Title = "\u0641\u0627\u062A\u0648\u0631\u0629"; } catch { }
+            try { HeaderIcon.Text = "\uD83E\uDDF9"; } catch { }
+            try { HeaderTitle.Text = "\u0641\u0627\u062A\u0648\u0631\u0629"; } catch { }
+            try { LblSerial.Text = "\u0627\u0644\u0631\u0642\u0645:"; } catch { }
+            try { LblDate.Text = "\u0627\u0644\u062A\u0627\u0631\u064A\u062E:"; } catch { }
+            try { LblType.Text = "\u0627\u0644\u0646\u0648\u0639:"; } catch { }
+            try { LblParty.Text = "\u0627\u0644\u0637\u0631\u0641:"; } catch { }
+            try { LblWarehouse.Text = "\u0627\u0644\u0645\u062E\u0632\u0646:"; } catch { }
+            try { LblItems.Text = "\u0628\u0646\u0648\u062F \u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629"; } catch { }
+            try { BtnAddLine.Content = "+ \u0625\u0636\u0627\u0641\u0629 \u0635\u0646\u0641"; } catch { }
+            try { ColItem.Header = "\u0635\u0646\u0641 (\u0627\u0643\u062A\u0628 \u0644\u0644\u0628\u062D\u062B)"; } catch { }
+            try { ColBarcode.Header = "\u0628\u0627\u0631\u0643\u0648\u062F"; } catch { }
+            try { ColUnit.Header = "\u0627\u0644\u0648\u062D\u062F\u0629"; } catch { }
+            try { ColQty.Header = "\u0627\u0644\u0643\u0645\u064A\u0629"; } catch { }
+            try { ColPrice.Header = "\u0627\u0644\u0633\u0639\u0631"; } catch { }
+            try { ColDisc.Header = "\u062E\u0635\u0645"; } catch { }
+            try { ColTotal.Header = "\u0625\u062C\u0645\u0627\u0644\u064A"; } catch { }
+            try { ColDel.Header = "\u062D\u0630\u0641"; } catch { }
+            try { LblPayments.Text = "\u0637\u0631\u0642 \u0627\u0644\u062F\u0641\u0639 \u0627\u0644\u0645\u062A\u0639\u062F\u062F\u0629"; } catch { }
+            try { BtnAddPay.Content = "+ \u0625\u0636\u0627\u0641\u0629 \u062F\u0641\u0639\u0629"; } catch { }
+            try { BtnPayFull.Content = "\uD83D\uDCB5 \u062F\u0641\u0639 \u0628\u0627\u0644\u0643\u0627\u0645\u0644"; } catch { }
+            try { ColPayMethod.Header = "\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u062F\u0641\u0639"; } catch { }
+            try { ColPayAmount.Header = "\u0627\u0644\u0645\u0628\u0644\u063A"; } catch { }
+            try { ColPayRef.Header = "\u0645\u0631\u062C\u0639"; } catch { }
+            try { ColPayDate.Header = "\u062A\u0627\u0631\u064A\u062E"; } catch { }
+            try { ColPayDel.Header = "\u062D\u0630\u0641"; } catch { }
+            try { LblSubtotal.Text = "\u0627\u0644\u0645\u062C\u0645\u0648\u0639:"; } catch { }
+            try { LblDisc.Text = "\u062E\u0635\u0645:"; } catch { }
+            try { LblTotal.Text = "\u0625\u062C\u0645\u0627\u0644\u064A:"; } catch { }
+            try { LblPaid.Text = "\u0627\u0644\u0645\u062F\u0641\u0648\u0639:"; } catch { }
+            try { LblRemaining.Text = "\u0627\u0644\u0645\u062A\u0628\u0642\u064A:"; } catch { }
+            try { BtnSave.Content = "\uD83D\uDCBE \u062D\u0641\u0638 \u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629"; } catch { }
+            try { BtnCancel.Content = "\u2716 \u0625\u0644\u063A\u0627\u0621"; } catch { }
+        }
+
+        private void FillTypeCombo()
+        {
+            try
+            {
+                CmbType.Items.Clear();
+                CmbType.Items.Add(new ComboBoxItem { Content = "\u0645\u0628\u064A\u0639\u0627\u062A", Tag = "sales" });
+                CmbType.Items.Add(new ComboBoxItem { Content = "\u0645\u0634\u062A\u0631\u064A\u0627\u062A", Tag = "purchase" });
+            }
+            catch { }
+        }
+
+        private void PayMethodCombo_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is ComboBox cb && cb.Items.Count == 0)
+                {
+                    cb.Items.Clear();
+                    cb.Items.Add(new ComboBoxItem { Content = "\u0646\u0642\u062F\u064A", Tag = "cash" });
+                    cb.Items.Add(new ComboBoxItem { Content = "\u0628\u0637\u0627\u0642\u0629", Tag = "card" });
+                    cb.Items.Add(new ComboBoxItem { Content = "\u062A\u062D\u0648\u064A\u0644 \u0628\u0646\u0643\u064A", Tag = "bank" });
+                    cb.Items.Add(new ComboBoxItem { Content = "\u0634\u064A\u0643", Tag = "check" });
+                    cb.Items.Add(new ComboBoxItem { Content = "\u0622\u062C\u0644", Tag = "credit" });
+                }
+            }
+            catch { }
+        }
+
+        private void ItemSearchCombo_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            try
+            {
+                if (sender is not ComboBox cb) return;
+                if (cb.DataContext is not InvoiceLineItem line) return;
+
+                if (!cb.IsDropDownOpen && (e.Key == Key.Down || e.Key == Key.Up || e.Key == Key.Enter))
+                {
+                    cb.IsDropDownOpen = true;
+                    e.Handled = true;
+                    return;
+                }
+
+                switch (e.Key)
+                {
+                    case Key.Down:
+                        if (cb.Items.Count > 0)
+                        {
+                            if (cb.SelectedIndex < cb.Items.Count - 1) cb.SelectedIndex++;
+                            else cb.SelectedIndex = 0;
+                            e.Handled = true;
+                        }
+                        break;
+                    case Key.Up:
+                        if (cb.Items.Count > 0)
+                        {
+                            if (cb.SelectedIndex > 0) cb.SelectedIndex--;
+                            else cb.SelectedIndex = cb.Items.Count - 1;
+                            e.Handled = true;
+                        }
+                        break;
+                    case Key.Enter:
+                        if (cb.IsDropDownOpen && cb.SelectedIndex >= 0)
+                        {
+                            if (cb.Items[cb.SelectedIndex] is ItemSearchResult item)
+                            {
+                                line.SelectItem(item);
+                                cb.Text = item.Name;
+                                cb.IsDropDownOpen = false;
+                                Dispatcher.BeginInvoke(new Action(() =>
+                                {
+                                    try
+                                    {
+                                        LinesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                                        LinesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                                        if (LinesGrid.ItemContainerGenerator.ContainerFromItem(line) is DataGridRow row)
+                                        {
+                                            var qtyTb = FindDescendant<TextBox>(row, x => (x.Tag as string) == "qty");
+                                            qtyTb?.Focus();
+                                            qtyTb?.SelectAll();
+                                        }
+                                    }
+                                    catch { }
+                                }), System.Windows.Threading.DispatcherPriority.Input);
+                            }
+                        }
+                        else
+                        {
+                            LinesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                            LinesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                            if (LinesGrid.ItemContainerGenerator.ContainerFromItem(line) is DataGridRow row2)
+                            {
+                                var qtyTb = FindDescendant<TextBox>(row2, x => (x.Tag as string) == "qty");
+                                qtyTb?.Focus();
+                                qtyTb?.SelectAll();
+                            }
+                        }
+                        e.Handled = true;
+                        break;
+                    case Key.Escape:
+                        cb.IsDropDownOpen = false;
+                        e.Handled = true;
+                        break;
+                }
+            }
+            catch { }
+        }
+
+        private void LinesGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.OriginalSource is ComboBox) return;
+        }
+
+        private void ItemSearchCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (sender is ComboBox cb && cb.SelectedItem is ItemSearchResult item)
+                {
+                    if (cb.DataContext is InvoiceLineItem line)
+                    {
+                        line.SelectItem(item);
+                        cb.Text = item.Name;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void Cell_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+            if (sender is not TextBox tb) return;
+            if (tb.Tag is not string tag) return;
+            if (tb.DataContext is not InvoiceLineItem line) return;
+            LinesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+            int idx = _vm.Lines.IndexOf(line);
+            int last = _vm.Lines.Count - 1;
+            if (idx >= 0 && idx < last)
+            {
+                if (LinesGrid.ItemContainerGenerator.ContainerFromIndex(idx + 1) is DataGridRow nextRow)
+                {
+                    var next = FindDescendant<TextBox>(nextRow, x => (x.Tag as string) == tag);
+                    if (next != null) { next.Focus(); next.SelectAll(); }
+                }
+            }
+            else if (idx == last)
+            {
+                _vm.AddLineCommand.Execute(null);
+                LinesGrid.UpdateLayout();
+                if (LinesGrid.ItemContainerGenerator.ContainerFromIndex(_vm.Lines.Count - 1) is DataGridRow newRow)
+                {
+                    var cb = FindDescendant<ComboBox>(newRow, x => x.Name == "ItemSearchCombo");
+                    cb?.Focus();
+                }
+            }
+            e.Handled = true;
+        }
+
+        private static T? FindDescendant<T>(DependencyObject? parent, Func<T, bool> predicate) where T : class
+        {
+            if (parent == null) return null;
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T matched && predicate(matched)) return matched;
+                var deep = FindDescendant(child, predicate);
+                if (deep != null) return deep;
+            }
+            return null;
+        }
+
+        private void PaymentsGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.EditAction == DataGridEditAction.Commit) _vm.RefreshTotals();
+        }
+    }
+}

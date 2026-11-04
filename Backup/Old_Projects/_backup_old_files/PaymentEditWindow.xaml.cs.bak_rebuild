@@ -1,0 +1,17 @@
+using System.Windows;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views;
+
+public partial class PaymentEditWindow : Window
+{
+    private readonly PaymentEditViewModel _vm;
+    public PaymentEditWindow(string paymentType)
+    {
+        InitializeComponent();
+        _vm = new PaymentEditViewModel(paymentType);
+        DataContext = _vm;
+        _vm.RequestClose += () => { this.DialogResult = _vm.DialogResult; this.Close(); };
+        Loaded += async (_, _) => await _vm.LoadAsync();
+    }
+}

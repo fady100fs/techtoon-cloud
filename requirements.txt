@@ -1,0 +1,19 @@
+streamlit>=1.39.0
+sqlalchemy>=2.0.0
+psycopg[binary]>=3.1.0
+python-dotenv>=1.0.0
+pandas>=2.0.0
+plotly>=5.18.0
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+python-dateutil>=2.8.0
+bcrypt>=4.0.0
+Pillow>=10.0.0
+pyzbar>=0.1.9
+opencv-python-headless>=4.8.0
+reportlab>=4.0.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.4.2
+boto3>=1.28.0
+pywebview>=4.0.0
+wmi>=1.2.0; sys_platform == "win32"

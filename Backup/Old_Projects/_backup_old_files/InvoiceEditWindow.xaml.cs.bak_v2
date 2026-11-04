@@ -1,0 +1,166 @@
+﻿using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views
+{
+    public partial class InvoiceEditWindow : Window
+    {
+        private readonly InvoiceEditViewModel _vm;
+        private readonly int? _editId;
+
+        public InvoiceEditWindow(int? editId = null)
+        {
+            InitializeComponent();
+            _editId = editId;
+            _vm = new InvoiceEditViewModel();
+            if (editId.HasValue) _vm.Id = editId.Value;
+            DataContext = _vm;
+            _vm.RequestClose += () =>
+            {
+                DialogResult = _vm.DialogResult;
+                Close();
+            };
+        }
+
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            await _vm.LoadAsync();
+            if (_editId.HasValue)
+            {
+                await _vm.LoadFromInvoiceAsync(_editId.Value);
+            }
+        }
+
+        // ==================================================================
+        //  Ø§Ù„Ø¨Ø­Ø« Ø§Ù„ÙÙˆØ±ÙŠ: Ù„ÙˆØ­Ø© Ø§Ù„Ù…ÙØ§ØªÙŠØ­
+        // ==================================================================
+        private void SearchBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (sender is not TextBox box) return;
+            if (box.DataContext is not InvoiceLineItem line) return;
+
+            switch (e.Key)
+            {
+                case Key.Down:
+                    if (line.SearchSelectedIndex < line.FilteredItems.Count - 1)
+                        line.SearchSelectedIndex++;
+                    e.Handled = true;
+                    break;
+                case Key.Up:
+                    if (line.SearchSelectedIndex > 0)
+                        line.SearchSelectedIndex--;
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    if (line.IsPopupOpen && line.FilteredItems.Count > 0)
+                    {
+                        if (line.SearchSelectedIndex < 0 || line.SearchSelectedIndex >= line.FilteredItems.Count)
+                            line.SearchSelectedIndex = 0;
+                        line.SelectByIndex();
+                    }
+                    FocusQuantity(line);
+                    e.Handled = true;
+                    break;
+                case Key.Escape:
+                    line.IsPopupOpen = false;
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        // ==================================================================
+        //  Ø§Ù„Ø¨Ø­Ø« Ø§Ù„ÙÙˆØ±ÙŠ: Ø§Ø®ØªÙŠØ§Ø± Ø¨Ø§Ù„Ù…Ø§ÙˆØ³
+        // ==================================================================
+        private void SearchList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ListBox lb &&
+                lb.DataContext is InvoiceLineItem line &&
+                lb.SelectedItem is ItemSearchResult it)
+            {
+                line.SelectItem(it);
+                FocusQuantity(line);
+            }
+        }
+
+        private void FocusQuantity(InvoiceLineItem line)
+        {
+            try
+            {
+                if (LinesGrid.ItemContainerGenerator.ContainerFromItem(line) is DataGridRow row)
+                {
+                    var tb = FindDescendant<TextBox>(row, x => (x.Tag as string) == "qty");
+                    tb?.Focus();
+                    tb?.SelectAll();
+                }
+            }
+            catch { }
+        }
+
+        // ==================================================================
+        //  ØªÙ†Ù‚Ù„ Enter Ø¨ÙŠÙ† Ø§Ù„Ø®Ù„Ø§ÙŠØ§ ÙˆØ§Ù„ØµÙÙˆÙ
+        // ==================================================================
+        private void Cell_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+            if (sender is not TextBox tb) return;
+            if (tb.Tag is not string tag) return;
+            if (tb.DataContext is not InvoiceLineItem line) return;
+
+            LinesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+            int idx = _vm.Lines.IndexOf(line);
+            int last = _vm.Lines.Count - 1;
+
+            if (idx >= 0 && idx < last)
+            {
+                if (LinesGrid.ItemContainerGenerator.ContainerFromIndex(idx + 1) is DataGridRow nextRow)
+                {
+                    var next = FindDescendant<TextBox>(nextRow, x => (x.Tag as string) == tag);
+                    if (next != null)
+                    {
+                        next.Focus();
+                        next.SelectAll();
+                    }
+                }
+            }
+            else if (idx == last)
+            {
+                // Ø¢Ø®Ø± ØµÙ: Enter ÙŠÙ†Ø´Ø¦ ØµÙØ§Ù‹ Ø¬Ø¯ÙŠØ¯Ø§Ù‹
+                _vm.AddLineCommand.Execute(null);
+                LinesGrid.UpdateLayout();
+                if (LinesGrid.ItemContainerGenerator.ContainerFromIndex(_vm.Lines.Count - 1) is DataGridRow newRow)
+                {
+                    var next = FindDescendant<TextBox>(newRow, x => (x.Tag as string) == "search");
+                    next?.Focus();
+                }
+            }
+            e.Handled = true;
+        }
+
+        private static T? FindDescendant<T>(DependencyObject? parent, Func<T, bool> predicate) where T : class
+        {
+            if (parent == null) return null;
+            int count = VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T matched && predicate(matched)) return matched;
+                var deep = FindDescendant(child, predicate);
+                if (deep != null) return deep;
+            }
+            return null;
+        }
+
+        // ==================================================================
+        //  Ø¥Ø¹Ø§Ø¯Ø© Ø­Ø³Ø§Ø¨ Ø¹Ù†Ø¯ ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø¯ÙØ¹Ø§Øª
+        // ==================================================================
+        private void PaymentsGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.EditAction == DataGridEditAction.Commit)
+                _vm.RefreshTotals();
+        }
+    }
+}

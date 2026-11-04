@@ -1,0 +1,14 @@
+using System.Windows;
+using System.Windows.Controls;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views;
+
+public partial class InvoicesView : UserControl
+{
+    public InvoicesView() { InitializeComponent(); }
+    private async void InvoicesView_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is InvoicesViewModel vm) await vm.LoadAsync();
+    }
+}

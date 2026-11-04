@@ -1,0 +1,10 @@
+<UserControl x:Class="Techtoon.UI.Views.CostCentersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <Grid>
+        <TextBlock Text="هذه الصفحة قيد الاستعادة — سيتم بناؤها في التحديثات القادمة"
+                   FontSize="18" Foreground="#607D8B"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,23 @@
+# Build outputs
+**/bin/
+**/obj/
+**/build/
+**/.dart_tool/
+**/.gradle/
+**/.kotlin/
+**/ephemeral/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+*.iml
+
+# Local config
+local.properties
+
+# Secrets
+*.env
+appsettings.Development.json
+Techtoon.Streamlit/database.py

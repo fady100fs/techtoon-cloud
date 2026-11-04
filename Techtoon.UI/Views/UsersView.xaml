@@ -1,0 +1,52 @@
+<UserControl x:Class="Techtoon.UI.Views.UsersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma"
+             Loaded="UserControl_Loaded">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="&#x625;&#x644;&#x645;&#x633;&#x62A;&#x62E;&#x62F;&#x645;&#x64A;&#x646;" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="&#x1F504; &#x62A;&#x62D;&#x62F;&#x64A;&#x62B;" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding RefreshCommand}"/>
+            <Button Grid.Column="2" Content="&#x1F511; &#x635;&#x644;&#x627;&#x62D;&#x64A;&#x627;&#x62A;" Background="#FF6A1B9A" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding PermissionsCommand}"/>
+            <Button Grid.Column="3" Content="&#x1F4DD; &#x62A;&#x639;&#x62F;&#x64A;&#x644;" Background="#FF1565C0" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding EditCommand}"/>
+            <Button Grid.Column="4" Content="+ &#x645;&#x633;&#x62A;&#x62E;&#x62F;&#x645;" Background="#00897B" Foreground="White" FontWeight="Bold" Padding="14,8" BorderThickness="0" Cursor="Hand" Command="{Binding NewCommand}"/>
+        </Grid>
+
+        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#x1F50D; &#x628;&#x62D;&#x62B;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="250" Height="30" FontSize="13" Padding="6,4"/>
+                <Button Content="&#x628;&#x62D;&#x62B;" Command="{Binding SearchCommand}" Width="70" Height="30" Margin="8,0,0,0" Background="#00897B" Foreground="White" BorderThickness="0"/>
+                <Button Content="&#x1F511; &#x625;&#x639;&#x627;&#x62F;&#x629; &#x62A;&#x639;&#x64A;&#x64A;&#x646;" Command="{Binding ResetPasswordCommand}" Width="120" Height="30" Margin="20,0,0,0" Background="#FFEF6C00" Foreground="White" BorderThickness="0"/>
+                <Button Content="&#x26D4; &#x62A;&#x639;&#x637;&#x64A;&#x644;/&#x62A;&#x641;&#x639;&#x64A;&#x644;" Command="{Binding ToggleActiveCommand}" Width="120" Height="30" Margin="8,0,0,0" Background="#FFC62828" Foreground="White" BorderThickness="0"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DataGrid ItemsSource="{Binding Users}" SelectedItem="{Binding Selected}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" FontSize="12">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x631;&#x642;&#x645;" Binding="{Binding Id}" Width="60"/>
+                    <DataGridTextColumn Header="&#x627;&#x633;&#x645; &#x627;&#x644;&#x645;&#x633;&#x62A;&#x62E;&#x62F;&#x645;" Binding="{Binding Username}" Width="150"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x627;&#x633;&#x645; &#x627;&#x644;&#x638;&#x627;&#x647;&#x631;" Binding="{Binding FullName}" Width="*"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x62F;&#x648;&#x631;" Binding="{Binding RoleDisplayName}" Width="150"/>
+                    <DataGridCheckBoxColumn Header="&#x645;&#x641;&#x639;&#x644;" Binding="{Binding IsActive}" Width="70"/>
+                    <DataGridTextColumn Header="&#x622;&#x62E;&#x631; &#x62F;&#x62E;&#x648;&#x644;" Binding="{Binding LastLogin, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,53 @@
+<Window x:Class="Techtoon.UI.Views.LoanDetailsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x62A;&#x641;&#x627;&#x635;&#x64A;&#x644; &#x627;&#x644;&#x642;&#x631;&#x636;"
+        Height="700" Width="900"
+        WindowStartupLocation="CenterOwner"
+        FlowDirection="RightToLeft" FontFamily="Tahoma" Background="#F5F7FA">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock x:Name="lblTitle" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="&#x627;&#x644;&#x645;&#x628;&#x644;&#x639; &#x627;&#x644;&#x623;&#x635;&#x644;&#x64A;:" FontSize="12" Foreground="#546E7A"/>
+                    <TextBlock x:Name="lblPrincipal" FontSize="14" FontWeight="Bold" Margin="0,0,0,8"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="&#x633;&#x639;&#x631; &#x627;&#x644;&#x641;&#x627;&#x626;&#x62F;&#x629;:" FontSize="12" Foreground="#546E7A"/>
+                    <TextBlock x:Name="lblRate" FontSize="14" FontWeight="Bold" Margin="0,0,0,8"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="&#x627;&#x644;&#x62D;&#x627;&#x644;&#x629;:" FontSize="12" Foreground="#546E7A"/>
+                    <TextBlock x:Name="lblStatus" FontSize="14" FontWeight="Bold" Margin="0,0,0,8"/>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+            <Button x:Name="btnRepay" Content="&#x62A;&#x633;&#x62C;&#x64A;&#x644; &#x633;&#x62F;&#x627;&#x62F;" Width="120" Height="38" Margin="0,0,8,0" Click="BtnRepay_Click" Background="#FF00897B" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button Content="&#x625;&#x644;&#x63A;&#x627;&#x621;" Width="100" Height="38" Click="BtnClose_Click" Background="#FFECEFF1" Foreground="#FF37474F" FontWeight="Bold" BorderThickness="0"/>
+        </StackPanel>
+
+        <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DataGrid x:Name="dgSchedule" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" FontSize="12">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="&#x645;" Binding="{Binding InstallmentNumber}" Width="40"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x62A;&#x627;&#x631;&#x64A;&#x62E;" Binding="{Binding DueDateDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="&#x623;&#x635;&#x644; &#x627;&#x644;&#x62F;&#x64A;&#x646;" Binding="{Binding PrincipalDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x641;&#x627;&#x626;&#x62F;&#x629;" Binding="{Binding InterestDisplay}" Width="80"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x625;&#x62C;&#x645;&#x627;&#x644;&#x64A;" Binding="{Binding TotalDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x645;&#x62F;&#x641;&#x648;&#x639;" Binding="{Binding PaidDisplay}" Width="80"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x645;&#x62A;&#x628;&#x642;&#x64A;" Binding="{Binding RemainingDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x62D;&#x627;&#x644;&#x629;" Binding="{Binding StatusDisplay}" Width="80"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </DockPanel>
+</Window>

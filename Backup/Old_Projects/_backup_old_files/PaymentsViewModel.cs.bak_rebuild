@@ -1,0 +1,76 @@
+using System.Collections.ObjectModel;
+using System.Windows.Input;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Techtoon.Core.Models;
+using Techtoon.Data.Context;
+using Techtoon.UI.Views;
+
+namespace Techtoon.UI.ViewModels;
+
+public class PaymentsViewModel : ViewModelBase
+{
+    private ObservableCollection<Payment> _payments = new();
+    private string _searchText = "";
+    private Payment? _selectedPayment;
+
+    public ObservableCollection<Payment> Payments { get => _payments; set => SetProperty(ref _payments, value); }
+    public string SearchText { get => _searchText; set { if (SetProperty(ref _searchText, value)) ApplyFilter(); } }
+    public Payment? SelectedPayment { get => _selectedPayment; set => SetProperty(ref _selectedPayment, value); }
+
+    public ICommand RefreshCommand { get; }
+    public ICommand NewReceiptCommand { get; }
+    public ICommand NewPaymentCommand { get; }
+    public ICommand DeleteCommand { get; }
+
+    public PaymentsViewModel()
+    {
+        RefreshCommand = new RelayCommand(async () => await LoadAsync());
+        NewReceiptCommand = new RelayCommand(() => OpenEdit("receipt"));
+        NewPaymentCommand = new RelayCommand(() => OpenEdit("payment"));
+        DeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => SelectedPayment != null);
+    }
+
+    public override async Task LoadAsync()
+    {
+        try
+        {
+            using var scope = App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<TechtoonDbContext>();
+            var list = await db.Payments.Include(p => p.Party).Include(p => p.CashBox).OrderByDescending(p => p.Date).Take(200).ToListAsync();
+            Payments = new ObservableCollection<Payment>(list);
+            ApplyFilter();
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadAsync error: " + ex.Message); }
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText)) return;
+        var s = SearchText.Trim().ToLower();
+        var filtered = Payments.Where(p => (p.ReferenceNumber?.ToLower().Contains(s) == true) || (p.Party?.Name?.ToLower().Contains(s) == true)).ToList();
+        Payments = new ObservableCollection<Payment>(filtered);
+    }
+
+    private void OpenEdit(string type)
+    {
+        var window = new PaymentEditWindow(type) { Owner = System.Windows.Application.Current.MainWindow };
+        window.ShowDialog();
+        if (window.DialogResult == true) _ = LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (SelectedPayment == null) return;
+        var confirm = System.Windows.MessageBox.Show("Delete: " + SelectedPayment.ReferenceNumber + "?", "Confirm", System.Windows.MessageBoxButton.YesNo);
+        if (confirm != System.Windows.MessageBoxResult.Yes) return;
+        try
+        {
+            using var scope = App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<TechtoonDbContext>();
+            var p = await db.Payments.FirstOrDefaultAsync(x => x.Id == SelectedPayment.Id);
+            if (p != null) { db.Payments.Remove(p); await db.SaveChangesAsync(); await LoadAsync(); }
+        }
+        catch (Exception ex) { System.Windows.MessageBox.Show("Error: " + ex.Message, "Error"); }
+    }
+}

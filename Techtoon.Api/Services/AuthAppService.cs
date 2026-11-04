@@ -1,0 +1,333 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Npgsql;
+using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Threading.Tasks;
+using Techtoon.Api.DTOs.Auth;
+using Techtoon.Api.Options;
+
+namespace Techtoon.Api.Services;
+
+public interface IAuthAppService
+{
+    Task<TokenResponseDto> LoginAsync(LoginRequestDto request, string ipAddress);
+    Task<TokenResponseDto> RefreshAsync(string refreshToken, string ipAddress);
+    Task LogoutAsync(int userId, string deviceId);
+    Task<List<DeviceDto>> GetDevicesAsync(int userId);
+    Task<bool> RevokeDeviceAsync(int userId, int deviceRecordId);
+    Task<UserDto> GetCurrentUserAsync(int userId);
+}
+
+public class AuthAppService : IAuthAppService
+{
+    private readonly string _connStr;
+    private readonly IJwtTokenService _jwt;
+    private readonly JwtOptions _jwtOptions;
+    private readonly ILogger<AuthAppService> _logger;
+
+    public AuthAppService(IConfiguration config, IJwtTokenService jwt, JwtOptions jwtOptions, ILogger<AuthAppService> logger)
+    {
+        _connStr = config.GetConnectionString("DefaultConnection") ?? "";
+        _jwt = jwt;
+        _jwtOptions = jwtOptions;
+        _logger = logger;
+    }
+
+    public async Task<TokenResponseDto> LoginAsync(LoginRequestDto request, string ipAddress)
+    {
+        if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+            throw new ArgumentException("Username and password are required");
+
+        var deviceId = string.IsNullOrEmpty(request.DeviceId) ? Guid.NewGuid().ToString() : request.DeviceId;
+
+        // Rate limit: max 5 failed attempts in 5 minutes
+        await CheckRateLimitAsync(request.Username, ipAddress);
+
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+
+        int userId;
+        string username, fullName, role, hash;
+        bool isActive;
+
+        using (var cmd = new NpgsqlCommand(
+            "SELECT id, username, COALESCE(password_hash,''), COALESCE(full_name,''), COALESCE(role,'SALESPERSON'), COALESCE(is_active, FALSE) FROM users WHERE username=@u",
+            conn))
+        {
+            cmd.Parameters.AddWithValue("u", request.Username);
+            using var r = await cmd.ExecuteReaderAsync();
+            if (!await r.ReadAsync())
+            {
+                await LogLoginAttemptAsync(request.Username, ipAddress, false, "User not found");
+                throw new UnauthorizedAccessException("Invalid username or password");
+            }
+            userId = r.GetInt32(0);
+            username = r.GetString(1);
+            hash = r.GetString(2);
+            fullName = r.IsDBNull(3) ? "" : r.GetString(3);
+            role = r.IsDBNull(4) ? "SALESPERSON" : r.GetString(4);
+            isActive = r.IsDBNull(5) ? false : r.GetBoolean(5);
+        }
+
+        if (!isActive)
+        {
+            await LogLoginAttemptAsync(username, ipAddress, false, "Account disabled");
+            throw new UnauthorizedAccessException("Account is disabled");
+        }
+
+        if (!string.IsNullOrEmpty(hash) && !BCrypt.Net.BCrypt.Verify(request.Password, hash))
+        {
+            await LogLoginAttemptAsync(username, ipAddress, false, "Wrong password");
+            throw new UnauthorizedAccessException("Invalid username or password");
+        }
+
+        // Load permissions
+        var permissions = await LoadPermissionsAsync(conn, userId);
+
+        // Generate tokens
+        var (accessToken, refreshToken) = _jwt.GenerateTokens(userId, username, role, deviceId, permissions);
+
+        // Store device + refresh token hash
+        await StoreDeviceAsync(conn, userId, deviceId, request.DeviceName, refreshToken);
+
+        // Update last_login
+        using (var cmd = new NpgsqlCommand("UPDATE users SET last_login=NOW() WHERE id=@id", conn))
+        {
+            cmd.Parameters.AddWithValue("id", userId);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await LogAuditAsync(conn, userId, username, "login", "user", userId, "Login from " + ipAddress + ", device " + deviceId);
+        await LogLoginAttemptAsync(username, ipAddress, true, null);
+
+        return new TokenResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.AccessTokenMinutes),
+            User = new UserDto
+            {
+                Id = userId,
+                Username = username,
+                FullName = fullName,
+                Role = role,
+                Permissions = permissions
+            }
+        };
+    }
+
+    public async Task<TokenResponseDto> RefreshAsync(string refreshToken, string ipAddress)
+    {
+        if (string.IsNullOrEmpty(refreshToken))
+            throw new ArgumentException("Refresh token is required");
+
+        var refreshHash = _jwt.HashToken(refreshToken);
+
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+
+        int userId;
+        string username, fullName, role, deviceId;
+
+        using (var cmd = new NpgsqlCommand(
+            "SELECT ud.id, ud.user_id, u.username, COALESCE(u.full_name,''), COALESCE(u.role,'SALESPERSON'), ud.device_id FROM user_devices ud JOIN users u ON ud.user_id = u.id WHERE ud.refresh_token_hash = @h AND ud.is_revoked = FALSE AND u.is_active = TRUE",
+            conn))
+        {
+            cmd.Parameters.AddWithValue("h", refreshHash);
+            using var r = await cmd.ExecuteReaderAsync();
+            if (!await r.ReadAsync())
+                throw new UnauthorizedAccessException("Invalid or expired refresh token");
+            userId = r.GetInt32(1);
+            username = r.GetString(2);
+            fullName = r.IsDBNull(3) ? "" : r.GetString(3);
+            role = r.IsDBNull(4) ? "SALESPERSON" : r.GetString(4);
+            deviceId = r.GetString(5);
+        }
+
+        var permissions = await LoadPermissionsAsync(conn, userId);
+        var (newAccess, newRefresh) = _jwt.GenerateTokens(userId, username, role, deviceId, permissions);
+
+        // Rotate refresh token: update hash
+        var newRefreshHash = _jwt.HashToken(newRefresh);
+        using (var cmd = new NpgsqlCommand(
+            "UPDATE user_devices SET refresh_token_hash=@h, last_seen=NOW() WHERE user_id=@uid AND device_id=@did AND is_revoked=FALSE",
+            conn))
+        {
+            cmd.Parameters.AddWithValue("h", newRefreshHash);
+            cmd.Parameters.AddWithValue("uid", userId);
+            cmd.Parameters.AddWithValue("did", deviceId);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await LogAuditAsync(conn, userId, username, "refresh_token", "user", userId, "Token refreshed from " + ipAddress);
+
+        return new TokenResponseDto
+        {
+            AccessToken = newAccess,
+            RefreshToken = newRefresh,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtOptions.AccessTokenMinutes),
+            User = new UserDto
+            {
+                Id = userId,
+                Username = username,
+                FullName = fullName,
+                Role = role,
+                Permissions = permissions
+            }
+        };
+    }
+
+    public async Task LogoutAsync(int userId, string deviceId)
+    {
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var cmd = new NpgsqlCommand(
+            "UPDATE user_devices SET is_revoked=TRUE WHERE user_id=@uid AND device_id=@did",
+            conn);
+        cmd.Parameters.AddWithValue("uid", userId);
+        cmd.Parameters.AddWithValue("did", deviceId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<List<DeviceDto>> GetDevicesAsync(int userId)
+    {
+        var list = new List<DeviceDto>();
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var cmd = new NpgsqlCommand(
+            "SELECT id, device_id, COALESCE(device_name,''), last_seen, created_at, is_revoked FROM user_devices WHERE user_id=@uid ORDER BY last_seen DESC",
+            conn);
+        cmd.Parameters.AddWithValue("uid", userId);
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+        {
+            list.Add(new DeviceDto
+            {
+                Id = r.GetInt32(0),
+                DeviceId = r.GetString(1),
+                DeviceName = r.IsDBNull(2) ? null : r.GetString(2),
+                LastSeen = r.GetDateTime(3),
+                CreatedAt = r.GetDateTime(4),
+                IsRevoked = r.GetBoolean(5)
+            });
+        }
+        return list;
+    }
+
+    public async Task<bool> RevokeDeviceAsync(int userId, int deviceRecordId)
+    {
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var cmd = new NpgsqlCommand(
+            "UPDATE user_devices SET is_revoked=TRUE WHERE id=@id AND user_id=@uid",
+            conn);
+        cmd.Parameters.AddWithValue("id", deviceRecordId);
+        cmd.Parameters.AddWithValue("uid", userId);
+        var affected = await cmd.ExecuteNonQueryAsync();
+        return affected > 0;
+    }
+
+    public async Task<UserDto> GetCurrentUserAsync(int userId)
+    {
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var cmd = new NpgsqlCommand(
+            "SELECT id, username, COALESCE(full_name,''), COALESCE(role,'SALESPERSON') FROM users WHERE id=@id",
+            conn);
+        cmd.Parameters.AddWithValue("id", userId);
+        using var r = await cmd.ExecuteReaderAsync();
+        if (!await r.ReadAsync())
+            throw new UnauthorizedAccessException("User not found");
+
+        var user = new UserDto
+        {
+            Id = r.GetInt32(0),
+            Username = r.GetString(1),
+            FullName = r.IsDBNull(2) ? "" : r.GetString(2),
+            Role = r.IsDBNull(3) ? "SALESPERSON" : r.GetString(3)
+        };
+        r.Close();
+
+        user.Permissions = await LoadPermissionsAsync(conn, userId);
+        return user;
+    }
+
+    private async Task<List<string>> LoadPermissionsAsync(NpgsqlConnection conn, int userId)
+    {
+        var perms = new List<string>();
+        using var cmd = new NpgsqlCommand(
+            "SELECT permission_key FROM user_permissions WHERE user_id=@id AND is_granted=TRUE",
+            conn);
+        cmd.Parameters.AddWithValue("id", userId);
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+            perms.Add(r.GetString(0));
+        return perms;
+    }
+
+    private async Task StoreDeviceAsync(NpgsqlConnection conn, int userId, string deviceId, string? deviceName, string refreshToken)
+    {
+        var refreshHash = _jwt.HashToken(refreshToken);
+        using var cmd = new NpgsqlCommand(
+            "INSERT INTO user_devices (user_id, device_id, device_name, refresh_token_hash, last_seen, is_revoked, created_at) VALUES (@uid, @did, @dname, @h, NOW(), FALSE, NOW()) ON CONFLICT (user_id, device_id) DO UPDATE SET refresh_token_hash = EXCLUDED.refresh_token_hash, device_name = EXCLUDED.device_name, last_seen = NOW(), is_revoked = FALSE",
+            conn);
+        cmd.Parameters.AddWithValue("uid", userId);
+        cmd.Parameters.AddWithValue("did", deviceId);
+        cmd.Parameters.AddWithValue("dname", (object?)deviceName ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("h", refreshHash);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task CheckRateLimitAsync(string username, string ipAddress)
+    {
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var cmd = new NpgsqlCommand(
+            "SELECT COUNT(*) FROM login_attempts WHERE (username=@u OR ip_address=@ip) AND success = FALSE AND attempted_at > NOW() - INTERVAL '5 minutes'",
+            conn);
+        cmd.Parameters.AddWithValue("u", username);
+        cmd.Parameters.AddWithValue("ip", ipAddress);
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        if (count >= 5)
+            throw new UnauthorizedAccessException("Too many failed login attempts. Try again in 5 minutes.");
+    }
+
+    private async Task LogLoginAttemptAsync(string? username, string ipAddress, bool success, string? reason)
+    {
+        try
+        {
+            using var conn = new NpgsqlConnection(_connStr);
+            await conn.OpenAsync();
+            using var cmd = new NpgsqlCommand(
+                "INSERT INTO login_attempts (username, ip_address, success, failure_reason, attempted_at) VALUES (@u, @ip, @s, @r, NOW())",
+                conn);
+            cmd.Parameters.AddWithValue("u", (object?)username ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("ip", ipAddress);
+            cmd.Parameters.AddWithValue("s", success);
+            cmd.Parameters.AddWithValue("r", (object?)reason ?? DBNull.Value);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch { }
+    }
+
+    private async Task LogAuditAsync(NpgsqlConnection conn, int userId, string username, string action, string entityType, int entityId, string details)
+    {
+        try
+        {
+            using var cmd = new NpgsqlCommand(
+                "INSERT INTO audit_log (user_id, username, action, entity_type, entity_id, details, created_at) VALUES (@uid, @uname, @action, @etype, @eid, @details, NOW())",
+                conn);
+            cmd.Parameters.AddWithValue("uid", userId);
+            cmd.Parameters.AddWithValue("uname", username);
+            cmd.Parameters.AddWithValue("action", action);
+            cmd.Parameters.AddWithValue("etype", entityType);
+            cmd.Parameters.AddWithValue("eid", entityId);
+            cmd.Parameters.AddWithValue("details", details);
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch { }
+    }
+}

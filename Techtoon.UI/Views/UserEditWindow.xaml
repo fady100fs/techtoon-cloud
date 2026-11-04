@@ -1,0 +1,31 @@
+<Window x:Class="Techtoon.UI.Views.UserEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x645;&#x633;&#x62A;&#x62E;&#x62F;&#x645;"
+        Height="500" Width="500"
+        WindowStartupLocation="CenterOwner"
+        FlowDirection="RightToLeft" FontFamily="Tahoma" Background="#F5F7FA">
+    <StackPanel Margin="20">
+        <TextBlock x:Name="lblTitle" Text="&#x645;&#x633;&#x62A;&#x62E;&#x62F;&#x645; &#x62C;&#x62F;&#x64A;&#x62F;" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
+
+        <TextBlock Text="&#x627;&#x633;&#x645; &#x627;&#x644;&#x645;&#x633;&#x62A;&#x62E;&#x62F;&#x645; (&#x644;&#x644;&#x62F;&#x62E;&#x648;&#x644;):" FontSize="13" Margin="0,0,0,4"/>
+        <TextBox x:Name="txtUsername" Height="32" FontSize="13" Padding="6,4" Margin="0,0,0,10"/>
+
+        <TextBlock Text="&#x627;&#x644;&#x627;&#x633;&#x645; &#x627;&#x644;&#x638;&#x627;&#x647;&#x631;:" FontSize="13" Margin="0,0,0,4"/>
+        <TextBox x:Name="txtFullName" Height="32" FontSize="13" Padding="6,4" Margin="0,0,0,10"/>
+
+        <TextBlock Text="&#x627;&#x644;&#x628;&#x631;&#x64A;&#x62F; &#x627;&#x644;&#x625;&#x644;&#x64A;&#x643;&#x62A;&#x631;&#x648;&#x646;&#x64A;:" FontSize="13" Margin="0,0,0,4"/>
+        <TextBox x:Name="txtEmail" Height="32" FontSize="13" Padding="6,4" Margin="0,0,0,10"/>
+
+        <TextBlock Text="&#x627;&#x644;&#x62F;&#x648;&#x631; &#x627;&#x644;&#x648;&#x638;&#x64A;&#x641;&#x64A;:" FontSize="13" Margin="0,0,0,4"/>
+        <ComboBox x:Name="cmbRole" DisplayMemberPath="DisplayName" SelectedValuePath="Id" Height="32" FontSize="13" Margin="0,0,0,10"/>
+
+        <TextBlock x:Name="lblPassword" Text="&#x643;&#x644;&#x645;&#x629; &#x627;&#x644;&#x645;&#x631;&#x648;&#x631; (&#x627;&#x644;&#x623;&#x648;&#x644;&#x64A;&#x629;):" FontSize="13" Margin="0,0,0,4"/>
+        <TextBox x:Name="txtPassword" Height="32" FontSize="13" Padding="6,4" Margin="0,0,0,15"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,0">
+            <Button x:Name="btnSave" Content="&#x62D;&#x641;&#x638;" Width="100" Height="38" Margin="0,0,8,0" Click="BtnSave_Click" Background="#FF00897B" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button Content="&#x625;&#x644;&#x63A;&#x627;&#x621;" Width="100" Height="38" Click="BtnCancel_Click" Background="#FFECEFF1" Foreground="#FF37474F" FontWeight="Bold" BorderThickness="0"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

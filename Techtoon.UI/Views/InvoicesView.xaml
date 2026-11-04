@@ -1,0 +1,97 @@
+<UserControl x:Class="Techtoon.UI.Views.InvoicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma" Loaded="UserControl_Loaded">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Row 0: Title + main buttons -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="LblTitle" Grid.Column="0" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+            <Button x:Name="BtnRefresh" Grid.Column="1" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding RefreshCommand}"/>
+            <Button x:Name="BtnDelete" Grid.Column="2" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding DeleteInvoiceCommand}"/>
+            <Button x:Name="BtnReturn" Grid.Column="3" Content="&#x645;&#x631;&#x62A;&#x62C;&#x639;" Background="#FF6A1B9A" Foreground="White" FontWeight="Bold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Click="BtnReturn_Click"/>
+            <Button x:Name="BtnNew" Grid.Column="4" Background="#00897B" Foreground="White" FontWeight="Bold" Padding="18,8" BorderThickness="0" Cursor="Hand" Command="{Binding NewInvoiceCommand}"/>
+        </Grid>
+
+        <!-- Row 1: Advanced Search Filters -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Row 1: Invoice number + Party name -->
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="&#x631;&#x642;&#x645; &#x627;&#x644;&#x641;&#x627;&#x62A;&#x648;&#x631;&#x629;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                    <TextBox Grid.Column="1" Text="{Binding SearchByNumber, UpdateSourceTrigger=PropertyChanged}" Height="30" FontSize="13" Padding="6,4"/>
+                    <TextBlock Grid.Column="3" Text="&#x627;&#x633;&#x645; &#x627;&#x644;&#x639;&#x645;&#x64A;&#x644;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                    <TextBox Grid.Column="4" Text="{Binding SearchByParty, UpdateSourceTrigger=PropertyChanged}" Height="30" FontSize="13" Padding="6,4"/>
+                </Grid>
+
+                <!-- Row 2: Dates + Search/Clear buttons -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="&#x645;&#x646; &#x62A;&#x627;&#x631;&#x64A;&#x62E;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                    <DatePicker Grid.Column="1" SelectedDate="{Binding FromDate}" Height="30" FontSize="13"/>
+                    <TextBlock Grid.Column="3" Text="&#x625;&#x644;&#x649; &#x62A;&#x627;&#x631;&#x64A;&#x62E;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                    <DatePicker Grid.Column="4" SelectedDate="{Binding ToDate}" Height="30" FontSize="13"/>
+                    <Button Grid.Column="6" Content="&#x1F50E; &#x628;&#x62D;&#x62B;" Command="{Binding SearchCommand}"
+                            Width="110" Height="34" FontSize="14" FontWeight="Bold" Margin="0,0,8,0"
+                            Background="#FF2E7D32" Foreground="White" BorderThickness="0"/>
+                    <Button Grid.Column="7" Content="&#x645;&#x633;&#x62D; &#x627;&#x644;&#x641;&#x644;&#x627;&#x62A;&#x631;" Command="{Binding ClearSearchCommand}"
+                            Width="120" Height="34" FontSize="13" FontWeight="SemiBold"
+                            Background="#FFECEFF1" Foreground="#FF37474F" BorderThickness="0"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Row 2: Status -->
+        <TextBlock x:Name="LblStatus" Grid.Row="2" Text="{Binding StatusMessage}" FontSize="12" Foreground="#00897B" Margin="0,0,0,8"/>
+
+        <!-- Row 3: DataGrid -->
+        <Border Grid.Row="3" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DataGrid x:Name="DgInvoices" ItemsSource="{Binding Invoices}" SelectedItem="{Binding SelectedInvoice}"
+                      AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#ECEFF1" Background="White" FontSize="13"
+                      MouseDoubleClick="DgInvoices_MouseDoubleClick" KeyDown="DgInvoices_KeyDown">
+                <DataGrid.Columns>
+                    <DataGridTextColumn x:Name="ColNum" Binding="{Binding InvoiceNumber}" Width="140"/>
+                    <DataGridTextColumn x:Name="ColDate" Binding="{Binding DateDisplay}" Width="120"/>
+                    <DataGridTextColumn x:Name="ColType" Binding="{Binding TypeDisplay}" Width="100"/>
+                    <DataGridTextColumn x:Name="ColParty" Binding="{Binding PartyName}" Width="*"/>
+                    <DataGridTextColumn x:Name="ColTotal" Binding="{Binding TotalDisplay}" Width="120"/>
+                    <DataGridTextColumn x:Name="ColPaid" Binding="{Binding PaidDisplay}" Width="120"/>
+                    <DataGridTextColumn x:Name="ColRem" Binding="{Binding RemainingDisplay}" Width="120"/>
+                    <DataGridTextColumn x:Name="ColStatus" Binding="{Binding Status}" Width="90"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

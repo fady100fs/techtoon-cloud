@@ -1,0 +1,25 @@
+[server]
+headless = true
+runOnSave = false
+fileWatcherType = "none"
+maxUploadSize = 200
+enableStaticServing = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
+showErrorDetails = true
+
+[theme]
+base = "dark"
+primaryColor = "#10b981"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#1e293b"
+textColor = "#fafafa"
+
+[runner]
+magicEnabled = false
+fastReruns = true

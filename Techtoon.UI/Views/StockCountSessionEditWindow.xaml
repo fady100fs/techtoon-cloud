@@ -1,0 +1,64 @@
+<Window x:Class="Techtoon.UI.Views.StockCountSessionEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x62C;&#x644;&#x633;&#x629; &#x62C;&#x631;&#x62F;"
+        Height="800" Width="1200"
+        WindowStartupLocation="CenterOwner"
+        FlowDirection="RightToLeft" FontFamily="Tahoma" Background="#F5F7FA">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock x:Name="lblTitle" Text="&#x62C;&#x644;&#x633;&#x629; &#x62C;&#x631;&#x62F; &#x62C;&#x62F;&#x64A;&#x62F;&#x629;" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="&#x627;&#x644;&#x645;&#x62E;&#x632;&#x646;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                <ComboBox x:Name="cmbWarehouse" Grid.Column="1" DisplayMemberPath="Name" SelectedValuePath="Id" Height="32" FontSize="13"/>
+                <TextBlock Grid.Column="3" Text="&#x646;&#x648;&#x639; &#x627;&#x644;&#x62C;&#x631;&#x62F;:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="13"/>
+                <ComboBox x:Name="cmbCountType" Grid.Column="4" Height="32" FontSize="13">
+                    <ComboBoxItem Content="&#x62C;&#x631;&#x62F; &#x634;&#x627;&#x645;&#x644;" IsSelected="True" Tag="full"/>
+                    <ComboBoxItem Content="&#x62C;&#x631;&#x62F; &#x62C;&#x632;&#x626;&#x64A;" Tag="partial"/>
+                    <ComboBoxItem Content="&#x62C;&#x631;&#x62F; &#x645;&#x641;&#x627;&#x62C;&#x626;" Tag="surprise"/>
+                </ComboBox>
+                <CheckBox x:Name="chkHideBook" Grid.Column="6" Content="&#x625;&#x62E;&#x641;&#x627;&#x621; &#x627;&#x644;&#x631;&#x635;&#x64A;&#x62F; &#x627;&#x644;&#x62F;&#x641;&#x62A;&#x631;&#x64A; (&#x62C;&#x631;&#x62F; &#x645;&#x633;&#x62A;&#x642;&#x644;)" VerticalAlignment="Center" FontSize="13" Margin="0,0,20,0"/>
+            </Grid>
+
+            <TextBox x:Name="txtNotes" Height="50" AcceptsReturn="True" TextWrapping="Wrap" FontSize="13" Padding="6,4"
+                     ToolTip="&#x645;&#x644;&#x627;&#x62D;&#x638;&#x627;&#x62A; &#x627;&#x644;&#x62C;&#x644;&#x633;&#x629;"/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+            <Button x:Name="btnStart" Content="&#x628;&#x62F;&#x621; &#x627;&#x644;&#x62C;&#x631;&#x62F;" Width="130" Height="38" Margin="0,0,8,0" Click="BtnStart_Click" Background="#FF00897B" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button x:Name="btnSubmit" Content="&#x62A;&#x633;&#x644;&#x64A;&#x645; &#x644;&#x645;&#x631;&#x627;&#x62C;&#x639;&#x629;" Width="140" Height="38" Margin="0,0,8,0" Click="BtnSubmit_Click" Background="#FF1565C0" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button x:Name="btnApprove" Content="&#x627;&#x639;&#x62A;&#x645;&#x627;&#x62F;" Width="110" Height="38" Margin="0,0,8,0" Click="BtnApprove_Click" Background="#FF2E7D32" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button x:Name="btnExecute" Content="&#x62A;&#x646;&#x641;&#x64A;&#x630; (&#x62A;&#x633;&#x648;&#x64A;&#x629;)" Width="140" Height="38" Margin="0,0,8,0" Click="BtnExecute_Click" Background="#FF6A1B9A" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button x:Name="btnReject" Content="&#x631;&#x641;&#x636;" Width="90" Height="38" Margin="0,0,8,0" Click="BtnReject_Click" Background="#FFC62828" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button x:Name="btnSaveCounts" Content="&#x62D;&#x641;&#x638; &#x627;&#x644;&#x639;&#x62F;&#x62F;" Width="110" Height="38" Margin="0,0,8,0" Click="BtnSaveCounts_Click" Background="#FFEF6C00" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
+            <Button x:Name="btnClose" Content="&#x625;&#x644;&#x63A;&#x627;&#x621;" Width="100" Height="38" Click="BtnClose_Click" Background="#FFECEFF1" Foreground="#FF37474F" FontWeight="Bold" BorderThickness="0"/>
+        </StackPanel>
+
+        <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Margin="0,0,0,8">
+            <DataGrid x:Name="dgItems" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" FontSize="12">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x635;&#x646;&#x641;" Binding="{Binding ItemName}" Width="*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x628;&#x627;&#x631;&#x643;&#x648;&#x62F;" Binding="{Binding Barcode}" Width="120" IsReadOnly="True"/>
+                    <DataGridTextColumn x:Name="colBook" Header="&#x627;&#x644;&#x631;&#x635;&#x64A;&#x62F; &#x627;&#x644;&#x62F;&#x641;&#x62A;&#x631;&#x64A;" Binding="{Binding BookQuantityDisplay}" Width="120" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x639;&#x62F; &#x627;&#x644;&#x641;&#x639;&#x644;&#x64A;" Binding="{Binding CountedQuantity, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x641;&#x631;&#x648;&#x642;" Binding="{Binding DifferenceDisplay}" Width="100" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x642;&#x64A;&#x645;&#x629; &#x627;&#x644;&#x641;&#x631;&#x648;&#x642;" Binding="{Binding DifferenceValueDisplay}" Width="120" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x62D;&#x627;&#x644;&#x629;" Binding="{Binding Status}" Width="90" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </DockPanel>
+</Window>

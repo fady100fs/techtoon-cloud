@@ -1,0 +1,49 @@
+<UserControl x:Class="Techtoon.UI.Views.DamagedItemsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma"
+             Loaded="UserControl_Loaded">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="&#x627;&#x644;&#x623;&#x635;&#x646;&#x627;&#x641; &#x627;&#x644;&#x62A;&#x627;&#x644;&#x641;&#x629;" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="&#x1F504; &#x62A;&#x62D;&#x62F;&#x64A;&#x62B;" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding RefreshCommand}"/>
+            <Button Grid.Column="2" Content="&#x1F5D1; &#x62D;&#x630;&#x641;" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="6,0" Command="{Binding DeleteCommand}"/>
+            <Button Grid.Column="3" Content="+ &#x62A;&#x627;&#x644;&#x641;" Background="#00897B" Foreground="White" FontWeight="Bold" Padding="14,8" BorderThickness="0" Cursor="Hand" Command="{Binding NewCommand}"/>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button Content="&#x627;&#x644;&#x643;&#x644;" Command="{Binding FilterAllCommand}" Width="70" Height="28" Margin="0,0,6,0"/>
+            <Button Content="&#x645;&#x633;&#x648;&#x62F;&#x629;" Command="{Binding FilterDraftCommand}" Width="70" Height="28" Margin="0,0,6,0"/>
+            <Button Content="&#x62A;&#x62D;&#x62A; &#x641;&#x62D;&#x635;" Command="{Binding FilterInspectionCommand}" Width="80" Height="28"/>
+        </StackPanel>
+
+        <Border Grid.Row="2" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" FontSize="12"
+                      MouseDoubleClick="Dg_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="&#x631;&#x642;&#x645; &#x627;&#x644;&#x645;&#x633;&#x62A;&#x646;&#x62F;" Binding="{Binding DocumentNumber}" Width="150"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x62A;&#x627;&#x631;&#x64A;&#x62E;" Binding="{Binding Date, StringFormat=yyyy-MM-dd}" Width="110"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x635;&#x646;&#x641;" Binding="{Binding ItemName}" Width="*"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x645;&#x62E;&#x632;&#x646;" Binding="{Binding WarehouseName}" Width="100"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x643;&#x645;&#x64A;&#x629;" Binding="{Binding QuantityDisplay}" Width="90"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x642;&#x64A;&#x645;&#x629;" Binding="{Binding TotalValueDisplay}" Width="100"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x633;&#x628;&#x628;" Binding="{Binding DamageReasonName}" Width="140"/>
+                    <DataGridTextColumn Header="&#x627;&#x644;&#x62D;&#x627;&#x644;&#x629;" Binding="{Binding StatusDisplay}" Width="120"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,105 @@
+using System.Collections.ObjectModel;
+using System.Windows.Input;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Techtoon.Core.Models;
+using Techtoon.Data.Context;
+
+namespace Techtoon.UI.ViewModels;
+
+public class PaymentEditViewModel : ViewModelBase
+{
+    private DateTime _date = DateTime.Today;
+    private Party? _party;
+    private double _amount;
+    private string _paymentType;
+    private string _paymentMethod = "cash";
+    private CashBox? _cashBox;
+    private Account? _counterAccount;
+    private string _notes = "";
+    private ObservableCollection<Party> _parties = new();
+    private ObservableCollection<CashBox> _cashBoxes = new();
+    private ObservableCollection<Account> _accounts = new();
+    private string _statusMessage = "";
+
+    public DateTime Date { get => _date; set => SetProperty(ref _date, value); }
+    public Party? Party { get => _party; set => SetProperty(ref _party, value); }
+    public double Amount { get => _amount; set => SetProperty(ref _amount, value); }
+    public string PaymentType { get => _paymentType; set => SetProperty(ref _paymentType, value); }
+    public string PaymentMethod { get => _paymentMethod; set => SetProperty(ref _paymentMethod, value); }
+    public CashBox? CashBox { get => _cashBox; set => SetProperty(ref _cashBox, value); }
+    public Account? CounterAccount { get => _counterAccount; set => SetProperty(ref _counterAccount, value); }
+    public string Notes { get => _notes; set => SetProperty(ref _notes, value); }
+    public ObservableCollection<Party> Parties { get => _parties; set => SetProperty(ref _parties, value); }
+    public ObservableCollection<CashBox> CashBoxes { get => _cashBoxes; set => SetProperty(ref _cashBoxes, value); }
+    public ObservableCollection<Account> Accounts { get => _accounts; set => SetProperty(ref _accounts, value); }
+    public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
+    public bool IsReceipt => PaymentType == "receipt";
+    public string WindowTitle => IsReceipt ? "سند قبض" : "سند صرف";
+
+    public ICommand SaveCommand { get; }
+    public ICommand CancelCommand { get; }
+    public bool? DialogResult { get; private set; }
+    public event Action? RequestClose;
+
+    public PaymentEditViewModel(string paymentType)
+    {
+        PaymentType = paymentType;
+        SaveCommand = new RelayCommand(async () => await SaveAsync());
+        CancelCommand = new RelayCommand(() => { DialogResult = false; RequestClose?.Invoke(); });
+    }
+
+    public async override Task LoadAsync()
+    {
+        try
+        {
+            using var scope = App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<TechtoonDbContext>();
+            Parties = new ObservableCollection<Party>(await db.Parties.OrderBy(p => p.Name).ToListAsync());
+            CashBoxes = new ObservableCollection<CashBox>(await db.CashBoxes.Where(c => c.IsActive).OrderBy(c => c.Name).ToListAsync());
+            Accounts = new ObservableCollection<Account>(await db.Accounts.OrderBy(a => a.Code).ToListAsync());
+            CashBox = CashBoxes.FirstOrDefault();
+        }
+        catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            if (Party == null) { StatusMessage = "Select party"; return; }
+            if (CashBox == null || CashBox.Account == null) { StatusMessage = "Select cash box"; return; }
+            if (CounterAccount == null) { StatusMessage = "Select account"; return; }
+            if (Amount <= 0) { StatusMessage = "Amount > 0"; return; }
+            using var scope = App.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<TechtoonDbContext>();
+            
+            var prefix = IsReceipt ? "RCV-" : "PAY-";
+            var year = DateTime.Now.Year;
+            var count = await db.Payments.CountAsync(p => p.ReferenceNumber != null && p.ReferenceNumber.StartsWith(prefix + year));
+            var refNum = prefix + year + "-" + (count + 1).ToString("D4");
+
+            var payment = new Payment
+            {
+                Date = Date, PartyId = Party.Id, Amount = Amount, PaymentType = PaymentType,
+                PaymentMethod = PaymentMethod, ReferenceNumber = refNum,
+                Notes = string.IsNullOrEmpty(Notes) ? null : Notes, CurrencyId = 1, CashBoxId = CashBox.Id
+            };
+            db.Payments.Add(payment);
+
+            var cashBox = await db.CashBoxes.Include(c => c.Account).FirstOrDefaultAsync(c => c.Id == CashBox.Id);
+            var counterAcc = await db.Accounts.FirstOrDefaultAsync(a => a.Id == CounterAccount.Id);
+            if (cashBox?.Account != null && counterAcc != null)
+            {
+                var je = new JournalEntry { Date = Date, Description = (IsReceipt ? "سند قبض - " : "سند صرف - ") + Party.Name + " (" + refNum + ")", ReferenceType = "payment" };
+                if (IsReceipt) { je.Lines.Add(new JournalLine { AccountId = cashBox.Account.Id, Debit = Amount }); je.Lines.Add(new JournalLine { AccountId = counterAcc.Id, Credit = Amount }); }
+                else { je.Lines.Add(new JournalLine { AccountId = counterAcc.Id, Debit = Amount }); je.Lines.Add(new JournalLine { AccountId = cashBox.Account.Id, Credit = Amount }); }
+                db.JournalEntries.Add(je);
+            }
+            await db.SaveChangesAsync();
+            StatusMessage = "Saved OK - " + refNum; DialogResult = true; RequestClose?.Invoke();
+        }
+        catch (DbUpdateException ex) { var i = ex.InnerException; var m = ex.Message; while (i != null) { m += "\n" + i.Message; i = i.InnerException; } StatusMessage = m; }
+        catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+    }
+}

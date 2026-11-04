@@ -1,0 +1,46 @@
+﻿using System.Windows;
+using System.Windows.Controls;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views
+{
+    public partial class InvoicesView : UserControl
+    {
+        public InvoicesView()
+        {
+            InitializeComponent();
+            SetArabicTexts();
+            DataContext = new InvoicesViewModel();
+        }
+
+        private void SetArabicTexts()
+        {
+            try { LblTitle.Text = "\u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631"; } catch { } // Ø§Ù„ÙÙˆØ§ØªÙŠØ±
+            try { BtnRefresh.Content = "\uD83D\uDD04 \u062A\u062D\u062F\u064A\u062B"; } catch { } // ðŸ”„ ØªØ­Ø¯ÙŠØ«
+            try { BtnNew.Content = "+ \u0641\u0627\u062A\u0648\u0631\u0629 \u062C\u062F\u064A\u062F\u0629"; } catch { } // + ÙØ§ØªÙˆØ±Ø© Ø¬Ø¯ÙŠØ¯Ø©
+            try { ColNum.Header = "\u0627\u0644\u0631\u0642\u0645"; } catch { } // Ø§Ù„Ø±Ù‚Ù…
+            try { ColDate.Header = "\u0627\u0644\u062A\u0627\u0631\u064A\u062E"; } catch { } // Ø§Ù„ØªØ§Ø±ÙŠØ®
+            try { ColType.Header = "\u0627\u0644\u0646\u0648\u0639"; } catch { } // Ø§Ù„Ù†ÙˆØ¹
+            try { ColParty.Header = "\u0627\u0644\u0637\u0631\u0641"; } catch { } // Ø§Ù„Ø·Ø±Ù
+            try { ColTotal.Header = "\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A"; } catch { } // Ø§Ù„Ø¥Ø¬Ù…Ø§Ù„ÙŠ
+            try { ColPaid.Header = "\u0627\u0644\u0645\u062F\u0641\u0648\u0639"; } catch { } // Ø§Ù„Ù…Ø¯ÙÙˆØ¹
+            try { ColRem.Header = "\u0627\u0644\u0645\u062A\u0628\u0642\u064A"; } catch { } // Ø§Ù„Ù…ØªØ¨Ù‚ÙŠ
+            try { ColStatus.Header = "\u0627\u0644\u062D\u0627\u0644\u0629"; } catch { } // Ø§Ù„Ø­Ø§Ù„Ø©
+        }
+
+        private void UserControl_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is InvoicesViewModel vm) vm.LoadInvoices();
+        }
+
+        private void DgInvoices_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (DataContext is InvoicesViewModel vm && vm.SelectedInvoice != null)
+            {
+                var win = new InvoiceEditWindow(vm.SelectedInvoice.Id);
+                win.ShowDialog();
+                vm.LoadInvoices();
+            }
+        }
+    }
+}

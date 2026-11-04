@@ -1,0 +1,99 @@
+﻿using System.Windows;
+using System.Windows.Controls;
+using Techtoon.UI.ViewModels;
+
+namespace Techtoon.UI.Views;
+
+public partial class InvoicesView : UserControl
+{
+    public InvoicesView() { InitializeComponent(); }
+    private async void InvoicesView_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is InvoicesViewModel vm) await vm.LoadAsync();
+    }
+
+        // Ø¯Ø§Ù„Ø© Ù„ØªØ­Ø¯ÙŠØ« Ø§Ù„ØµÙØ­Ø© Ù…Ù† Ø§Ù„Ø®Ø§Ø±Ø¬ (Ø¨Ø¹Ø¯ Ø­ÙØ¸ ÙØ§ØªÙˆØ±Ø© Ø¬Ø¯ÙŠØ¯Ø©)
+        public static void RefreshAllOpenInvoicesViews()
+        {
+            try
+            {
+                if (System.Windows.Application.Current?.MainWindow?.Content is System.Windows.Controls.Frame frame)
+                {
+                    var page = frame.Content;
+                    if (page != null)
+                    {
+                        var refreshMethod = page.GetType().GetMethod("Refresh");
+                        if (refreshMethod != null) refreshMethod.Invoke(page, null);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public void Refresh()
+        {
+            try { LoadInvoices(); } catch { }
+        }
+
+        private void LoadInvoices()
+        {
+            try
+            {
+                // Ø§Ù‚Ø±Ø£ Ø§Ù„ÙÙˆØ§ØªÙŠØ± Ù…Ù† DB ÙˆØ§Ø¹Ø±Ø¶Ù‡Ø§
+                var invoices = LoadInvoicesFromDb();
+                if (InvoicesList != null)
+                {
+                    InvoicesList.ItemsSource = invoices;
+                }
+            }
+            catch { }
+        }
+
+        private System.Collections.Generic.List<InvoiceRow> LoadInvoicesFromDb()
+        {
+            var list = new System.Collections.Generic.List<InvoiceRow>();
+            try
+            {
+                string cs = "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;SSL Mode=Require;Trust Server Certificate=true";
+                using (var conn = new Npgsql.NpgsqlConnection(cs))
+                {
+                    conn.Open();
+                    string sql = @"SELECT i.id, i.invoice_number, i.date, i.type, i.total, i.paid_amount,
+                        COALESCE(p.name, '') AS party_name
+                        FROM invoices i LEFT JOIN parties p ON i.party_id = p.id
+                        ORDER BY i.id DESC LIMIT 100";
+                    using (var cmd = new Npgsql.NpgsqlCommand(sql, conn))
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            list.Add(new InvoiceRow
+                            {
+                                Id = r.IsDBNull(0) ? 0 : r.GetInt32(0),
+                                InvoiceNumber = r.IsDBNull(1) ? "" : r.GetString(1),
+                                Date = r.IsDBNull(2) ? DateTime.MinValue : r.GetDateTime(2),
+                                Type = r.IsDBNull(3) ? "" : r.GetString(3),
+                                Total = r.IsDBNull(4) ? 0 : Convert.ToDecimal(r.GetValue(4)),
+                                Paid = r.IsDBNull(5) ? 0 : Convert.ToDecimal(r.GetValue(5)),
+                                PartyName = r.IsDBNull(6) ? "" : r.GetString(6)
+                            });
+                        }
+                    }
+                }
+            }
+            catch { }
+            return list;
+        }
+
+        public class InvoiceRow
+        {
+            public int Id { get; set; }
+            public string InvoiceNumber { get; set; }
+            public DateTime Date { get; set; }
+            public string Type { get; set; }
+            public decimal Total { get; set; }
+            public decimal Paid { get; set; }
+            public string PartyName { get; set; }
+            public decimal Remaining { get { return Total - Paid; } }
+        }
+}
