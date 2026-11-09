@@ -23,7 +23,7 @@ namespace Techtoon.UI.Views
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
-            if (DataContext is DashboardViewModel vm) vm.LoadDashboard();
+            if (DataContext is DashboardViewModel vm) _ = vm.LoadDashboardAsync();
         }
     }
 }

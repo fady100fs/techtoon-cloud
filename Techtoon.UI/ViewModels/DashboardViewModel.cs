@@ -108,8 +108,8 @@ namespace Techtoon.UI.ViewModels
             TopItems = new ObservableCollection<TopItemData>();
             LowStockItems = new ObservableCollection<TopItemData>();
             OverdueInvoices = new ObservableCollection<OverdueInvoiceData>();
-            RefreshCommand = new UiRelayCommand(_ => LoadDashboard());
-            LoadDashboard();
+            RefreshCommand = new UiRelayCommand(_ => _ = LoadDashboardAsync());
+            _ = LoadDashboardAsync();
         }
 
         public static string GetCS()
@@ -117,7 +117,7 @@ namespace Techtoon.UI.ViewModels
             return Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
         }
 
-        public void LoadDashboard()
+        public async System.Threading.Tasks.Task LoadDashboardAsync()
         {
             Metrics.Clear();
             DailySales.Clear();
@@ -133,7 +133,7 @@ namespace Techtoon.UI.ViewModels
             {
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
-                    conn.Open();
+                    await conn.OpenAsync();
 
                     // 1) مبيعات اليوم
                     decimal todaySales = 0;
@@ -141,7 +141,7 @@ namespace Techtoon.UI.ViewModels
                     using (var cmd = new NpgsqlCommand(@"
                         SELECT COALESCE(SUM(total),0), COUNT(*) 
                         FROM invoices WHERE type='sales' AND DATE(date) = CURRENT_DATE", conn))
-                    using (var r = cmd.ExecuteReader())
+                    await using (var r = await cmd.ExecuteReaderAsync())
                         if (r.Read()) { todaySales = Convert.ToDecimal(r.GetValue(0)); todayCount = r.GetInt32(1); }
                     
                     Metrics.Add(new DashboardMetric { Title = "\u0645\u0628\u064A\u0639\u0627\u062A \u0627\u0644\u064A\u0648\u0645", Value = todaySales.ToString("N2"), Icon = "\uD83D\uDCB0", Color = "#00897B", Subtitle = todayCount + " \u0641\u0627\u062A\u0648\u0631\u0629" });
@@ -180,8 +180,8 @@ namespace Techtoon.UI.ViewModels
                         SELECT TO_CHAR(date, 'YYYY-MM') as month, COALESCE(SUM(total),0)
                         FROM invoices WHERE type='sales' AND date >= CURRENT_DATE - INTERVAL '6 months'
                         GROUP BY month ORDER BY month", conn))
-                    using (var r = cmd.ExecuteReader())
-                        while (r.Read())
+                    await using (var r = await cmd.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
                             MonthlySales.Add(new SalesChartData { Label = r.GetString(0), Sales = Convert.ToDecimal(r.GetValue(1)) });
                         // حساب أقصى مبيعات شهرية
                         if (MonthlySales.Count > 0)
@@ -203,8 +203,8 @@ namespace Techtoon.UI.ViewModels
                         JOIN items i ON il.item_id = i.id
                         WHERE inv.type='sales' AND inv.date >= CURRENT_DATE - INTERVAL '30 days'
                         GROUP BY i.name ORDER BY total DESC LIMIT 5", conn))
-                    using (var r = cmd.ExecuteReader())
-                        while (r.Read())
+                    await using (var r = await cmd.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
                             TopItems.Add(new TopItemData { Name = r.GetString(0), Quantity = Convert.ToDecimal(r.GetValue(1)), Total = Convert.ToDecimal(r.GetValue(2)) });
 
                     // 8) الأصناف منخفضة المخزون
@@ -217,8 +217,8 @@ namespace Techtoon.UI.ViewModels
                         FROM items i
                         WHERE i.min_stock IS NOT NULL AND i.min_stock > 0 AND i.is_kit IS NOT TRUE
                         ORDER BY stock ASC LIMIT 10", conn))
-                    using (var r = cmd.ExecuteReader())
-                        while (r.Read())
+                    await using (var r = await cmd.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
                         {
                             decimal stock = Convert.ToDecimal(r.GetValue(2));
                             decimal min = Convert.ToDecimal(r.GetValue(1));
@@ -233,11 +233,11 @@ namespace Techtoon.UI.ViewModels
                     try
                     {
                         using (var cmd = new NpgsqlCommand("SELECT i.id, i.invoice_number, COALESCE(p.name, ''), i.due_date, i.total, i.paid_amount FROM invoices i LEFT JOIN parties p ON i.party_id = p.id WHERE i.type = 'sales' AND i.status <> 'cancelled' AND i.due_date IS NOT NULL AND i.due_date < CURRENT_DATE AND i.paid_amount < i.total ORDER BY i.due_date ASC LIMIT 20", conn))
-                        using (var r = cmd.ExecuteReader())
+                        await using (var r = await cmd.ExecuteReaderAsync())
                             while (r.Read())
                             {
-                                var total = r.IsDBNull(4) ? 0 : (decimal)r.GetDouble(4);
-                                var paid = r.IsDBNull(5) ? 0 : (decimal)r.GetDouble(5);
+                                var total = r.IsDBNull(4) ? 0m : Convert.ToDecimal(r.GetValue(4));
+                                var paid = r.IsDBNull(5) ? 0m : Convert.ToDecimal(r.GetValue(5));
                                 OverdueInvoices.Add(new OverdueInvoiceData {
                                     Id = r.GetInt32(0),
                                     InvoiceNumber = r.IsDBNull(1) ? "" : r.GetString(1),
