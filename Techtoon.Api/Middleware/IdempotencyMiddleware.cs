@@ -255,7 +255,10 @@ public class IdempotencyMiddleware
     private static async Task WriteProblemAsync(HttpContext context, int status, string detail)
     {
         context.Response.StatusCode = status;
-        context.Response.ContentType = "application/json";
-        await context.Response.WriteAsync("{\"message\":\"" + detail.Replace("\"", "'") + "\"}");
+        context.Response.ContentType = "application/problem+json";
+        var title = status == 409 ? "Conflict" : status == 400 ? "Bad Request" : "Error";
+        var safe = detail.Replace("\"", "'");
+        // P2: RFC 7807 + legacy {message} for backward compat
+        await context.Response.WriteAsync("{\"type\":\"https://httpstatus.io/" + status + "\",\"title\":\"" + title + "\",\"status\":" + status + ",\"detail\":\"" + safe + "\",\"message\":\"" + safe + "\",\"traceId\":\"" + (context.TraceIdentifier ?? "") + "\"}");
     }
 }

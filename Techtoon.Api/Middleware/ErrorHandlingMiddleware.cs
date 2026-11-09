@@ -52,10 +52,14 @@ public class ErrorHandlingMiddleware
     private static async Task WriteError(HttpContext context, HttpStatusCode status, string message)
     {
         context.Response.StatusCode = (int)status;
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
+        // P2: RFC 7807 ProblemDetails + legacy {status,message} for backward compat (Flutter reads message/title/detail)
         var response = new
         {
+            type = $"https://httpstatus.io/{(int)status}",
+            title = status.ToString(),
             status = (int)status,
+            detail = message,
             message,
             traceId = context.TraceIdentifier
         };
