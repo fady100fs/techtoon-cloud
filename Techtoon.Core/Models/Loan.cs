@@ -56,5 +56,11 @@ public class Loan
     [StringLength(50)]
     public string Status { get; set; } = "ACTIVE";
 
+    // P2.19: يطابق prod schema (cash_box_id) — بدونها يخلق EF shadow FK باسم "CashBoxId" ويفشل (42703).
+    [Column("cash_box_id")]
+    public int? CashBoxId { get; set; }
+    [ForeignKey("CashBoxId")]
+    public CashBox? CashBox { get; set; }
+
     public ICollection<LoanInstallment> Installments { get; set; } = new List<LoanInstallment>();
 }

@@ -33,38 +33,58 @@ namespace Techtoon.UI.ViewModels
         public ObservableCollection<AuditLogRow> Logs { get; } = new();
 
         private string _searchText = "";
-        public string SearchText { get => _searchText; set { SetProperty(ref _searchText, value); LoadLogs(); } }
+        public string SearchText { get => _searchText; set { SetProperty(ref _searchText, value); _ = LoadLogsAsync(); } }
         
         private string _statusMessage = "";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         public ICommand RefreshCommand { get; }
+        public ICommand NextPageCommand { get; }
+        public ICommand PrevPageCommand { get; }
+
+        // P0-4 Batch 10: pagination contract مع API
+        private int _page = 1;
+        public int Page { get => _page; set { if (SetProperty(ref _page, System.Math.Max(1, value))) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        private int _pageSize = 50;
+        public int PageSize { get => _pageSize; set { if (SetProperty(ref _pageSize, System.Math.Max(1, value))) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        private int _totalCount;
+        public int TotalCount { get => _totalCount; set { if (SetProperty(ref _totalCount, value)) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        public int TotalPages => PageSize > 0 ? (int)System.Math.Ceiling(TotalCount / (double)PageSize) : 0;
+        public string PageInfo => TotalPages > 0 ? $"صفحة {Page} من {TotalPages} ({TotalCount} سجل)" : $"صفحة {Page} (0 سجل)";
 
         public AuditLogViewModel()
         {
-            RefreshCommand = new RelayCommand(LoadLogs);
-            LoadLogs();
+            RefreshCommand = new RelayCommand(() => _ = LoadLogsAsync());
+            NextPageCommand = new RelayCommand(() => { if (TotalPages == 0 || Page < TotalPages) { Page++; _ = LoadLogsAsync(); } });
+            PrevPageCommand = new RelayCommand(() => { if (Page > 1) { Page--; _ = LoadLogsAsync(); } });
+            _ = LoadLogsAsync();
         }
 
         public static string GetCS() => Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
 
-        public void LoadLogs()
+        public async System.Threading.Tasks.Task LoadLogsAsync()
         {
             Logs.Clear();
             try
             {
                 using var conn = new NpgsqlConnection(GetCS());
-                conn.Open();
+                await conn.OpenAsync();
+                string where = !string.IsNullOrWhiteSpace(SearchText) ? " AND (action ILIKE @q OR entity_type ILIKE @q OR user_name ILIKE @q OR details ILIKE @q)" : "";
+                using (var cc = new NpgsqlCommand("SELECT COUNT(*) FROM app_audit_logs WHERE 1=1" + where, conn))
+                {
+                    if (!string.IsNullOrWhiteSpace(SearchText)) cc.Parameters.AddWithValue("q", "%" + SearchText + "%");
+                    TotalCount = Convert.ToInt32(await cc.ExecuteScalarAsync());
+                }
+                if (TotalPages > 0 && Page > TotalPages) Page = TotalPages;
                 string sql = @"SELECT id, created_at, COALESCE(user_name,''), action, entity_type, entity_id, COALESCE(details,'') 
-                    FROM app_audit_logs WHERE 1=1";
-                if (!string.IsNullOrWhiteSpace(SearchText))
-                    sql += " AND (action ILIKE @q OR entity_type ILIKE @q OR user_name ILIKE @q OR details ILIKE @q)";
-                sql += " ORDER BY created_at DESC LIMIT 500";
+                    FROM app_audit_logs WHERE 1=1" + where + " ORDER BY created_at DESC LIMIT @limit OFFSET @offset";
                 using var cmd = new NpgsqlCommand(sql, conn);
                 if (!string.IsNullOrWhiteSpace(SearchText))
                     cmd.Parameters.AddWithValue("q", "%" + SearchText + "%");
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
+                cmd.Parameters.AddWithValue("limit", PageSize);
+                cmd.Parameters.AddWithValue("offset", (Page - 1) * PageSize);
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
                     Logs.Add(new AuditLogRow
                     {
                         Id = r.GetInt32(0),

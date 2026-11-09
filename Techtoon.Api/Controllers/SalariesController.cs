@@ -16,7 +16,7 @@ public class SalariesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
-        var q = _db.SalaryRecords.OrderByDescending(s => new { s.Year, s.Month });
+        var q = _db.SalaryRecords.OrderByDescending(s => s.Year).ThenByDescending(s => s.Month);
         var total = q.Count();
         var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         return Ok(new
