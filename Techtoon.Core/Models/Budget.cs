@@ -22,5 +22,5 @@ public class Budget
     public int Year { get; set; }
 
     [Column("budgeted_amount")]
-    public double BudgetedAmount { get; set; }
+    public decimal BudgetedAmount { get; set; }
 }

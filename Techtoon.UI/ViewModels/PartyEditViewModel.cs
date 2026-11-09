@@ -14,8 +14,8 @@ public class PartyEditViewModel : ViewModelBase
     private string _type = "customer";
     private string _phone = "";
     private string _address = "";
-    private double _creditLimit;
-    private double _openingBalance;
+    private decimal _creditLimit;
+    private decimal _openingBalance;
     private Account? _account;
     private ObservableCollection<Account> _accounts = new();
     private string _statusMessage = "";
@@ -25,8 +25,8 @@ public class PartyEditViewModel : ViewModelBase
     public string Type { get => _type; set => SetProperty(ref _type, value); }
     public string Phone { get => _phone; set => SetProperty(ref _phone, value); }
     public string Address { get => _address; set => SetProperty(ref _address, value); }
-    public double CreditLimit { get => _creditLimit; set => SetProperty(ref _creditLimit, value); }
-    public double OpeningBalance { get => _openingBalance; set => SetProperty(ref _openingBalance, value); }
+    public decimal CreditLimit { get => _creditLimit; set => SetProperty(ref _creditLimit, value); }
+    public decimal OpeningBalance { get => _openingBalance; set => SetProperty(ref _openingBalance, value); }
     public Account? Account { get => _account; set => SetProperty(ref _account, value); }
     public ObservableCollection<Account> Accounts { get => _accounts; set => SetProperty(ref _accounts, value); }
     public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }

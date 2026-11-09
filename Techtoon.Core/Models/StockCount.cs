@@ -24,11 +24,11 @@ public class StockCount
     public Item? Item { get; set; }
 
     [Column("system_quantity")]
-    public double SystemQuantity { get; set; }
+    public decimal SystemQuantity { get; set; }
 
     [Column("counted_quantity")]
-    public double CountedQuantity { get; set; }
+    public decimal CountedQuantity { get; set; }
 
     [Column("difference")]
-    public double Difference { get; set; }
+    public decimal Difference { get; set; }
 }

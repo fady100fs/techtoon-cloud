@@ -12,10 +12,10 @@ public class ItemEditViewModel : ViewModelBase
     private int _id;
     private string _name = "";
     private string _barcode = "";
-    private double _costPrice;
-    private double _sellPrice;
-    private double _minStock = 10;
-    private double _openingQuantity;
+    private decimal _costPrice;
+    private decimal _sellPrice;
+    private decimal _minStock = 10m;
+    private decimal _openingQuantity;
     private Category? _category;
     private ObservableCollection<Category> _categories = new();
     private string _statusMessage = "";
@@ -23,16 +23,16 @@ public class ItemEditViewModel : ViewModelBase
     public int Id { get => _id; set => SetProperty(ref _id, value); }
     public string Name { get => _name; set => SetProperty(ref _name, value); }
     public string Barcode { get => _barcode; set => SetProperty(ref _barcode, value); }
-    public double CostPrice { get => _costPrice; set => SetProperty(ref _costPrice, value); }
-    public double SellPrice { get => _sellPrice; set => SetProperty(ref _sellPrice, value); }
-    public double MinStock { get => _minStock; set => SetProperty(ref _minStock, value); }
-    public double OpeningQuantity { get => _openingQuantity; set => SetProperty(ref _openingQuantity, value); }
+    public decimal CostPrice { get => _costPrice; set => SetProperty(ref _costPrice, value); }
+    public decimal SellPrice { get => _sellPrice; set => SetProperty(ref _sellPrice, value); }
+    public decimal MinStock { get => _minStock; set => SetProperty(ref _minStock, value); }
+    public decimal OpeningQuantity { get => _openingQuantity; set => SetProperty(ref _openingQuantity, value); }
     public Category? Category { get => _category; set => SetProperty(ref _category, value); }
     public ObservableCollection<Category> Categories { get => _categories; set => SetProperty(ref _categories, value); }
     public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
     public bool IsEdit => Id > 0;
     public string WindowTitle => IsEdit ? "ØªØ¹Ø¯ÙŠÙ„ ØµÙ†Ù" : "ØµÙ†Ù Ø¬Ø¯ÙŠØ¯";
-    public double ProfitMargin => CostPrice > 0 ? Math.Round((SellPrice - CostPrice) / CostPrice * 100, 2) : 0;
+    public decimal ProfitMargin => CostPrice > 0 ? Math.Round((SellPrice - CostPrice) / CostPrice * 100, 2) : 0;
 
     public ICommand SaveCommand { get; }
     public ICommand CancelCommand { get; }
@@ -59,7 +59,7 @@ public class ItemEditViewModel : ViewModelBase
                 {
                     Name = item.Name; Barcode = item.Barcode ?? ""; CostPrice = item.CostPrice; SellPrice = item.SellPrice;
                     MinStock = item.MinStock; Category = Categories.FirstOrDefault(c => c.Id == item.CategoryId);
-                    var stock = await db.StockLevels.Where(s => s.ItemId == Id).SumAsync(s => (double?)s.Quantity) ?? 0;
+                    var stock = await db.StockLevels.Where(s => s.ItemId == Id).SumAsync(s => (decimal?)s.Quantity) ?? 0;
                     OpeningQuantity = stock;
                 }
             }
@@ -91,7 +91,7 @@ public class ItemEditViewModel : ViewModelBase
                     db.StockLevels.Add(new StockLevel { WarehouseId = wh.Id, ItemId = item.Id, Quantity = OpeningQuantity, LastUpdated = DateTime.UtcNow });
                     db.InventoryMovements.Add(new InventoryMovement { ItemId = item.Id, Date = DateTime.UtcNow, Type = "opening", Quantity = OpeningQuantity });
                 }
-                else if (sl != null && Math.Abs(OpeningQuantity - sl.Quantity) > 0.001)
+                else if (sl != null && Math.Abs(OpeningQuantity - sl.Quantity) > 0.001m)
                 {
                     var diff = OpeningQuantity - sl.Quantity; sl.Quantity = OpeningQuantity; sl.LastUpdated = DateTime.UtcNow;
                     db.InventoryMovements.Add(new InventoryMovement { ItemId = item.Id, Date = DateTime.UtcNow, Type = "adjustment", Quantity = diff });

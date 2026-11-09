@@ -26,7 +26,7 @@ public class CostCenter
     public string? ManagerName { get; set; }
 
     [Column("budget_limit")]
-    public double? BudgetLimit { get; set; }
+    public decimal? BudgetLimit { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;

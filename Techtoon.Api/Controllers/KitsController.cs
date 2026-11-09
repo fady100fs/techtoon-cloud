@@ -98,7 +98,7 @@ public class KitsController : ControllerBase
         if (dto.Components == null || !dto.Components.Any())
             return BadRequest(new { message = "يجب إضافة مكون واحد على الأقل" });
 
-        double totalCost = 0;
+        decimal totalCost = 0m;
         foreach (var comp in dto.Components)
         {
             var item = await _db.Items.FindAsync(comp.ComponentItemId);
@@ -158,7 +158,7 @@ public class KitsController : ControllerBase
             var existingComps = _db.KitComponents.Where(kc => kc.KitItemId == id);
             _db.KitComponents.RemoveRange(existingComps);
 
-            double totalCost = 0;
+            decimal totalCost = 0m;
             foreach (var comp in dto.Components)
             {
                 var item = await _db.Items.FindAsync(comp.ComponentItemId);
@@ -247,7 +247,7 @@ public class KitsController : ControllerBase
             select new { kc.Quantity, CostPrice = item.CostPrice }
         ).ToListAsync();
 
-        var totalCost = components.Sum(c => (double)c.Quantity * (double)c.CostPrice);
+        var totalCost = components.Sum(c => (decimal)c.Quantity * (decimal)c.CostPrice);
         kit.CostPrice = Math.Round(totalCost, 4);
         kit.AvgCostPrice = Math.Round(totalCost, 4);
         kit.LastCostRecalculation = DateTime.UtcNow;
@@ -258,7 +258,7 @@ public class KitsController : ControllerBase
 
     [HttpGet("{id}/availability")]
     public async Task<ActionResult<object>> CheckAvailability(
-        int id, [FromQuery, Required] double quantity, [FromQuery] int? warehouseId = null)
+        int id, [FromQuery, Required] decimal quantity, [FromQuery] int? warehouseId = null)
     {
         var kit = await _db.Items.FirstOrDefaultAsync(i => i.Id == id && i.IsKit);
         if (kit == null) return NotFound();
@@ -274,13 +274,13 @@ public class KitsController : ControllerBase
         foreach (var comp in components)
         {
             var needed = comp.Quantity * quantity;
-            double available;
+            decimal available;
 
             if (comp.WarehouseId.HasValue)
             {
                 var stockVal = await _db.StockLevels
                     .Where(sl => sl.WarehouseId == comp.WarehouseId && sl.ItemId == comp.ComponentItemId)
-                    .Select(sl => (double?)sl.Quantity)
+                    .Select(sl => (decimal?)sl.Quantity)
                     .FirstOrDefaultAsync();
                 available = stockVal ?? 0;
             }
@@ -288,15 +288,15 @@ public class KitsController : ControllerBase
             {
                 var stockVal = await _db.StockLevels
                     .Where(sl => sl.WarehouseId == warehouseId && sl.ItemId == comp.ComponentItemId)
-                    .Select(sl => (double?)sl.Quantity)
+                    .Select(sl => (decimal?)sl.Quantity)
                     .FirstOrDefaultAsync();
                 available = stockVal ?? 0;
             }
             else
             {
-                available = (double)(await _db.StockLevels
+                available = (decimal)(await _db.StockLevels
                     .Where(sl => sl.ItemId == comp.ComponentItemId)
-                    .SumAsync(sl => (double?)sl.Quantity) ?? 0);
+                    .SumAsync(sl => (decimal?)sl.Quantity) ?? 0);
             }
 
             if (available < needed)
@@ -327,7 +327,7 @@ public class CreateKitDto
 {
     [Required] public string Name { get; set; } = "";
     public string? Barcode { get; set; }
-    [Required] public double SellPrice { get; set; }
+    [Required] public decimal SellPrice { get; set; }
     [Required] public List<KitComponentDto> Components { get; set; } = new();
 }
 
@@ -335,14 +335,14 @@ public class UpdateKitDto
 {
     public string? Name { get; set; }
     public string? Barcode { get; set; }
-    public double? SellPrice { get; set; }
+    public decimal? SellPrice { get; set; }
     public List<KitComponentDto>? Components { get; set; }
 }
 
 public class KitComponentDto
 {
     [Required] public int ComponentItemId { get; set; }
-    [Required] public double Quantity { get; set; }
+    [Required] public decimal Quantity { get; set; }
     public int? WarehouseId { get; set; }
 }
 

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Techtoon.Core.Models;
@@ -30,7 +30,7 @@ public class Invoice
     public string Type { get; set; } = string.Empty;
 
     [Column("total_amount")]
-    public double TotalAmount { get; set; }
+    public decimal TotalAmount { get; set; }
 
     [Column("status")]
     [StringLength(50)]
@@ -42,23 +42,27 @@ public class Invoice
     public Currency? Currency { get; set; }
 
     [Column("discount_amount")]
-    public double DiscountAmount { get; set; }
+    public decimal DiscountAmount { get; set; }
 
     [Column("discount_percentage")]
-    public double DiscountPercentage { get; set; }
+    public decimal DiscountPercentage { get; set; }
 
     [Column("tax_rate")]
-    public double TaxRate { get; set; } = 14.0;
+    public decimal TaxRate { get; set; } = 14.0m;
 
     [Column("tax_amount")]
-    public double TaxAmount { get; set; }
+    public decimal TaxAmount { get; set; }
 
     [Column("net_amount")]
-    public double NetAmount { get; set; }
+    public decimal NetAmount { get; set; }
 
     [Column("created_by")]
     public int? CreatedBy { get; set; }
 
     public ICollection<InvoiceLine> Lines { get; set; } = new List<InvoiceLine>();
     public ICollection<CostHistory> CostHistories { get; set; } = new List<CostHistory>();
+    [Column("paid_amount")]
+    public decimal PaidAmount { get; set; }
+
 }
+

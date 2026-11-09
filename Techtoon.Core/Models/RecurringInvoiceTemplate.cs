@@ -34,7 +34,7 @@ public class RecurringInvoiceTemplate
     public DateTime NextRunDate { get; set; }
 
     [Column("tax_rate")]
-    public double TaxRate { get; set; } = 14.0;
+    public decimal TaxRate { get; set; } = 14.0m;
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;

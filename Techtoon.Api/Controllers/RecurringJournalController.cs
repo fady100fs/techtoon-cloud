@@ -143,7 +143,7 @@ public class RecurringJournalController : ControllerBase
         _db.JournalEntries.Add(je);
         await _db.SaveChangesAsync();
 
-        double totalDebit = 0, totalCredit = 0;
+        decimal totalDebit = 0, totalCredit = 0m;
         foreach (var line in template.Lines.OrderBy(l => l.LineNumber))
         {
             _db.JournalLines.Add(new JournalLine
@@ -248,8 +248,8 @@ public class CreateRecurringJournalDto
 public class RecurringLineDto
 {
     [Required] public int AccountId { get; set; }
-    public double Debit { get; set; }
-    public double Credit { get; set; }
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
     public string? Description { get; set; }
     public int? CostCenterId { get; set; }
     public string? AmountRule { get; set; }

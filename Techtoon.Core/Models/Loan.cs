@@ -23,10 +23,10 @@ public class Loan
     public string BorrowerName { get; set; } = string.Empty;
 
     [Column("principal_amount")]
-    public double PrincipalAmount { get; set; }
+    public decimal PrincipalAmount { get; set; }
 
     [Column("interest_rate")]
-    public double InterestRate { get; set; }
+    public decimal InterestRate { get; set; }
 
     [Column("loan_date")]
     public DateTime LoanDate { get; set; }
@@ -38,19 +38,19 @@ public class Loan
     public int TermMonths { get; set; }
 
     [Column("installment_amount")]
-    public double InstallmentAmount { get; set; }
+    public decimal InstallmentAmount { get; set; }
 
     [Column("total_interest")]
-    public double TotalInterest { get; set; }
+    public decimal TotalInterest { get; set; }
 
     [Column("total_amount")]
-    public double TotalAmount { get; set; }
+    public decimal TotalAmount { get; set; }
 
     [Column("paid_amount")]
-    public double PaidAmount { get; set; }
+    public decimal PaidAmount { get; set; }
 
     [Column("remaining_amount")]
-    public double RemainingAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
 
     [Column("status")]
     [StringLength(50)]

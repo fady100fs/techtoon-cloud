@@ -96,7 +96,7 @@ public class BankReconciliationController : ControllerBase
 
     [HttpPost("reconciliations/{id}/auto-match")]
     [HasPermission("settings")]
-    public async Task<ActionResult> AutoMatch(int id, [FromQuery] int dateTolerance = 3, [FromQuery] double amountTolerance = 0.01)
+    public async Task<ActionResult> AutoMatch(int id, [FromQuery] int dateTolerance = 3, [FromQuery] decimal amountTolerance =  0.01m)
     {
         var reconciliation = await _db.BankReconciliations.FindAsync(id);
         if (reconciliation == null) return NotFound();
@@ -124,18 +124,18 @@ public class BankReconciliationController : ControllerBase
         int matchesMade = 0;
         foreach (var bankLine in bankLines)
         {
-            double bankAmount = (bankLine.Debit) - (bankLine.Credit);
-            double absBankAmount = Math.Abs(bankAmount);
+            decimal bankAmount = (bankLine.Debit) - (bankLine.Credit);
+            decimal absBankAmount = Math.Abs(bankAmount);
 
             Payment? bestMatch = null;
-            double bestScore = 0;
+            decimal bestScore = 0m;
 
             foreach (var payment in payments)
             {
                 if (Math.Abs(absBankAmount - payment.Amount) > amountTolerance)
                     continue;
 
-                double score = 40;
+                decimal score = 40;
 
                 var dateDiff = Math.Abs((bankLine.TransactionDate - payment.Date).Days);
                 if (dateDiff == 0) score += 30;
@@ -301,8 +301,8 @@ public class CreateReconciliationDto
     [Required] public DateTime PeriodStart { get; set; }
     [Required] public DateTime PeriodEnd { get; set; }
     public int? BankStatementId { get; set; }
-    [Required] public double OpeningBookBalance { get; set; }
-    [Required] public double OpeningBankBalance { get; set; }
-    [Required] public double ClosingBookBalance { get; set; }
-    [Required] public double ClosingBankBalance { get; set; }
+    [Required] public decimal OpeningBookBalance { get; set; }
+    [Required] public decimal OpeningBankBalance { get; set; }
+    [Required] public decimal ClosingBookBalance { get; set; }
+    [Required] public decimal ClosingBankBalance { get; set; }
 }

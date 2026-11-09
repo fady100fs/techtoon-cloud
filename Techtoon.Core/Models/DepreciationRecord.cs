@@ -14,5 +14,5 @@ public class DepreciationRecord
     public DateTime Date { get; set; }
 
     [Column("depreciation_amount")]
-    public double DepreciationAmount { get; set; }
+    public decimal DepreciationAmount { get; set; }
 }

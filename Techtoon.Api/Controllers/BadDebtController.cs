@@ -93,8 +93,8 @@ public class BadDebtController : ControllerBase
         var party = await _db.Parties.FindAsync(dto.PartyId);
         if (party == null) return BadRequest(new { message = "الطرف غير موجود" });
 
-        double originalAmount = dto.OriginalAmount;
-        double remainingAmount = dto.RemainingAmount;
+        decimal originalAmount = dto.OriginalAmount;
+        decimal remainingAmount = dto.RemainingAmount;
 
         if (dto.InvoiceId.HasValue)
         {
@@ -103,8 +103,8 @@ public class BadDebtController : ControllerBase
             if (invoice.PartyId != dto.PartyId)
                 return BadRequest(new { message = "الفاتورة لا تنتمي لهذا الطرف" });
 
-            originalAmount = (double)invoice.NetAmount;
-            remainingAmount = (double)invoice.NetAmount - (double)invoice.PaidAmount;
+            originalAmount = (decimal)invoice.NetAmount;
+            remainingAmount = (decimal)invoice.NetAmount - (decimal)invoice.PaidAmount;
         }
 
         if (dto.WriteoffAmount > remainingAmount)
@@ -231,9 +231,9 @@ public class CreateBadDebtDto
 {
     [Required] public int PartyId { get; set; }
     public int? InvoiceId { get; set; }
-    public double OriginalAmount { get; set; }
-    public double RemainingAmount { get; set; }
-    [Required] public double WriteoffAmount { get; set; }
+    public decimal OriginalAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
+    [Required] public decimal WriteoffAmount { get; set; }
     [Required] public string Reason { get; set; } = "";
     public string? EvidenceFilePath { get; set; }
     public DateTime? WriteoffDate { get; set; }
@@ -244,7 +244,7 @@ public class CreateBadDebtDto
 
 public class ReverseBadDebtDto
 {
-    [Required] public double ReversalAmount { get; set; }
+    [Required] public decimal ReversalAmount { get; set; }
     [Required] public string Reason { get; set; } = "";
     public DateTime? ReversalDate { get; set; }
 }

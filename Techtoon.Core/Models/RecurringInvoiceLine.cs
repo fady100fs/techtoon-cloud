@@ -21,8 +21,8 @@ public class RecurringInvoiceLine
     public Item? Item { get; set; }
 
     [Column("quantity")]
-    public double Quantity { get; set; }
+    public decimal Quantity { get; set; }
 
     [Column("price")]
-    public double Price { get; set; }
+    public decimal Price { get; set; }
 }

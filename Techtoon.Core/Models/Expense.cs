@@ -14,7 +14,7 @@ public class Expense
     public DateTime Date { get; set; } = DateTime.UtcNow;
 
     [Column("amount")]
-    public double Amount { get; set; }
+    public decimal Amount { get; set; }
 
     [Column("description")]
     public string Description { get; set; } = string.Empty;

@@ -52,7 +52,7 @@ public class PettyCashController : ControllerBase
                 c.ExpectedSettlementDate,
                 c.Status,
                 c.Description,
-                TotalExpenses = _db.PettyCashExpenses.Where(e => e.CustodyId == c.Id && e.Status != "rejected").Sum(e => (double?)e.Amount) ?? 0
+                TotalExpenses = _db.PettyCashExpenses.Where(e => e.CustodyId == c.Id && e.Status != "rejected").Sum(e => (decimal?)e.Amount) ?? 0
             })
             .ToListAsync();
 
@@ -168,7 +168,7 @@ public class PettyCashController : ControllerBase
 
         var totalExpenses = await _db.PettyCashExpenses
             .Where(e => e.CustodyId == custodyId && e.Status != "rejected")
-            .SumAsync(e => (double?)e.Amount) ?? 0;
+            .SumAsync(e => (decimal?)e.Amount) ?? 0;
         var available = custody.Amount - totalExpenses;
 
         if (dto.Amount > available)
@@ -302,7 +302,7 @@ public class PettyCashController : ControllerBase
                 c.ExpectedSettlementDate,
                 DaysOpen = (today - c.IssuedDate).Days,
                 IsOverdue = c.ExpectedSettlementDate.HasValue && c.ExpectedSettlementDate < today,
-                TotalExpenses = _db.PettyCashExpenses.Where(e => e.CustodyId == c.Id && e.Status != "rejected").Sum(e => (double?)e.Amount) ?? 0
+                TotalExpenses = _db.PettyCashExpenses.Where(e => e.CustodyId == c.Id && e.Status != "rejected").Sum(e => (decimal?)e.Amount) ?? 0
             })
             .OrderByDescending(c => c.IsOverdue)
             .ThenBy(c => c.ExpectedSettlementDate)
@@ -321,7 +321,7 @@ public class PettyCashController : ControllerBase
 public class CreateCustodyDto
 {
     [Required] public int EmployeeId { get; set; }
-    [Required] public double Amount { get; set; }
+    [Required] public decimal Amount { get; set; }
     public string? Currency { get; set; }
     [Required] public int CashBoxId { get; set; }
     [Required] public int CustodyAccountId { get; set; }
@@ -333,7 +333,7 @@ public class CreateCustodyDto
 public class CreateExpenseDto
 {
     public DateTime? ExpenseDate { get; set; }
-    [Required] public double Amount { get; set; }
+    [Required] public decimal Amount { get; set; }
     public int? ExpenseCategoryId { get; set; }
     public int? ExpenseAccountId { get; set; }
     [Required] public string Description { get; set; } = "";
@@ -345,8 +345,8 @@ public class SettleCustodyDto
 {
     public DateTime? SettlementDate { get; set; }
     [Required] public int CashBoxId { get; set; }
-    [Required] public double ReturnedAmount { get; set; }
-    public double ShortageAmount { get; set; }
+    [Required] public decimal ReturnedAmount { get; set; }
+    public decimal ShortageAmount { get; set; }
     public int? ShortageAccountId { get; set; }
     public string? Notes { get; set; }
 }

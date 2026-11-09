@@ -19,7 +19,7 @@ public class InvoicePayment
     public DateTime Date { get; set; } = DateTime.UtcNow;
 
     [Column("amount")]
-    public double Amount { get; set; }
+    public decimal Amount { get; set; }
 
     [Column("payment_method")]
     [StringLength(50)]

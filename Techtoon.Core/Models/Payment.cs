@@ -19,7 +19,7 @@ public class Payment
     public Party? Party { get; set; }
 
     [Column("amount")]
-    public double Amount { get; set; }
+    public decimal Amount { get; set; }
 
     [Column("payment_type")]
     [StringLength(50)]

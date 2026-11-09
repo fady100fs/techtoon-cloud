@@ -12,7 +12,7 @@ namespace Techtoon.UI.Views
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public double CostPrice { get; set; }
+        public decimal CostPrice { get; set; }
         public string DisplayText => Name + " (" + CostPrice.ToString("N2") + ")";
     }
 
@@ -21,9 +21,9 @@ namespace Techtoon.UI.Views
         public int Id { get; set; }
         public int ComponentItemId { get; set; }
         public string ComponentName { get; set; }
-        public double Quantity { get; set; }
-        public double UnitCost { get; set; }
-        public double TotalCost => Quantity * UnitCost;
+        public decimal Quantity { get; set; }
+        public decimal UnitCost { get; set; }
+        public decimal TotalCost => Quantity * UnitCost;
     }
 
     public partial class ItemEditWindow : Window
@@ -50,10 +50,10 @@ namespace Techtoon.UI.Views
                         Id = r.GetInt32(0),
                         Name = r.IsDBNull(1) ? "" : r.GetString(1),
                         Barcode = r.IsDBNull(2) ? "" : r.GetString(2),
-                        SellPrice = r.IsDBNull(3) ? 0 : r.GetDouble(3),
-                        CostPrice = r.IsDBNull(4) ? 0 : r.GetDouble(4),
-                        MinStock = r.IsDBNull(5) ? 0 : r.GetDouble(5),
-                        OpeningQuantity = r.IsDBNull(6) ? 0 : r.GetDouble(6)
+                        SellPrice = r.IsDBNull(3) ? 0m : r.GetDecimal(3),
+                        CostPrice = r.IsDBNull(4) ? 0m : r.GetDecimal(4),
+                        MinStock = r.IsDBNull(5) ? 0m : r.GetDecimal(5),
+                        OpeningQuantity = r.IsDBNull(6) ? 0m : r.GetDecimal(6)
                     };
                 }
             } catch { }
@@ -97,7 +97,7 @@ namespace Techtoon.UI.Views
                 using var cmd = new NpgsqlCommand(sql, conn);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
-                    CmbComponent.Items.Add(new ComponentItemOption { Id = r.GetInt32(0), Name = r.GetString(1), CostPrice = r.GetDouble(2) });
+                    CmbComponent.Items.Add(new ComponentItemOption { Id = r.GetInt32(0), Name = r.GetString(1), CostPrice = r.GetDecimal(2) });
             } catch { }
         }
 
@@ -112,10 +112,10 @@ namespace Techtoon.UI.Views
                 {
                     TxtName.Text = r.IsDBNull(0) ? "" : r.GetString(0);
                     TxtBarcode.Text = r.IsDBNull(1) ? "" : r.GetString(1);
-                    TxtSellPrice.Text = (r.IsDBNull(2) ? 0 : r.GetDouble(2)).ToString("N2");
-                    TxtCostPrice.Text = (r.IsDBNull(3) ? 0 : r.GetDouble(3)).ToString("N2");
-                    TxtMinStock.Text = (r.IsDBNull(4) ? 0 : r.GetDouble(4)).ToString("N2");
-                    TxtOpeningQty.Text = (r.IsDBNull(5) ? 0 : r.GetDouble(5)).ToString("N2");
+                    TxtSellPrice.Text = (r.IsDBNull(2) ? 0m : r.GetDecimal(2)).ToString("N2");
+                    TxtCostPrice.Text = (r.IsDBNull(3) ? 0m : r.GetDecimal(3)).ToString("N2");
+                    TxtMinStock.Text = (r.IsDBNull(4) ? 0m : r.GetDecimal(4)).ToString("N2");
+                    TxtOpeningQty.Text = (r.IsDBNull(5) ? 0m : r.GetDecimal(5)).ToString("N2");
                     ChkActive.IsChecked = r.IsDBNull(7) ? true : r.GetBoolean(7);
                     ChkIsKit.IsChecked = r.IsDBNull(8) ? false : r.GetBoolean(8);
                 }
@@ -133,7 +133,7 @@ namespace Techtoon.UI.Views
                 cmd.Parameters.AddWithValue("kitId", kitItemId);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
-                    _kitComponents.Add(new KitComponentRow { Id = r.GetInt32(0), ComponentItemId = r.GetInt32(1), ComponentName = r.GetString(2), Quantity = r.GetDouble(3), UnitCost = r.GetDouble(4) });
+                    _kitComponents.Add(new KitComponentRow { Id = r.GetInt32(0), ComponentItemId = r.GetInt32(1), ComponentName = r.GetString(2), Quantity = r.GetDecimal(3), UnitCost = r.GetDecimal(4) });
             } catch { }
         }
 
@@ -153,8 +153,8 @@ namespace Techtoon.UI.Views
         {
             try {
                 if (CmbComponent.SelectedItem is not ComponentItemOption selected) return;
-                double qty = 1;
-                if (!double.TryParse(TxtComponentQty.Text, out qty) || qty <= 0) return;
+                decimal qty = 1;
+                if (!decimal.TryParse(TxtComponentQty.Text, out qty) || qty <= 0) return;
                 var existing = _kitComponents.FirstOrDefault(c => c.ComponentItemId == selected.Id);
                 if (existing != null) { existing.Quantity += qty; DgKitComponents.Items.Refresh(); }
                 else { _kitComponents.Add(new KitComponentRow { Id = 0, ComponentItemId = selected.Id, ComponentName = selected.Name, Quantity = qty, UnitCost = selected.CostPrice }); }
@@ -174,7 +174,7 @@ namespace Techtoon.UI.Views
 
         private void UpdateTotalKitCost()
         {
-            double total = _kitComponents.Sum(c => c.TotalCost);
+            decimal total = _kitComponents.Sum(c => c.TotalCost);
             LblTotalKitCost.Text = total.ToString("N2");
             TxtCostPrice.Text = total.ToString("N2");
         }
@@ -185,11 +185,11 @@ namespace Techtoon.UI.Views
                 if (string.IsNullOrWhiteSpace(TxtName.Text)) return;
                 bool isKit = ChkIsKit.IsChecked == true;
                 if (isKit && _kitComponents.Count == 0) return;
-                double sellPrice, costPrice, minStock, openingQty;
-                double.TryParse(TxtSellPrice.Text, out sellPrice);
-                double.TryParse(TxtCostPrice.Text, out costPrice);
-                double.TryParse(TxtMinStock.Text, out minStock);
-                double.TryParse(TxtOpeningQty.Text, out openingQty);
+                decimal sellPrice, costPrice, minStock, openingQty;
+                decimal.TryParse(TxtSellPrice.Text, out sellPrice);
+                decimal.TryParse(TxtCostPrice.Text, out costPrice);
+                decimal.TryParse(TxtMinStock.Text, out minStock);
+                decimal.TryParse(TxtOpeningQty.Text, out openingQty);
                 if (isKit) { costPrice = _kitComponents.Sum(c => c.TotalCost); openingQty = 0; }
 
                 using var conn = new NpgsqlConnection(GetCS()); conn.Open();

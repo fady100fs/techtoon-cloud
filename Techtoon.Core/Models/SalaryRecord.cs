@@ -22,34 +22,34 @@ public class SalaryRecord
     public int Year { get; set; }
 
     [Column("basic_salary")]
-    public double BasicSalary { get; set; }
+    public decimal BasicSalary { get; set; }
 
     [Column("allowances")]
-    public double Allowances { get; set; }
+    public decimal Allowances { get; set; }
 
     [Column("overtime")]
-    public double Overtime { get; set; }
+    public decimal Overtime { get; set; }
 
     [Column("bonus")]
-    public double Bonus { get; set; }
+    public decimal Bonus { get; set; }
 
     [Column("gross_salary")]
-    public double GrossSalary { get; set; }
+    public decimal GrossSalary { get; set; }
 
     [Column("social_insurance")]
-    public double SocialInsurance { get; set; }
+    public decimal SocialInsurance { get; set; }
 
     [Column("tax")]
-    public double Tax { get; set; }
+    public decimal Tax { get; set; }
 
     [Column("other_deductions")]
-    public double OtherDeductions { get; set; }
+    public decimal OtherDeductions { get; set; }
 
     [Column("total_deductions")]
-    public double TotalDeductions { get; set; }
+    public decimal TotalDeductions { get; set; }
 
     [Column("net_salary")]
-    public double NetSalary { get; set; }
+    public decimal NetSalary { get; set; }
 
     [Column("payment_date")]
     public DateTime? PaymentDate { get; set; }

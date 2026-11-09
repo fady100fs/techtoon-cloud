@@ -22,16 +22,16 @@ public class LoanInstallment
     public DateTime DueDate { get; set; }
 
     [Column("principal_amount")]
-    public double PrincipalAmount { get; set; }
+    public decimal PrincipalAmount { get; set; }
 
     [Column("interest_amount")]
-    public double InterestAmount { get; set; }
+    public decimal InterestAmount { get; set; }
 
     [Column("total_amount")]
-    public double TotalAmount { get; set; }
+    public decimal TotalAmount { get; set; }
 
     [Column("paid_amount")]
-    public double PaidAmount { get; set; }
+    public decimal PaidAmount { get; set; }
 
     [Column("paid_date")]
     public DateTime? PaidDate { get; set; }

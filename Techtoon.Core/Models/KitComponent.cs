@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Techtoon.Core.Models;
@@ -21,5 +21,9 @@ public class KitComponent
     public Item? ComponentItem { get; set; }
 
     [Column("quantity")]
-    public double Quantity { get; set; } = 1.0;
+    public decimal Quantity { get; set; } = 1.0m;
+    [Column("warehouse_id")]
+    public int? WarehouseId { get; set; }
+
 }
+

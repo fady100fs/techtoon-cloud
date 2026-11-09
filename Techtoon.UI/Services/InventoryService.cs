@@ -24,7 +24,7 @@ public static class InventoryService
                 db.StockLevels.Add(sl);
             }
             
-            double qtyChange = invoice.Type == "sale" ? -line.Quantity : line.Quantity;
+            decimal qtyChange = invoice.Type == "sale" ? -line.Quantity : line.Quantity;
             sl.Quantity += qtyChange;
             sl.LastUpdated = DateTime.UtcNow;
             

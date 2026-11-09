@@ -16,7 +16,7 @@ public class CostAllocation
     public Account? Account { get; set; }
 
     [Column("allocation_percentage")]
-    public double AllocationPercentage { get; set; }
+    public decimal AllocationPercentage { get; set; }
 
     [Column("month")]
     public int Month { get; set; }

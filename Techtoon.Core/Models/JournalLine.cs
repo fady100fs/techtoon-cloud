@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Techtoon.Core.Models;
@@ -21,8 +21,12 @@ public class JournalLine
     public Account? Account { get; set; }
 
     [Column("debit")]
-    public double Debit { get; set; }
+    public decimal Debit { get; set; }
 
     [Column("credit")]
-    public double Credit { get; set; }
+    public decimal Credit { get; set; }
+    [Column("description")]
+    public string? Description { get; set; }
+
 }
+

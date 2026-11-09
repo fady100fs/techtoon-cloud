@@ -32,10 +32,10 @@ public class CashBox
     public string? ResponsiblePerson { get; set; }
 
     [Column("max_limit")]
-    public double? MaxLimit { get; set; }
+    public decimal? MaxLimit { get; set; }
 
     [Column("opening_balance")]
-    public double OpeningBalance { get; set; }
+    public decimal OpeningBalance { get; set; }
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;

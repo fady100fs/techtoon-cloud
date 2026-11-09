@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Techtoon.Core.Models;
@@ -19,19 +19,19 @@ public class Item
     public string? Barcode { get; set; }
 
     [Column("cost_price")]
-    public double CostPrice { get; set; }
+    public decimal CostPrice { get; set; }
 
     [Column("sell_price")]
-    public double SellPrice { get; set; }
+    public decimal SellPrice { get; set; }
 
     [Column("is_kit")]
     public bool IsKit { get; set; }
 
     [Column("min_stock")]
-    public double MinStock { get; set; } = 10.0;
+    public decimal MinStock { get; set; } = 10.0m;
 
     [Column("opening_quantity")]
-    public double OpeningQuantity { get; set; }
+    public decimal OpeningQuantity { get; set; }
 
     [Column("category_id")]
     public int? CategoryId { get; set; }
@@ -40,10 +40,10 @@ public class Item
     public Category? Category { get; set; }
 
     [Column("avg_cost_price")]
-    public double AvgCostPrice { get; set; }
+    public decimal AvgCostPrice { get; set; }
 
     [Column("total_purchased_qty")]
-    public double TotalPurchasedQty { get; set; }
+    public decimal TotalPurchasedQty { get; set; }
 
     [Column("inventory_account_id")]
     public int? InventoryAccountId { get; set; }
@@ -77,8 +77,12 @@ public class Item
     public string SearchDisplay => DisplayCode + " - " + Name;
 
     [NotMapped]
-    public double CurrentStock { get; set; }
+    public decimal CurrentStock { get; set; }
 
     [NotMapped]
     public bool IsSelected { get; set; }
+    [Column("last_cost_recalculation")]
+    public DateTime? LastCostRecalculation { get; set; }
+
 }
+

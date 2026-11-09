@@ -21,7 +21,7 @@ public class StockLevel
     public Item? Item { get; set; }
 
     [Column("quantity")]
-    public double Quantity { get; set; }
+    public decimal Quantity { get; set; }
 
     [Column("last_updated")]
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;

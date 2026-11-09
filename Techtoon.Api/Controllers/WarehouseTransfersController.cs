@@ -323,18 +323,18 @@ public class CreateTransferDto
 public class TransferLineDto
 {
     [Required] public int ItemId { get; set; }
-    [Required] public double RequestedQuantity { get; set; }
+    [Required] public decimal RequestedQuantity { get; set; }
 }
 
 public class ShipTransferDto
 {
-    public Dictionary<int, double> ShippedQuantities { get; set; } = new();
+    public Dictionary<int, decimal> ShippedQuantities { get; set; } = new();
 }
 
 public class ReceiveTransferDto
 {
-    public Dictionary<int, double> ReceivedQuantities { get; set; } = new();
-    public Dictionary<int, double>? DamagedQuantities { get; set; }
+    public Dictionary<int, decimal> ReceivedQuantities { get; set; } = new();
+    public Dictionary<int, decimal>? DamagedQuantities { get; set; }
 }
 
 public class CancelDto

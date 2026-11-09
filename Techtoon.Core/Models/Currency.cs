@@ -23,7 +23,7 @@ public class Currency
     public string Symbol { get; set; } = string.Empty;
 
     [Column("exchange_rate")]
-    public double ExchangeRate { get; set; } = 1.0;
+    public decimal ExchangeRate { get; set; } = 1.0m;
 
     [Column("is_default")]
     public bool IsDefault { get; set; }

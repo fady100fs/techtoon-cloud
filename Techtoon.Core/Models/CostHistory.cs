@@ -21,13 +21,13 @@ public class CostHistory
     public Invoice? Invoice { get; set; }
 
     [Column("purchase_price")]
-    public double PurchasePrice { get; set; }
+    public decimal PurchasePrice { get; set; }
 
     [Column("quantity")]
-    public double Quantity { get; set; }
+    public decimal Quantity { get; set; }
 
     [Column("total_cost")]
-    public double TotalCost { get; set; }
+    public decimal TotalCost { get; set; }
 
     [Column("purchase_date")]
     public DateTime PurchaseDate { get; set; }

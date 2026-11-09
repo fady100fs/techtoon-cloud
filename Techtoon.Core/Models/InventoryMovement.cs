@@ -23,7 +23,7 @@ public class InventoryMovement
     public string Type { get; set; } = string.Empty;
 
     [Column("quantity")]
-    public double Quantity { get; set; }
+    public decimal Quantity { get; set; }
 
     [Column("reference_id")]
     public int? ReferenceId { get; set; }

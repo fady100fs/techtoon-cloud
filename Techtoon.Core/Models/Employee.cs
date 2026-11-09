@@ -30,19 +30,19 @@ public class Employee
     public DateTime HireDate { get; set; }
 
     [Column("basic_salary")]
-    public double BasicSalary { get; set; }
+    public decimal BasicSalary { get; set; }
 
     [Column("allowances")]
-    public double Allowances { get; set; }
+    public decimal Allowances { get; set; }
 
     [Column("deductions")]
-    public double Deductions { get; set; }
+    public decimal Deductions { get; set; }
 
     [Column("social_insurance")]
-    public double SocialInsurance { get; set; }
+    public decimal SocialInsurance { get; set; }
 
     [Column("tax_rate")]
-    public double TaxRate { get; set; }
+    public decimal TaxRate { get; set; }
 
     [Column("status")]
     [StringLength(50)]

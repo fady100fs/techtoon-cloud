@@ -142,10 +142,10 @@ namespace Techtoon.UI.ViewModels
                         item.Id = r.GetInt32(0);
                         item.Name = r.IsDBNull(1) ? "" : r.GetString(1);
                         item.Barcode = r.IsDBNull(2) ? "" : r.GetString(2);
-                        item.SellPrice = r.IsDBNull(3) ? 0 : r.GetDouble(3);
-                        item.CostPrice = r.IsDBNull(4) ? 0 : r.GetDouble(4);
-                        item.MinStock = r.IsDBNull(5) ? 0 : r.GetDouble(5);
-                        item.OpeningQuantity = r.IsDBNull(6) ? 0 : r.GetDouble(6);
+                        item.SellPrice = r.IsDBNull(3) ? 0m : r.GetDecimal(3);
+                        item.CostPrice = r.IsDBNull(4) ? 0m : r.GetDecimal(4);
+                        item.MinStock = r.IsDBNull(5) ? 0m : r.GetDecimal(5);
+                        item.OpeningQuantity = r.IsDBNull(6) ? 0m : r.GetDecimal(6);
                     }
                 }
                 var win = new Views.ItemEditWindow(item);
@@ -248,9 +248,9 @@ namespace Techtoon.UI.ViewModels
                         if (parts.Length < 4) continue;
                         string name = parts[0].Trim();
                         string barcode = parts.Length > 1 ? parts[1].Trim() : "";
-                        double sellPrice = 0, costPrice = 0;
-                        double.TryParse(parts.Length > 2 ? parts[2].Trim() : "0", out sellPrice);
-                        double.TryParse(parts.Length > 3 ? parts[3].Trim() : "0", out costPrice);
+                        decimal sellPrice = 0, costPrice = 0;
+                        decimal.TryParse(parts.Length > 2 ? parts[2].Trim() : "0", out sellPrice);
+                        decimal.TryParse(parts.Length > 3 ? parts[3].Trim() : "0", out costPrice);
                         using var cmd = new NpgsqlCommand(@"INSERT INTO items (name, barcode, sell_price, cost_price, is_active, opening_quantity)
                             VALUES (@name, @bc, @sp, @cp, TRUE, 0) ON CONFLICT DO NOTHING", conn);
                         cmd.Parameters.AddWithValue("name", name);

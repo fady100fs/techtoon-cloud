@@ -22,7 +22,7 @@ public class FixedAsset
     public DateTime PurchaseDate { get; set; }
 
     [Column("purchase_cost")]
-    public double PurchaseCost { get; set; }
+    public decimal PurchaseCost { get; set; }
 
     [Column("useful_life_years")]
     public int UsefulLifeYears { get; set; }
@@ -32,7 +32,7 @@ public class FixedAsset
     public string DepreciationMethod { get; set; } = "STRAIGHT_LINE";
 
     [Column("net_book_value")]
-    public double NetBookValue { get; set; }
+    public decimal NetBookValue { get; set; }
 
     [Column("status")]
     [StringLength(50)]

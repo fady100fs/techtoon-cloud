@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Techtoon.Core.Models;
@@ -29,7 +29,7 @@ public class WarehouseTransfer
     public Item? Item { get; set; }
 
     [Column("quantity")]
-    public double Quantity { get; set; }
+    public decimal Quantity { get; set; }
 
     [Column("notes")]
     public string? Notes { get; set; }
@@ -37,4 +37,17 @@ public class WarehouseTransfer
     [Column("status")]
     [StringLength(50)]
     public string Status { get; set; } = "completed";
+    [Column("transfer_number")] public string? TransferNumber { get; set; }
+    [Column("shipped_quantity")] public decimal ShippedQuantity { get; set; }
+    [Column("received_quantity")] public decimal ReceivedQuantity { get; set; }
+    [Column("approved_by")] public int? ApprovedBy { get; set; }
+    [Column("approved_at")] public DateTime? ApprovedAt { get; set; }
+    [Column("shipped_at")] public DateTime? ShippedAt { get; set; }
+    [Column("received_at")] public DateTime? ReceivedAt { get; set; }
+    [Column("cancelled_at")] public DateTime? CancelledAt { get; set; }
+    [Column("cancelled_by")] public int? CancelledBy { get; set; }
+    [Column("cancellation_reason")] public string? CancellationReason { get; set; }
+    public ICollection<WarehouseTransferLine> Lines { get; set; } = new List<WarehouseTransferLine>();
+
 }
+

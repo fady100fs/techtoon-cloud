@@ -21,14 +21,14 @@ public class InvoiceLine
     public Item? Item { get; set; }
 
     [Column("quantity")]
-    public double Quantity { get; set; }
+    public decimal Quantity { get; set; }
 
     [Column("price")]
-    public double Price { get; set; }
+    public decimal Price { get; set; }
 
     [Column("total")]
-    public double Total { get; set; }
+    public decimal Total { get; set; }
 
     [Column("cost_price")]
-    public double CostPrice { get; set; }
+    public decimal CostPrice { get; set; }
 }

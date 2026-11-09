@@ -26,10 +26,10 @@ public class Party
     public string? Address { get; set; }
 
     [Column("credit_limit")]
-    public double CreditLimit { get; set; }
+    public decimal CreditLimit { get; set; }
 
     [Column("opening_balance")]
-    public double OpeningBalance { get; set; }
+    public decimal OpeningBalance { get; set; }
 
     [Column("account_id")]
     public int AccountId { get; set; }
