@@ -28,3 +28,22 @@ Techtoon.Streamlit/database.py
 *.session
 *.pma
 throttle_store.dat
+
+# === cleanup: generated/junk (auto) ===
+__pycache__/
+*.pyc
+*.pyo
+*.backup
+*.backup_*
+*.bak
+*.log
+*.zip
+full_project/
+techtoon_deployment_package/
+techtoon_deployment_package.zip
+_phase1_audit.txt
+PROJECT_ERROR_BASELINE.md
+Techtoon_Full_Audit_Report_Phase1.pdf
+models.py.backup
+services.py.backup
+Techtoon.Mobile/.metadata
