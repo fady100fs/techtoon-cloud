@@ -75,14 +75,14 @@ namespace Techtoon.UI.ViewModels
 
         public ReportsViewModel()
         {
-            SearchCommand = new UiRelayCommand(_ => LoadReport(), null);
+            SearchCommand = new UiRelayCommand(_ => _ = LoadReportAsync(), null);
             TodayCommand = new UiRelayCommand(_ => SetPeriod("today"), null);
             WeekCommand = new UiRelayCommand(_ => SetPeriod("week"), null);
             MonthCommand = new UiRelayCommand(_ => SetPeriod("month"), null);
             QuarterCommand = new UiRelayCommand(_ => SetPeriod("quarter"), null);
             YearCommand = new UiRelayCommand(_ => SetPeriod("year"), null);
             ExportPdfCommand = new UiRelayCommand(_ => ExportPdf(), null);
-            LoadReport();
+            _ = LoadReportAsync();
         }
 
         private void SetPeriod(string period)
@@ -116,29 +116,29 @@ namespace Techtoon.UI.ViewModels
                     PeriodLabel = "آخر سنة";
                     break;
             }
-            LoadReport();
+            _ = LoadReportAsync();
         }
 
-        public void LoadReport()
+        public async System.Threading.Tasks.Task LoadReportAsync()
         {
             if (ReportType == "sales")
             {
-                LoadSalesReport();
+                await LoadSalesReportAsync();
             }
             else
             {
-                LoadInventoryReport();
+                await LoadInventoryReportAsync();
             }
         }
 
-        private void LoadSalesReport()
+        private async System.Threading.Tasks.Task LoadSalesReportAsync()
         {
             SalesData.Clear();
             NpgsqlConnection conn = null;
             try
             {
                 conn = new NpgsqlConnection(_connectionString);
-                conn.Open();
+                await conn.OpenAsync();
                 using (var cmd = new NpgsqlCommand(
                     "SELECT i.date, i.invoice_number, p.name, i.total, i.paid_amount " +
                     "FROM invoices i LEFT JOIN parties p ON i.party_id = p.id " +
@@ -147,9 +147,9 @@ namespace Techtoon.UI.ViewModels
                 {
                     cmd.Parameters.AddWithValue("@from", FromDate);
                     cmd.Parameters.AddWithValue("@to", ToDate.AddDays(1));
-                    using (var reader = cmd.ExecuteReader())
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        while (reader.Read())
+                        while (await reader.ReadAsync())
                         {
                             var total = reader.IsDBNull(3) ? 0m : reader.GetDecimal(3);
                             var paid = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4);
@@ -176,25 +176,25 @@ namespace Techtoon.UI.ViewModels
             }
         }
 
-        private void LoadInventoryReport()
+        private async System.Threading.Tasks.Task LoadInventoryReportAsync()
         {
             InventoryData.Clear();
             NpgsqlConnection conn = null;
             try
             {
                 conn = new NpgsqlConnection(_connectionString);
-                conn.Open();
+                await conn.OpenAsync();
                 using (var cmd = new NpgsqlCommand(
                     "SELECT name, barcode, opening_quantity, avg_cost_price, sell_price " +
                     "FROM items WHERE is_active = TRUE ORDER BY name", conn))
                 {
-                    using (var reader = cmd.ExecuteReader())
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        while (reader.Read())
+                        while (await reader.ReadAsync())
                         {
-                            var qty = reader.IsDBNull(2) ? 0m : (decimal)reader.GetDouble(2);
-                            var cost = reader.IsDBNull(3) ? 0m : (decimal)reader.GetDouble(3);
-                            var sell = reader.IsDBNull(4) ? 0m : (decimal)reader.GetDouble(4);
+                            var qty = reader.IsDBNull(2) ? 0m : Convert.ToDecimal(reader.GetValue(2));
+                            var cost = reader.IsDBNull(3) ? 0m : Convert.ToDecimal(reader.GetValue(3));
+                            var sell = reader.IsDBNull(4) ? 0m : Convert.ToDecimal(reader.GetValue(4));
                             InventoryData.Add(new InventoryReportItem
                             {
                                 ItemName = reader.IsDBNull(0) ? "" : reader.GetString(0),

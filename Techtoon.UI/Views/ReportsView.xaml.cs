@@ -27,7 +27,7 @@ namespace Techtoon.UI.Views
                     dgSales.Visibility = Visibility.Collapsed;
                     dgInventory.Visibility = Visibility.Visible;
                 }
-                vm.LoadReport();
+                _ = vm.LoadReportAsync();
             }
         }
     }
