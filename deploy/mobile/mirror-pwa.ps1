@@ -52,4 +52,11 @@ $before = ([regex]::Matches($txt, [regex]::Escape('https://techtoon-api.fly.dev'
 $txt = $txt.Replace('https://techtoon-api.fly.dev', $BaseUrl)
 [System.IO.File]::WriteAllText($mainJs, $txt, (New-Object System.Text.UTF8Encoding($false)))
 
+# Cache-bust the entry points so browsers with a stale cached bundle fetch fresh.
+$indexHtml = Join-Path $Destination 'index.html'
+$ih = [System.IO.File]::ReadAllText($indexHtml)
+$ih = $ih.Replace("flutter_service_worker.js?v=1498177836", "flutter_service_worker.js?v=1498177837")
+$ih = $ih.Replace("scriptTag.src = 'main.dart.js';", "scriptTag.src = 'main.dart.js?v=2';")
+[System.IO.File]::WriteAllText($indexHtml, $ih, (New-Object System.Text.UTF8Encoding($false)))
+
 Write-Host ("downloaded {0} files, {1:N0} bytes; api url rewrites: {2}" -f $paths.Count, $total, $before)
