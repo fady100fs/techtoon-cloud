@@ -177,7 +177,25 @@ namespace Techtoon.UI.ViewModels
             var sel = Items.Where(i => i.IsSelected).ToList();
             if (sel.Count == 0) return;
             if (System.Windows.MessageBox.Show("حذف " + sel.Count + " صنف؟", "تأكيد", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes) return;
-            try { using var conn = new NpgsqlConnection(GetCS()); conn.Open(); foreach (var item in sel) { using var c1 = new NpgsqlCommand("DELETE FROM inventory_movements WHERE item_id=@id", conn); c1.Parameters.AddWithValue("id", item.Id); c1.ExecuteNonQuery(); using var c2 = new NpgsqlCommand("DELETE FROM items WHERE id=@id", conn); c2.Parameters.AddWithValue("id", item.Id); c2.ExecuteNonQuery(); } StatusMessage = "حذف " + sel.Count + " صنف"; LoadItems(); }
+            try
+            {
+                using var conn = new NpgsqlConnection(GetCS());
+                conn.Open();
+                using var tran = conn.BeginTransaction();
+                try
+                {
+                    var ids = sel.Select(i => i.Id).ToArray();
+                    // P0-4 Batch 5: batch delete with ANY (was N+1 per-row DELETEs)
+                    using (var mCmd = new NpgsqlCommand("DELETE FROM inventory_movements WHERE item_id = ANY(@ids)", conn, tran))
+                    { mCmd.Parameters.AddWithValue("ids", ids); mCmd.ExecuteNonQuery(); }
+                    using (var dCmd = new NpgsqlCommand("DELETE FROM items WHERE id = ANY(@ids)", conn, tran))
+                    { dCmd.Parameters.AddWithValue("ids", ids); dCmd.ExecuteNonQuery(); }
+                    tran.Commit();
+                }
+                catch { try { tran.Rollback(); } catch { } throw; }
+                StatusMessage = "حذف " + sel.Count + " صنف";
+                LoadItems();
+            }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
 
@@ -198,7 +216,25 @@ namespace Techtoon.UI.ViewModels
             btnOk.Click += (s, e) => { whId = combo.SelectedValue as int?; win.Close(); };
             win.ShowDialog();
             if (!whId.HasValue) return;
-            try { using var conn = new NpgsqlConnection(GetCS()); conn.Open(); foreach (var item in sel) { using var cmd = new NpgsqlCommand("UPDATE items SET category_id=@whId WHERE id=@id", conn); cmd.Parameters.AddWithValue("whId", whId.Value); cmd.Parameters.AddWithValue("id", item.Id); cmd.ExecuteNonQuery(); } StatusMessage = "نقل " + sel.Count + " صنف"; LoadItems(); }
+            try
+            {
+                using var conn = new NpgsqlConnection(GetCS());
+                conn.Open();
+                using var tran = conn.BeginTransaction();
+                try
+                {
+                    var ids = sel.Select(i => i.Id).ToArray();
+                    // P0-4 Batch 5: batch update with ANY (was N+1 per-row UPDATE)
+                    using var cmd = new NpgsqlCommand("UPDATE items SET category_id=@whId WHERE id = ANY(@ids)", conn, tran);
+                    cmd.Parameters.AddWithValue("whId", whId.Value);
+                    cmd.Parameters.AddWithValue("ids", ids);
+                    cmd.ExecuteNonQuery();
+                    tran.Commit();
+                }
+                catch { try { tran.Rollback(); } catch { } throw; }
+                StatusMessage = "نقل " + sel.Count + " صنف";
+                LoadItems();
+            }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
 
@@ -208,7 +244,25 @@ namespace Techtoon.UI.ViewModels
             if (sel.Count == 0) return;
             bool newStatus = !sel.All(i => i.IsActive);
             if (System.Windows.MessageBox.Show(newStatus ? "تفعيل " + sel.Count + " صنف؟" : "تعطيل " + sel.Count + " صنف؟", "تأكيد", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question) != System.Windows.MessageBoxResult.Yes) return;
-            try { using var conn = new NpgsqlConnection(GetCS()); conn.Open(); foreach (var item in sel) { using var cmd = new NpgsqlCommand("UPDATE items SET is_active=@a WHERE id=@id", conn); cmd.Parameters.AddWithValue("a", newStatus); cmd.Parameters.AddWithValue("id", item.Id); cmd.ExecuteNonQuery(); } StatusMessage = newStatus ? "تفعيل " + sel.Count : "تعطيل " + sel.Count; LoadItems(); }
+            try
+            {
+                using var conn = new NpgsqlConnection(GetCS());
+                conn.Open();
+                using var tran = conn.BeginTransaction();
+                try
+                {
+                    var ids = sel.Select(i => i.Id).ToArray();
+                    // P0-4 Batch 5: batch update with ANY (was N+1 per-row UPDATE)
+                    using var cmd = new NpgsqlCommand("UPDATE items SET is_active=@a WHERE id = ANY(@ids)", conn, tran);
+                    cmd.Parameters.AddWithValue("a", newStatus);
+                    cmd.Parameters.AddWithValue("ids", ids);
+                    cmd.ExecuteNonQuery();
+                    tran.Commit();
+                }
+                catch { try { tran.Rollback(); } catch { } throw; }
+                StatusMessage = newStatus ? "تفعيل " + sel.Count : "تعطيل " + sel.Count;
+                LoadItems();
+            }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
 

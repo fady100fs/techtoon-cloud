@@ -199,12 +199,11 @@ public class BankReconciliationController : ControllerBase
             var pendingAdjustments = await _db.ReconciliationAdjustments
                 .Where(a => a.ReconciliationId == id && a.Status == "pending").ToListAsync();
 
+            // P0-4 Batch 5: جمع كل القيود أولًا، ثم حفظ دفعة واحدة (كان SaveChanges داخل الحلقة)
+            var approvedEntries = new List<(ReconciliationAdjustment adj, JournalEntry je)>();
             foreach (var adj in pendingAdjustments)
             {
                 if (!adj.TargetAccountId.HasValue) continue;
-
-                bool isCreditToBank = adj.AdjustmentType == "bank_fee" || adj.AdjustmentType == "unknown_withdrawal" || adj.AdjustmentType == "duplicate";
-                bool isDebitToBank = adj.AdjustmentType == "bank_interest" || adj.AdjustmentType == "unknown_deposit";
 
                 var je = new JournalEntry
                 {
@@ -215,7 +214,14 @@ public class BankReconciliationController : ControllerBase
                     CreatedBy = _currentUser.UserId ?? 0
                 };
                 _db.JournalEntries.Add(je);
-                await _db.SaveChangesAsync();
+                approvedEntries.Add((adj, je));
+            }
+            await _db.SaveChangesAsync(); // دفعة واحدة لجلب IDs لكل القيود
+
+            foreach (var (adj, je) in approvedEntries)
+            {
+                bool isCreditToBank = adj.AdjustmentType == "bank_fee" || adj.AdjustmentType == "unknown_withdrawal" || adj.AdjustmentType == "duplicate";
+                bool isDebitToBank = adj.AdjustmentType == "bank_interest" || adj.AdjustmentType == "unknown_deposit";
 
                 if (isCreditToBank)
                 {
@@ -237,6 +243,7 @@ public class BankReconciliationController : ControllerBase
                 adj.PostedAt = DateTime.UtcNow;
                 adj.PostedBy = _currentUser.UserId;
             }
+            await _db.SaveChangesAsync(); // دفعة واحدة للسطور + تحديث التسويات
         }
 
         reconciliation.Status = "approved";
