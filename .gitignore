@@ -47,3 +47,14 @@ Techtoon_Full_Audit_Report_Phase1.pdf
 models.py.backup
 services.py.backup
 Techtoon.Mobile/.metadata
+# === in-progress scripts (keep local; may contain credentials) ===
+services_advanced.py
+services_bank_statement.py
+services_discounts.py
+services_late_fees.py
+services_reconciliation.py
+apply_migrations.py
+fix_expense_categories.py
+phase1_audit.py
+Techtoon.UI/*.py
+Techtoon.Mobile/update_pwa_screens.py
