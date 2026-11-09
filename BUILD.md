@@ -254,3 +254,12 @@ Write-Host "Size: $((Get-Item 'BUILD.md').Length) bytes" -ForegroundColor Cyan
 2. **بدء P3** (API للموبايل + تكامل بنكي)
 3. **تحسينات UX** (ثيمات + اختصارات عامة)
 4. **أتمتة الاختبارات** (unit tests + integration tests)
+
+---
+
+## P0/P1/P2/P3 (2026-11-09)
+- **Fly prod:** https://techtoon-mobile.fly.dev (v14, PWA + API combined). WPF + API + PWA share Neon (schema now numeric).
+- **Secrets:** no hardcoded DB credentials in C# (DPAPI/env). Streamlit deprecated; Flutter link-only.
+- **Deploy:** deploy/mobile/prepare-context.ps1 -> flyctl deploy (combined Nginx+API). P0-3 migration: deploy/migrations/P0-3_*.sql (backup: _backups/techtoon-prod-pre-p03-20261109.dump).
+- **Tests:** dotnet test Techtoon.Tests (13 tests: BalanceCalculator, InventorySignConvention).
+

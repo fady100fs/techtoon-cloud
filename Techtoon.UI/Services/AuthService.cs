@@ -36,17 +36,8 @@ namespace Techtoon.UI.Services
             return await Task.FromResult(Login(username, password));
         }
 
-        /// <summary>
-        /// C2: fail closed on missing/empty/malformed password hashes.
-        /// A user row without a usable bcrypt hash must never authenticate.
-        /// </summary>
-        public static bool IsValidPasswordHash(string hash)
-        {
-            if (string.IsNullOrWhiteSpace(hash)) return false;
-            if (hash.Length != 60) return false;
-            if (!(hash.StartsWith("$2a$") || hash.StartsWith("$2b$") || hash.StartsWith("$2y$"))) return false;
-            return true;
-        }
+        /// <summary>P3: delegates to PasswordPolicy (extracted).</summary>
+        public static bool IsValidPasswordHash(string hash) => PasswordPolicy.IsValidPasswordHash(hash);
 
         public static LoginResult Login(string username, string password)
         {
