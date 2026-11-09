@@ -4,6 +4,12 @@ primary_region = "lhr"
 [build]
   dockerfile = "Techtoon.Api/Dockerfile"
 
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  # H6: empty CORS config now denies every browser origin, so the deployed
+  # PWA origin must be listed explicitly.
+  Cors__AllowedOrigins__0 = "https://techtoon-mobile.fly.dev"
+
 [http_service]
   internal_port = 8080
   force_https = true

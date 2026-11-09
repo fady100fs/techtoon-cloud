@@ -74,6 +74,11 @@ class ApiService {
       );
       return data;
     }
+    // A 401 on the login endpoint means bad credentials, not an expired session.
+    if (response.statusCode == 401) {
+      throw ApiException('اسم المستخدم أو كلمة المرور غير صحيحة',
+          statusCode: 401);
+    }
     throw _errorFrom(response, fallback: 'اسم المستخدم أو كلمة المرور غير صحيحة');
   }
 
