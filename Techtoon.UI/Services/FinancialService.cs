@@ -376,5 +376,68 @@ namespace Techtoon.UI.Services
             }
             return report;
         }
+        /// <summary>P0-4 Batch 11: async variant — لا تحجب UI thread.</summary>
+        public static async Task<CashFlowReport> GetCashFlowReportAsync(DateTime fromDate, DateTime toDate)
+        {
+            var report = new CashFlowReport();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetCS()))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_type='receipt' AND date BETWEEN @from AND @to", conn))
+                    {
+                        cmd.Parameters.AddWithValue("from", fromDate);
+                        cmd.Parameters.AddWithValue("to", toDate);
+                        report.TotalReceipts = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+                    }
+
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_type='payment' AND date BETWEEN @from AND @to", conn))
+                    {
+                        cmd.Parameters.AddWithValue("from", fromDate);
+                        cmd.Parameters.AddWithValue("to", toDate);
+                        report.TotalPayments = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+                    }
+
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE date BETWEEN @from AND @to", conn))
+                    {
+                        cmd.Parameters.AddWithValue("from", fromDate);
+                        cmd.Parameters.AddWithValue("to", toDate);
+                        report.TotalExpenses = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+                    }
+
+                    report.NetCashFlow = report.TotalReceipts - report.TotalPayments - report.TotalExpenses;
+
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(total - paid_amount),0) FROM invoices WHERE type='sales' AND paid_amount < total", conn))
+                    {
+                        report.TotalReceivables = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+                    }
+
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(total - paid_amount),0) FROM invoices WHERE type='purchase' AND paid_amount < total", conn))
+                    {
+                        report.TotalPayables = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+                    }
+
+                    using (var cmd = new NpgsqlCommand(@"
+                        SELECT COALESCE(SUM(il.total),0) - COALESCE(SUM(il.quantity * il.cost_price),0)
+                        FROM invoice_lines il
+                        JOIN invoices i ON il.invoice_id = i.id
+                        WHERE i.type='sales' AND i.date BETWEEN @from AND @to", conn))
+                    {
+                        cmd.Parameters.AddWithValue("from", fromDate);
+                        cmd.Parameters.AddWithValue("to", toDate);
+                        report.GrossProfit = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+                    }
+
+                    report.OperatingProfit = report.GrossProfit - report.TotalExpenses;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Failed to build cash flow report", ex);
+            }
+            return report;
+        }
     }
 }
