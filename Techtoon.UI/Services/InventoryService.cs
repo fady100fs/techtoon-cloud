@@ -27,14 +27,16 @@ public static class InventoryService
             decimal qtyChange = invoice.Type == "sale" ? -line.Quantity : line.Quantity;
             sl.Quantity += qtyChange;
             sl.LastUpdated = DateTime.UtcNow;
-            
-            db.InventoryMovements.Add(new InventoryMovement 
-            { 
-                ItemId = line.ItemId, 
-                Date = DateTime.UtcNow, 
-                Type = invoice.Type == "sale" ? "sale_out" : "purchase_in", 
-                Quantity = qtyChange, 
-                ReferenceId = invoice.Id 
+
+            // P1.4: store canonical in/out with positive magnitude (was sale_out/purchase_in — unknown to InventorySignConvention).
+            bool isSale = invoice.Type == "sale";
+            db.InventoryMovements.Add(new InventoryMovement
+            {
+                ItemId = line.ItemId,
+                Date = DateTime.UtcNow,
+                Type = isSale ? "out" : "in",
+                Quantity = System.Math.Abs(line.Quantity),
+                ReferenceId = invoice.Id
             });
         }
         await db.SaveChangesAsync();

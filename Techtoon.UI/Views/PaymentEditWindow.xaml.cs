@@ -244,6 +244,38 @@ namespace Techtoon.UI.Views
                     SavedPaymentId = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
+                // P1.2: ربط الدفعة بالفاتورة في الدفتر الموحّد + إعادة تسوية paid_amount
+                // (كان BtnSave لا يكتب invoice_payments ولا يُحدّث paid_amount)
+                if (invoiceId > 0)
+                {
+                    // الدفتر الموحّد (إن فُرض) — payment_method تتوافق مع PaymentAppService
+                    using (var ipCmd = new NpgsqlCommand(
+                        "INSERT INTO invoice_payments (invoice_id, date, amount, payment_method, reference_number, created_at) " +
+                        "VALUES (@iid, @dt, @amt, @wm, @ref, NOW())", conn, tx))
+                    {
+                        ipCmd.Parameters.AddWithValue("@iid", invoiceId);
+                        ipCmd.Parameters.AddWithValue("@dt", date);
+                        ipCmd.Parameters.AddWithValue("@amt", amount);
+                        ipCmd.Parameters.AddWithValue("@wm", method);
+                        ipCmd.Parameters.AddWithValue("@ref", string.IsNullOrEmpty(reference) ? (object)DBNull.Value : reference);
+                        ipCmd.ExecuteNonQuery();
+                    }
+                    // إعادة حساب paid_amount من الدفتر الموحّد
+                    using (var rec = new NpgsqlCommand(
+                        "WITH s AS (SELECT COALESCE(SUM(amount),0) AS paid FROM invoice_payments WHERE invoice_id=@iid) " +
+                        "UPDATE invoices SET paid_amount=s.paid, " +
+                        "status=CASE WHEN s.paid >= COALESCE(total,0) THEN 'paid' WHEN s.paid > 0 THEN 'partial' ELSE 'unpaid' END, " +
+                        "updated_at=NOW() FROM s WHERE invoices.id=@iid AND COALESCE(invoices.status,'') <> 'cancelled'", conn, tx))
+                    {
+                        rec.Parameters.AddWithValue("@iid", invoiceId);
+                        rec.ExecuteNonQuery();
+                    }
+                }
+                else if (partyId > 0 && invoiceId == 0)
+                {
+                    // لا تغيير — دفعة غير مرتبطة بفاتورة
+                }
+
                 tx.Commit();
                 Saved = true;
                 MessageBox.Show("تم الحفظ بنجاح");

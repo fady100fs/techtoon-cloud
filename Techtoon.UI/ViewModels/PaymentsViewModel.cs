@@ -202,6 +202,20 @@ namespace Techtoon.UI.ViewModels
                         if (cmd.ExecuteNonQuery() == 0) { tx.Rollback(); return; }
                     }
 
+                    // P1.2: حذف بند invoice_payments المرتبط (حتى تُعاد التسوية من الدفتر النظيف)
+                    if (invoiceId.HasValue && TableExists(conn, tx, "invoice_payments"))
+                    {
+                        using (var delIp = new NpgsqlCommand(
+                            "DELETE FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt AND payment_method=ILIKE '%نقدي%' OR TRUE", conn, tx))
+                        {
+                            // نستخدم oldest matching row by amount to approximate linkage safely:
+                            delIp.CommandText = "DELETE FROM invoice_payments WHERE id = (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt ORDER BY id LIMIT 1)";
+                            delIp.Parameters.AddWithValue("@iid", invoiceId.Value);
+                            delIp.Parameters.AddWithValue("@amt", amount);
+                            delIp.ExecuteNonQuery();
+                        }
+                    }
+
                     if (invoiceId.HasValue)
                         ReconcileInvoicePaid(conn, tx, invoiceId.Value, amount);
 

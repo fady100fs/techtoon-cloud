@@ -346,6 +346,25 @@ public class InvoiceAppService : IInvoiceAppService
                 }
             }
 
+            // P1.5: weighted-average cost on purchases (total_purchased_qty weighted)
+            if (dto.Type == "purchase")
+            {
+                foreach (var line in dto.Lines)
+                {
+                    var oldAvg = itemCosts.TryGetValue(line.ItemId, out var c) ? c : 0m;
+                    using (var up = new NpgsqlCommand(
+                        "UPDATE items SET avg_cost_price = CASE WHEN COALESCE(total_purchased_qty,0) + @qty > 0 " +
+                        "THEN (COALESCE(avg_cost_price,0) * COALESCE(total_purchased_qty,0) + @cost * @qty) / (COALESCE(total_purchased_qty,0) + @qty) " +
+                        "ELSE @cost END, total_purchased_qty = COALESCE(total_purchased_qty,0) + @qty WHERE id=@iid", conn, tx))
+                    {
+                        up.Parameters.AddWithValue("iid", line.ItemId);
+                        up.Parameters.AddWithValue("qty", Math.Abs(line.Quantity));
+                        up.Parameters.AddWithValue("cost", line.Price);
+                        await up.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+
             await LogAuditAsync(conn, tx, userId, "create_invoice", "invoice", newId, "Created " + dto.Type + " invoice " + invNumber + " total " + total);
             await tx.CommitAsync();
             return (await GetInvoiceAsync(newId))!;
