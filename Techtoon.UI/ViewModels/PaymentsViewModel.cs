@@ -48,7 +48,7 @@ namespace Techtoon.UI.ViewModels
             set
             {
                 if (SetProperty(ref _searchText, value))
-                    LoadPayments();
+                    _ = LoadPaymentsAsync();
             }
         }
 
@@ -64,18 +64,18 @@ namespace Techtoon.UI.ViewModels
             AddPaymentCommand = new UiRelayCommand(_ => AddPayment(), null);
             EditCommand = new UiRelayCommand(_ => Edit(), _ => SelectedPayment != null);
             DeleteCommand = new UiRelayCommand(_ => Delete(), _ => SelectedPayment != null);
-            RefreshCommand = new UiRelayCommand(_ => LoadPayments(), null);
-            LoadPayments();
+            RefreshCommand = new UiRelayCommand(_ => _ = LoadPaymentsAsync(), null);
+            _ = LoadPaymentsAsync();
         }
 
-        public void LoadPayments()
+        public async System.Threading.Tasks.Task LoadPaymentsAsync()
         {
             Payments = new ObservableCollection<PaymentRow>();
             NpgsqlConnection conn = null;
             try
             {
                 conn = new NpgsqlConnection(_connectionString);
-                conn.Open();
+                await conn.OpenAsync();
                 string sql =
                     "SELECT p.id, p.date, COALESCE(pt.name,''), COALESCE(a.name,''), p.payment_type, p.amount, " +
                     "p.payment_method, p.reference_number, p.notes " +
@@ -90,9 +90,9 @@ namespace Techtoon.UI.ViewModels
                 {
                     if (!string.IsNullOrWhiteSpace(SearchText))
                         cmd.Parameters.AddWithValue("@q", "%" + SearchText + "%");
-                    using (var reader = cmd.ExecuteReader())
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        while (reader.Read())
+                        while (await reader.ReadAsync())
                         {
                             Payments.Add(new PaymentRow
                             {
@@ -125,7 +125,7 @@ namespace Techtoon.UI.ViewModels
             var win = new PaymentEditWindow();
             win.SetMode(true);
             win.Owner = Application.Current.MainWindow;
-            if (win.ShowDialog() == true) LoadPayments();
+            if (win.ShowDialog() == true) _ = LoadPaymentsAsync();
         }
 
         private void AddPayment()
@@ -133,7 +133,7 @@ namespace Techtoon.UI.ViewModels
             var win = new PaymentEditWindow();
             win.SetMode(false);
             win.Owner = Application.Current.MainWindow;
-            if (win.ShowDialog() == true) LoadPayments();
+            if (win.ShowDialog() == true) _ = LoadPaymentsAsync();
         }
 
         private void Edit()
@@ -141,7 +141,7 @@ namespace Techtoon.UI.ViewModels
             if (SelectedPayment == null) return;
             var win = new PaymentEditWindow();
             win.Owner = Application.Current.MainWindow;
-            if (win.ShowDialog() == true) LoadPayments();
+            if (win.ShowDialog() == true) _ = LoadPaymentsAsync();
         }
 
         private void Delete()
@@ -185,7 +185,7 @@ namespace Techtoon.UI.ViewModels
 
                     tx.Commit();
                 }
-                LoadPayments();
+                _ = LoadPaymentsAsync();
             }
             catch (Exception ex)
             {
