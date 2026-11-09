@@ -13,6 +13,7 @@ public interface IPaymentAppService
     Task<PagedResultDto<PaymentDto>> GetPaymentsAsync(string? type, int? partyId, DateTime? from, DateTime? to, int page, int pageSize);
     Task<PaymentDto?> GetPaymentAsync(int id);
     Task<PaymentDto> CreatePaymentAsync(PaymentCreateDto dto, int userId);
+    Task<PaymentDto?> UpdatePaymentAsync(int id, PaymentCreateDto dto, int userId);
     Task<bool> DeletePaymentAsync(int id, int userId);
 }
 
@@ -200,6 +201,74 @@ public class PaymentAppService : IPaymentAppService
 
         await tx.CommitAsync();
         return (await GetPaymentAsync(newId))!;
+    }
+
+    /// <summary>Update payment + reconcile invoice balance (delta).</summary>
+    public async Task<PaymentDto?> UpdatePaymentAsync(int id, PaymentCreateDto dto, int userId)
+    {
+        if (dto.Amount <= 0) throw new ArgumentException("Amount must be positive");
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var tx = await conn.BeginTransactionAsync();
+
+        int? oldInvoiceId = null;
+        decimal oldAmount = 0m;
+        using (var read = new NpgsqlCommand("SELECT amount::numeric, " + (_hasInvoiceId ? "invoice_id" : "NULL::bigint") + " FROM payments WHERE id=@id", conn, tx))
+        {
+            read.Parameters.AddWithValue("id", id);
+            using var r = await read.ExecuteReaderAsync();
+            if (!await r.ReadAsync()) { await tx.RollbackAsync(); return null; }
+            oldAmount = SafeDecimal(r[0]);
+            oldInvoiceId = r[1] == DBNull.Value ? null : SafeInt(r[1]);
+        }
+
+        using (var cmd = new NpgsqlCommand(
+            "UPDATE payments SET date=@date, party_id=@pid, amount=@amount, payment_type=@type, payment_method=@method, reference_number=@ref, notes=@notes, cash_box_id=@cb" + (_hasInvoiceId ? ", invoice_id=@iid" : "") + " WHERE id=@id", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("date", dto.Date);
+            cmd.Parameters.AddWithValue("pid", (object?)dto.PartyId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("amount", dto.Amount);
+            cmd.Parameters.AddWithValue("type", string.IsNullOrEmpty(dto.PaymentType) ? "receipt" : dto.PaymentType);
+            cmd.Parameters.AddWithValue("method", string.IsNullOrEmpty(dto.PaymentMethod) ? "cash" : dto.PaymentMethod);
+            cmd.Parameters.AddWithValue("ref", (object?)dto.VoucherNo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("notes", (object?)dto.Notes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("cb", (object?)dto.CashBoxId ?? DBNull.Value);
+            if (_hasInvoiceId) cmd.Parameters.AddWithValue("iid", (object?)dto.InvoiceId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("id", id);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        // Reconcile old invoice (remove delta) and new invoice (add delta)
+        if (_hasInvoicePayments)
+        {
+            if (oldInvoiceId.HasValue)
+            {
+                using var del = new NpgsqlCommand("DELETE FROM invoice_payments WHERE id IN (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt ORDER BY id DESC LIMIT 1)", conn, tx);
+                del.Parameters.AddWithValue("iid", oldInvoiceId.Value); del.Parameters.AddWithValue("amt", oldAmount);
+                await del.ExecuteNonQueryAsync();
+            }
+            if (dto.InvoiceId.HasValue)
+            {
+                using var ins = new NpgsqlCommand("INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at, created_at) VALUES (@iid,@method,@amount,@ref,@paidAt,NOW())", conn, tx);
+                ins.Parameters.AddWithValue("iid", dto.InvoiceId.Value); ins.Parameters.AddWithValue("method", dto.PaymentMethod);
+                ins.Parameters.AddWithValue("amount", dto.Amount); ins.Parameters.AddWithValue("ref", (object?)dto.VoucherNo ?? DBNull.Value);
+                ins.Parameters.AddWithValue("paidAt", dto.Date);
+                await ins.ExecuteNonQueryAsync();
+            }
+        }
+        if (oldInvoiceId.HasValue) await ReconcileInvoiceAsync(conn, tx, oldInvoiceId.Value, -oldAmount);
+        if (dto.InvoiceId.HasValue && dto.InvoiceId != oldInvoiceId) await ReconcileInvoiceAsync(conn, tx, dto.InvoiceId.Value, dto.Amount);
+        else if (dto.InvoiceId.HasValue && dto.InvoiceId == oldInvoiceId) await ReconcileInvoiceAsync(conn, tx, dto.InvoiceId.Value, dto.Amount - oldAmount);
+
+        using (var log = new NpgsqlCommand("INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, created_at) VALUES (@uid, 'update_payment', 'payment', @eid, @details, NOW())", conn, tx))
+        {
+            log.Parameters.AddWithValue("uid", userId); log.Parameters.AddWithValue("eid", id);
+            log.Parameters.AddWithValue("details", "Updated payment id " + id);
+            await log.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+        return await GetPaymentAsync(id);
     }
 
     public async Task<bool> DeletePaymentAsync(int id, int userId)

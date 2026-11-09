@@ -59,6 +59,23 @@ public class PaymentsController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}")]
+    [HasPermission("sales")]
+    public async Task<IActionResult> UpdatePayment(int id, [FromBody] PaymentCreateDto dto)
+    {
+        if (_current.UserId == null) return Unauthorized();
+        try
+        {
+            var updated = await _svc.UpdatePaymentAsync(id, dto, _current.UserId.Value);
+            if (updated == null) return NotFound();
+            return Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpDelete("{id:int}")]
     [HasPermission("cancel_invoice")]
     public async Task<IActionResult> DeletePayment(int id)
