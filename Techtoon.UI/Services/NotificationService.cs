@@ -13,6 +13,33 @@ namespace Techtoon.UI.Services
         private static TextBlock _textBlock;
         private static DispatcherTimer _timer;
 
+        public static void Dispose()
+        {
+            if (_timer != null)
+            {
+                _timer.Tick -= OnTimerTick;
+                _timer.Stop();
+                _timer = null;
+            }
+            if (_popup != null)
+            {
+                try { _popup.Close(); } catch { }
+                _popup = null;
+                _textBlock = null;
+            }
+        }
+
+        private static void OnTimerTick(object sender, EventArgs e)
+        {
+            _timer?.Stop();
+            if (_timer != null) _timer.Tick -= OnTimerTick;
+            if (_timer != null) _timer = null;
+            var p = _popup;
+            var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(0.5));
+            fadeOut.Completed += (sender, args) => { try { p?.Close(); } catch { } if (_popup == p) { _popup = null; _textBlock = null; } };
+            p?.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+        }
+
         public static void Show(string message, NotificationType type = NotificationType.Info, int durationSeconds = 3)
         {
             Application.Current?.Dispatcher.Invoke(() =>
@@ -71,15 +98,9 @@ namespace Techtoon.UI.Services
                 var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(0.3));
                 _popup.BeginAnimation(UIElement.OpacityProperty, fadeIn);
 
-                // مؤقت الإغلاق
+                // مؤقت الإغلاق — named handler (P0-4 Batch 4: إزالة تسريب lambda)
                 _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(durationSeconds) };
-                _timer.Tick += (s, e) =>
-                {
-                    _timer.Stop();
-                    var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(0.5));
-                    fadeOut.Completed += (sender, args) => _popup?.Close();
-                    _popup.BeginAnimation(UIElement.OpacityProperty, fadeOut);
-                };
+                _timer.Tick += OnTimerTick;
                 _timer.Start();
             });
         }
