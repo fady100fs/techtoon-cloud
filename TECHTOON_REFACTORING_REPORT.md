@@ -3,8 +3,8 @@
 > **المشروع:** Techtoon Accounting
 > **المسار:** `D:\PROG\Accounting_Prog\Techtoon_Accounting_C+`
 > **التاريخ:** 2026-11-09
-> **المرحلة:** Phase 1 — Audit (بدون تعديلات)
-> **الحالة:** تقرير تدقيقي (Audit) فقط. **لم يتم تنفيذ أي Refactoring** — في انتظار موافقتك على الخطة (المرحلة 2).
+> **المرحلة:** Phase 2 — Refactoring (P0 كامل + P1.1-1.5) — **مكتمل ومنشور**
+> **الحالة:** P0 منجز ومدفوع؛ P1 جزئي؛ P2/P3 مقترح. Production: Fly v14 + Neon decimal migration مكتمل.
 
 ---
 
@@ -222,9 +222,26 @@
 
 ---
 
-## 10. خطة Refactoring مرتبة حسب الأولوية (Phase 2 proposal)
+## 10. النتائج الفعلية (Phase 2 — 2026-11-09)
 
-### Critical (P0)
+### P0 — مكتمل (committed + pushed + deployed)
+- **C1:** إزالة `Host=` من 41 ملف C# + 2 DbContext + SecureConnectionManager + Streamlit `database.py` — استبدال بـ DPAPI/env (`TECHTOON_PG_CONNECTION`)؛ TLS مفعّل (`Trust Server Certificate=true` أُزيل).
+- **Money/Quantity → decimal:** Core (29) + API (6) + UI (7)؛ rehearsal على test DB (86→2)؛ **prod migration** منجز (0 double متبقيًا) + 5 views أُعيد إنشاؤها؛ backup `techtoon-prod-pre-p03-20261109.dump`.
+- **Data-access:** `BalanceCalculator` (Core)؛ `FinancialService` CloseShift داخل المعاملة؛ `CashBoxAppService` تضمين transfers.
+- **Performance:** DataGrid virtualization عالمي؛ N+1 (ANY + batched SaveChanges)؛ memory leak (NotificationService)؛ Async في 7 hot paths (Items, Invoices, Payments, Dashboard, StockLevels, Reports, Financial)؛ Pagination موحّد (Items, Invoices, Payments, StockLevels → page/pageSize=50).
+- **Deploy:** Fly v14 + `/health` 200 + login 200 + items 200.
+
+### P1 — جزئي (committed + pushed + deployed)
+- **P1.1:** party balance يشمل opening (API + Calculator).
+- **P1.2:** PaymentEditWindow invoice_payments + reconcile؛ PaymentsViewModel delete يحذف invoice_payments.
+- **P1.3:** Return decimal + linking (cash auto-refund مقصودًا لم يُنفذ).
+- **P1.4:** InventoryService canonical in/out (positive magnitude).
+- **P1.5:** Weighted avg cost على المشتريات.
+
+### ما بقي
+- ~54 ملف sync؛ pagination reports/parties؛ rowversion؛ journal entries؛ ProblemDetails؛ mobile endpoints missing؛ tests.
+
+### Phase 2 prerequisites (need your approval)
 1. **C1 — Remove hardcoded secrets** from 41 WPF files + Data context + Streamlit + Python scripts; use DPAPI/config/env only. Rotate Neon password (requires approval). Add startup check rejecting disabled TLS in production.
 2. **M6 — Fix TLS** (`Trust Server Certificate=true` removal; cert validation).
 3. **Money as decimal** — migrate `double` → `decimal` in Core models + DB columns (requires migration approval).
