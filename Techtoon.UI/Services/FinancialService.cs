@@ -69,6 +69,48 @@ namespace Techtoon.UI.Services
             }
         }
 
+        /// <summary>P0-4 Batch 8: async variant — لا تحجب UI thread.</summary>
+        public static async Task<CashBoxBalance> GetCashBoxBalanceAsync(int cashBoxId)
+        {
+            using (var conn = new NpgsqlConnection(GetCS()))
+            {
+                await conn.OpenAsync();
+                return await GetCashBoxBalanceAsync(conn, null, cashBoxId, false);
+            }
+        }
+
+        /// <summary>P0-4 Batch 8: async inner helper (اتصال مفتوح مسبقًا).</summary>
+        private static async Task<CashBoxBalance> GetCashBoxBalanceAsync(NpgsqlConnection conn, NpgsqlTransaction tran, int cashBoxId, bool lockRow)
+        {
+            var result = new CashBoxBalance();
+            using (var cmd = new NpgsqlCommand("SELECT id, name, COALESCE(opening_balance,0) FROM cash_boxes WHERE id=@id" + (lockRow ? " FOR UPDATE" : ""), conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                using (var r = await cmd.ExecuteReaderAsync())
+                {
+                    if (!await r.ReadAsync())
+                        throw new InvalidOperationException("Cash box not found: " + cashBoxId);
+                    result.Id = r.GetInt32(0);
+                    result.Name = r.GetString(1);
+                    result.OpeningBalance = Convert.ToDecimal(r.GetValue(2));
+                }
+            }
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE cash_box_id=@id AND payment_type='receipt'", conn, tran))
+            { cmd.Parameters.AddWithValue("id", cashBoxId); result.TotalReceipts = Convert.ToDecimal(await cmd.ExecuteScalarAsync()); }
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE cash_box_id=@id AND payment_type='payment'", conn, tran))
+            { cmd.Parameters.AddWithValue("id", cashBoxId); result.TotalPayments = Convert.ToDecimal(await cmd.ExecuteScalarAsync()); }
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE cash_box_id=@id", conn, tran))
+            { cmd.Parameters.AddWithValue("id", cashBoxId); result.TotalExpenses = Convert.ToDecimal(await cmd.ExecuteScalarAsync()); }
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM cash_transfers WHERE to_cash_box_id=@id AND status='completed'", conn, tran))
+            { cmd.Parameters.AddWithValue("id", cashBoxId); result.TotalTransfersIn = Convert.ToDecimal(await cmd.ExecuteScalarAsync()); }
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM cash_transfers WHERE from_cash_box_id=@id AND status='completed'", conn, tran))
+            { cmd.Parameters.AddWithValue("id", cashBoxId); result.TotalTransfersOut = Convert.ToDecimal(await cmd.ExecuteScalarAsync()); }
+            result.CurrentBalance = BalanceCalculator.CashBoxBalance(
+                result.OpeningBalance, result.TotalReceipts, result.TotalPayments,
+                result.TotalExpenses, result.TotalTransfersIn, result.TotalTransfersOut);
+            return result;
+        }
+
         /// <summary>
         /// Computes the cash box balance using an existing connection (and optional transaction).
         /// Callers that mutate cash must pass lockRow=true so concurrent transfers serialise.
@@ -142,7 +184,7 @@ namespace Techtoon.UI.Services
 
             using (var conn = new NpgsqlConnection(GetCS()))
             {
-                conn.Open();
+                await conn.OpenAsync();
                 using (var tran = conn.BeginTransaction())
                 {
                     try
@@ -155,15 +197,15 @@ namespace Techtoon.UI.Services
                         {
                             lockCmd.Parameters.AddWithValue("a", fromId);
                             lockCmd.Parameters.AddWithValue("b", toId);
-                            using var lr = lockCmd.ExecuteReader();
+                            using var lr = await lockCmd.ExecuteReaderAsync();
                             int locked = 0;
-                            while (lr.Read()) locked++;
+                            while (await lr.ReadAsync()) locked++;
                             if (locked != (fromId == toId ? 1 : 2))
                                 throw new InvalidOperationException("Cash box not found");
                         }
 
                         // Balance is computed inside the same transaction, after the lock.
-                        var balance = GetCashBoxBalance(conn, tran, fromId, false);
+                        var balance = await GetCashBoxBalanceAsync(conn, tran, fromId, false);
                         if (balance.CurrentBalance < amount)
                         {
                             tran.Rollback();
@@ -178,7 +220,7 @@ namespace Techtoon.UI.Services
                             cmd.Parameters.AddWithValue("to", toId);
                             cmd.Parameters.AddWithValue("amt", amount);
                             cmd.Parameters.AddWithValue("notes", (object)notes ?? DBNull.Value);
-                            cmd.ExecuteNonQuery();
+                            await cmd.ExecuteNonQueryAsync();
                         }
 
                         tran.Commit();
@@ -202,13 +244,13 @@ namespace Techtoon.UI.Services
             {
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
-                    conn.Open();
+                    await conn.OpenAsync();
                     using (var tran = conn.BeginTransaction())
                     {
                         try
                         {
                             // P0-4: احسب داخل المعاملة (كان يستدعي GetCashBoxBalance(cashBoxId) خارجها)
-                            var balance = GetCashBoxBalance(conn, tran, cashBoxId, false);
+                            var balance = await GetCashBoxBalanceAsync(conn, tran, cashBoxId, false);
                             decimal expected = balance.CurrentBalance;
                             decimal difference = actualClosing - expected;
 
@@ -222,7 +264,7 @@ namespace Techtoon.UI.Services
                                 cmd.Parameters.AddWithValue("actual", actualClosing);
                                 cmd.Parameters.AddWithValue("diff", difference);
                                 cmd.Parameters.AddWithValue("notes", (object)notes ?? DBNull.Value);
-                                cmd.ExecuteNonQuery();
+                                await cmd.ExecuteNonQueryAsync();
                             }
 
                             // C6: only a real cash deficit is booked as an adjustment expense.
@@ -237,7 +279,7 @@ namespace Techtoon.UI.Services
                                     cmd.Parameters.AddWithValue("amt", Math.Abs(difference));
                                     cmd.Parameters.AddWithValue("cbId", cashBoxId);
                                     cmd.Parameters.AddWithValue("notes", (object)notes ?? DBNull.Value);
-                                    cmd.ExecuteNonQuery();
+                                    await cmd.ExecuteNonQueryAsync();
                                 }
                             }
 
