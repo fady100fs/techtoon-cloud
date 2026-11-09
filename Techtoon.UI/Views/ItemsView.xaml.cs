@@ -37,7 +37,7 @@ namespace Techtoon.UI.Views
 
         private void UserControl_Loaded(object sender, RoutedEventArgs e)
         {
-            if (DataContext is ItemsViewModel vm) vm.LoadItems();
+            if (DataContext is ItemsViewModel vm) _ = vm.LoadItemsAsync();
         }
 
         private void CheckBox_Click(object sender, RoutedEventArgs e)

@@ -43,7 +43,7 @@ namespace Techtoon.UI.ViewModels
         public ItemRow SelectedRow { get => _selectedRow; set { SetProperty(ref _selectedRow, value); if (value != null) EditItem(value); } }
 
         private string _searchText = "";
-        public string SearchText { get => _searchText; set { SetProperty(ref _searchText, value); LoadItems(); } }
+        public string SearchText { get => _searchText; set { SetProperty(ref _searchText, value); _ = LoadItemsAsync(); } }
         
         private string _statusMessage = "";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
@@ -67,7 +67,7 @@ namespace Techtoon.UI.ViewModels
 
         public ItemsViewModel()
         {
-            RefreshCommand = new RelayCommand(LoadItems);
+            RefreshCommand = new RelayCommand(() => _ = LoadItemsAsync());
             EditCommand = new RelayCommand(EditSelected, () => Items.Any(i => i.IsSelected));
             AddCommand = new RelayCommand(AddNewItem);
             DeleteCommand = new RelayCommand(DeleteSelected, () => Items.Any(i => i.IsSelected));
@@ -76,19 +76,19 @@ namespace Techtoon.UI.ViewModels
             ExportExcelCommand = new RelayCommand(ExportToExcel);
             ImportExcelCommand = new RelayCommand(ImportFromExcel);
             RecalculateAllKitCostsCommand = new RelayCommand(RecalculateAllKitCosts);
-            LoadItems();
-            LoadWarehouses();
+            _ = LoadItemsAsync();
+            _ = LoadWarehouses();
         }
 
         public static string GetCS() => Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
 
-        public void LoadItems()
+        public async Task LoadItemsAsync()
         {
             Items.Clear();
             try
             {
                 using var conn = new NpgsqlConnection(GetCS());
-                conn.Open();
+                await conn.OpenAsync();
                 string sql = @"SELECT i.id, i.name, COALESCE(i.barcode,''), COALESCE(i.sell_price,0), COALESCE(i.cost_price,0),
                     i.opening_quantity + COALESCE((SELECT SUM(CASE WHEN im.type IN ('in','opening','transfer_in') THEN ABS(im.quantity) WHEN im.type IN ('out','transfer_out') THEN -ABS(im.quantity) WHEN im.type='adjustment' THEN im.quantity ELSE 0 END) FROM inventory_movements im WHERE im.item_id=i.id), 0),
                     COALESCE(i.min_stock,0), COALESCE(i.is_active, TRUE), COALESCE(i.is_kit, FALSE),
@@ -99,16 +99,16 @@ namespace Techtoon.UI.ViewModels
                 sql += " ORDER BY i.name LIMIT 500";
                 using var cmd = new NpgsqlCommand(sql, conn);
                 if (!string.IsNullOrWhiteSpace(SearchText)) cmd.Parameters.AddWithValue("q", "%" + SearchText + "%");
-                using var r = cmd.ExecuteReader();
-                while (r.Read())
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
                     Items.Add(new ItemRow { 
                         Id = r.GetInt32(0), 
                         Name = r.IsDBNull(1) ? "" : r.GetString(1), 
                         Barcode = r.IsDBNull(2) ? "" : r.GetString(2), 
-                        SellPrice = r.IsDBNull(3) ? 0 : (decimal)r.GetDouble(3), 
-                        CostPrice = r.IsDBNull(4) ? 0 : (decimal)r.GetDouble(4), 
-                        Stock = r.IsDBNull(5) ? 0 : (decimal)r.GetDouble(5), 
-                        MinStock = r.IsDBNull(6) ? 0 : (decimal)r.GetDouble(6), 
+                        SellPrice = r.IsDBNull(3) ? 0 : Convert.ToDecimal(r.GetValue(3)), 
+                        CostPrice = r.IsDBNull(4) ? 0 : Convert.ToDecimal(r.GetValue(4)), 
+                        Stock = r.IsDBNull(5) ? 0 : Convert.ToDecimal(r.GetValue(5)), 
+                        MinStock = r.IsDBNull(6) ? 0 : Convert.ToDecimal(r.GetValue(6)), 
                         IsActive = r.IsDBNull(7) ? true : r.GetBoolean(7),
                         IsKit = r.IsDBNull(8) ? false : r.GetBoolean(8),
                         KitComponentsCount = r.IsDBNull(9) ? 0 : r.GetInt32(9),
@@ -119,10 +119,10 @@ namespace Techtoon.UI.ViewModels
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
 
-        private void LoadWarehouses()
+        private async Task LoadWarehouses()
         {
             Warehouses.Clear();
-            try { using var conn = new NpgsqlConnection(GetCS()); conn.Open(); using var cmd = new NpgsqlCommand("SELECT id, name FROM warehouses WHERE COALESCE(is_active, TRUE) = TRUE ORDER BY name", conn); using var r = cmd.ExecuteReader(); while (r.Read()) Warehouses.Add(new WarehouseOption { Id = r.GetInt32(0), Name = r.GetString(1) }); }
+            try { using var conn = new NpgsqlConnection(GetCS()); await conn.OpenAsync(); using var cmd = new NpgsqlCommand("SELECT id, name FROM warehouses WHERE COALESCE(is_active, TRUE) = TRUE ORDER BY name", conn); using var r = await cmd.ExecuteReaderAsync(); while (await r.ReadAsync()) Warehouses.Add(new WarehouseOption { Id = r.GetInt32(0), Name = r.GetString(1) }); }
             catch { }
         }
 
@@ -150,7 +150,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 var win = new Views.ItemEditWindow(item);
                 win.ShowDialog();
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch { }
         }
@@ -167,7 +167,7 @@ namespace Techtoon.UI.ViewModels
             {
                 var win = new Views.ItemEditWindow(null);
                 win.ShowDialog();
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch { }
         }
@@ -194,7 +194,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 catch { try { tran.Rollback(); } catch { } throw; }
                 StatusMessage = "حذف " + sel.Count + " صنف";
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
@@ -233,7 +233,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 catch { try { tran.Rollback(); } catch { } throw; }
                 StatusMessage = "نقل " + sel.Count + " صنف";
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
@@ -261,7 +261,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 catch { try { tran.Rollback(); } catch { } throw; }
                 StatusMessage = newStatus ? "تفعيل " + sel.Count : "تعطيل " + sel.Count;
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
@@ -317,7 +317,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 StatusMessage = "تم استيراد " + imported + " صنف";
                 System.Windows.MessageBox.Show("تم استيراد " + imported + " صنف", "استيراد", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }
@@ -346,7 +346,7 @@ namespace Techtoon.UI.ViewModels
                 int affected = cmd.ExecuteNonQuery();
                 StatusMessage = "تم تحديث تكلفة " + affected + " كيت";
                 System.Windows.MessageBox.Show("تم تحديث تكلفة " + affected + " كيت بنجاح", "إعادة احتساب", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                LoadItems();
+                _ = LoadItemsAsync();
             }
             catch (Exception ex) 
             { 
