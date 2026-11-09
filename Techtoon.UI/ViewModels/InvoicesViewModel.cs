@@ -33,6 +33,16 @@ namespace Techtoon.UI.ViewModels
         private string _statusMessage = "";
         public string StatusMessage { get { return _statusMessage; } set { _statusMessage = value; OnPropertyChanged("StatusMessage"); } }
 
+        // P0-4 Batch 10: pagination contract مع API
+        private int _page = 1;
+        public int Page { get { return _page; } set { if (System.Math.Max(1, value) != _page) { _page = System.Math.Max(1, value); OnPropertyChanged("Page"); OnPropertyChanged("TotalPages"); OnPropertyChanged("PageInfo"); } } }
+        private int _pageSize = 50;
+        public int PageSize { get { return _pageSize; } set { if (System.Math.Max(1, value) != _pageSize) { _pageSize = System.Math.Max(1, value); OnPropertyChanged("PageSize"); OnPropertyChanged("TotalPages"); OnPropertyChanged("PageInfo"); } } }
+        private int _totalCount;
+        public int TotalCount { get { return _totalCount; } set { _totalCount = value; OnPropertyChanged("TotalCount"); OnPropertyChanged("TotalPages"); OnPropertyChanged("PageInfo"); } }
+        public int TotalPages => PageSize > 0 ? (int)System.Math.Ceiling(TotalCount / (double)PageSize) : 0;
+        public string PageInfo => TotalPages > 0 ? $"صفحة {Page} من {TotalPages} ({TotalCount} فاتورة)" : $"صفحة {Page} (0 فاتورة)";
+
         // === Search filters ===
         private string _searchByNumber = "";
         public string SearchByNumber { get { return _searchByNumber; } set { _searchByNumber = value; OnPropertyChanged("SearchByNumber"); } }
@@ -52,6 +62,8 @@ namespace Techtoon.UI.ViewModels
         public ICommand DeleteInvoiceCommand { get; set; }
         public ICommand SearchCommand { get; set; }
         public ICommand ClearSearchCommand { get; set; }
+        public ICommand NextPageCommand { get; set; }
+        public ICommand PrevPageCommand { get; set; }
 
         public InvoicesViewModel()
         {
@@ -62,6 +74,8 @@ namespace Techtoon.UI.ViewModels
             DeleteInvoiceCommand = new UiRelayCommand(_ => DeleteSelected(), _ => SelectedInvoice != null);
             SearchCommand = new UiRelayCommand(_ => _ = LoadInvoicesAsync());
             ClearSearchCommand = new UiRelayCommand(_ => ClearSearch());
+            NextPageCommand = new UiRelayCommand(_ => { if (TotalPages == 0 || Page < TotalPages) { Page++; _ = LoadInvoicesAsync(); } });
+            PrevPageCommand = new UiRelayCommand(_ => { if (Page > 1) { Page--; _ = LoadInvoicesAsync(); } });
             _ = LoadInvoicesAsync();
         }
 
@@ -108,7 +122,18 @@ namespace Techtoon.UI.ViewModels
 
                     if (conditions.Count > 0)
                         sql += " AND " + string.Join(" AND ", conditions);
-                    sql += " ORDER BY i.id DESC LIMIT 500";
+                    // P0-4 Batch 10: COUNT + paged query (was LIMIT 500)
+                    string countSql = "SELECT COUNT(*) FROM invoices i LEFT JOIN parties p ON i.party_id = p.id WHERE 1=1" + (conditions.Count > 0 ? " AND " + string.Join(" AND ", conditions) : "");
+                    using (var cc = new NpgsqlCommand(countSql, conn))
+                    {
+                        if (!string.IsNullOrWhiteSpace(SearchByNumber)) cc.Parameters.AddWithValue("num", "%" + SearchByNumber.Trim() + "%");
+                        if (!string.IsNullOrWhiteSpace(SearchByParty)) cc.Parameters.AddWithValue("party", "%" + SearchByParty.Trim() + "%");
+                        if (FromDate.HasValue) cc.Parameters.AddWithValue("from", FromDate.Value);
+                        if (ToDate.HasValue) cc.Parameters.AddWithValue("to", ToDate.Value.AddDays(1));
+                        TotalCount = Convert.ToInt32(await cc.ExecuteScalarAsync());
+                    }
+                    if (TotalPages > 0 && Page > TotalPages) Page = TotalPages;
+                    sql += " ORDER BY i.id DESC LIMIT @limit OFFSET @offset";
 
                     using (var cmd = new NpgsqlCommand(sql, conn))
                     {
@@ -120,6 +145,8 @@ namespace Techtoon.UI.ViewModels
                             cmd.Parameters.AddWithValue("from", FromDate.Value);
                         if (ToDate.HasValue)
                             cmd.Parameters.AddWithValue("to", ToDate.Value.AddDays(1));
+                        cmd.Parameters.AddWithValue("limit", PageSize);
+                        cmd.Parameters.AddWithValue("offset", (Page - 1) * PageSize);
 
                         using (var r = await cmd.ExecuteReaderAsync())
                             while (await r.ReadAsync())

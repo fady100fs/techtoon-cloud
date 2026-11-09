@@ -57,6 +57,18 @@ namespace Techtoon.UI.ViewModels
         public UiRelayCommand EditCommand { get; }
         public UiRelayCommand DeleteCommand { get; }
         public UiRelayCommand RefreshCommand { get; }
+        public UiRelayCommand NextPageCommand { get; }
+        public UiRelayCommand PrevPageCommand { get; }
+
+        // P0-4 Batch 10: pagination contract مع API
+        private int _page = 1;
+        public int Page { get => _page; set { if (SetProperty(ref _page, System.Math.Max(1, value))) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        private int _pageSize = 50;
+        public int PageSize { get => _pageSize; set { if (SetProperty(ref _pageSize, System.Math.Max(1, value))) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        private int _totalCount;
+        public int TotalCount { get => _totalCount; set { if (SetProperty(ref _totalCount, value)) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        public int TotalPages => PageSize > 0 ? (int)System.Math.Ceiling(TotalCount / (double)PageSize) : 0;
+        public string PageInfo => TotalPages > 0 ? $"صفحة {Page} من {TotalPages} ({TotalCount} دفعة)" : $"صفحة {Page} (0 دفعة)";
 
         public PaymentsViewModel()
         {
@@ -65,6 +77,8 @@ namespace Techtoon.UI.ViewModels
             EditCommand = new UiRelayCommand(_ => Edit(), _ => SelectedPayment != null);
             DeleteCommand = new UiRelayCommand(_ => Delete(), _ => SelectedPayment != null);
             RefreshCommand = new UiRelayCommand(_ => _ = LoadPaymentsAsync(), null);
+            NextPageCommand = new UiRelayCommand(_ => { if (TotalPages == 0 || Page < TotalPages) { Page++; _ = LoadPaymentsAsync(); } }, null);
+            PrevPageCommand = new UiRelayCommand(_ => { if (Page > 1) { Page--; _ = LoadPaymentsAsync(); } }, null);
             _ = LoadPaymentsAsync();
         }
 
@@ -76,20 +90,28 @@ namespace Techtoon.UI.ViewModels
             {
                 conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
-                string sql =
-                    "SELECT p.id, p.date, COALESCE(pt.name,''), COALESCE(a.name,''), p.payment_type, p.amount, " +
-                    "p.payment_method, p.reference_number, p.notes " +
+                string baseSql =
                     "FROM payments p LEFT JOIN parties pt ON p.party_id = pt.id " +
                     "LEFT JOIN accounts a ON p.account_id = a.id ";
-
-                if (!string.IsNullOrWhiteSpace(SearchText))
-                    sql += "WHERE pt.name ILIKE @q OR a.name ILIKE @q OR p.reference_number ILIKE @q ";
-                sql += "ORDER BY p.date DESC LIMIT 500";
+                string where = !string.IsNullOrWhiteSpace(SearchText) ? "WHERE pt.name ILIKE @q OR a.name ILIKE @q OR p.reference_number ILIKE @q " : "";
+                // P0-4 Batch 10: COUNT + paged query (was LIMIT 500)
+                using (var cc = new NpgsqlCommand("SELECT COUNT(*) " + baseSql + where, conn))
+                {
+                    if (!string.IsNullOrWhiteSpace(SearchText)) cc.Parameters.AddWithValue("@q", "%" + SearchText + "%");
+                    TotalCount = Convert.ToInt32(await cc.ExecuteScalarAsync());
+                }
+                if (TotalPages > 0 && Page > TotalPages) Page = TotalPages;
+                string sql =
+                    "SELECT p.id, p.date, COALESCE(pt.name,''), COALESCE(a.name,''), p.payment_type, p.amount, " +
+                    "p.payment_method, p.reference_number, p.notes " + baseSql + where +
+                    "ORDER BY p.date DESC LIMIT @limit OFFSET @offset";
 
                 using (var cmd = new NpgsqlCommand(sql, conn))
                 {
                     if (!string.IsNullOrWhiteSpace(SearchText))
                         cmd.Parameters.AddWithValue("@q", "%" + SearchText + "%");
+                    cmd.Parameters.AddWithValue("limit", PageSize);
+                    cmd.Parameters.AddWithValue("offset", (Page - 1) * PageSize);
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
