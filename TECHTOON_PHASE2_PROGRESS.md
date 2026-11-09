@@ -5,7 +5,7 @@
 > **تاريخ التنفيذ:** 2026-11-09
 > **المرجع:** نتائج تدقيق المرحلة الأولى (`_phase1_audit.txt`)
 > **الفرع/التراجع:** `backup/pre-phase2-20261109` → `3a95265e4d9b75c6444baac75b98e4cbd04f3624`
-> **حالة Git:** جميع تعديلات المرحلة الثانية **غير مُودعة (uncommitted)** — لم يتم commit أو push.
+> **حالة Git:** المرحلة الثانية مُودعة محليًا في `cd8733d` و`a78c686`، وإصلاح النشر في `deploy/mobile` (بدون push).
 
 ---
 
@@ -127,4 +127,30 @@ Build succeeded.
 - [x] اختبارات تكامل حقيقية على قاعدة معزولة.
 - [x] التحقق من سلامة البيانات بعد الاختبارات.
 - [x] عدم المساس بالإنتاج أو C1 أو الملفات القديمة.
-- [ ] الإيداع في Git — **بانتظار موافقة المالك** (كل التعديلات غير مُودعة).
+- [x] الإيداع في Git محليًا (بدون push).
+
+---
+
+## 7. نشر الإنتاج على Fly.io (2026-11-09)
+
+### 7.1 السبب الجذري لعطل الدخول
+- تطبيق `techtoon-mobile` كان **Nginx ثابتًا** يعرض حزمة Flutter المبنية فقط.
+- حزمة PWA المنشورة كانت تستدعي `https://techtoon-api.fly.dev` (7 مواضع في `main.dart.js`)، وهذا التطبيق **غير موجود**، ونطاقه يعيد `NXDOMAIN`.
+- لذلك كل محاولة دخول تفشل عند طبقة الشبكة، ويعرضها العميل القديم كـ«بيانات الدخول غير صحيحة». بيانات الدخول نفسها سليمة.
+
+### 7.2 الحل المنفَّذ
+- صورة مدمجة واحدة على نفس تطبيق Fly: Nginx يقدّم PWA على `:8080`، ويُمرّر `/api/*` و`/health` إلى `Techtoon.Api` على `127.0.0.1:8081`.
+- أعيد بناء الحزمة المنشورة كما هي (27 ملفًا، 26.3 MB) ثم استُبدل أصل الـAPI داخلها بـ`https://techtoon-mobile.fly.dev` (7/7) فصارت same-origin.
+- أُضيف تسجيل `AddDbContext<TechtoonDbContext>` في `Program.cs` لأن ستة Controllers كانت تحقن السياق دون تسجيله (كانت ستعيد 500).
+- الأسرار الإنتاجية ضُبطت عبر `fly secrets import --stage` **دون طباعة أي قيمة**: `ConnectionStrings__DefaultConnection` و`Jwt__Secret` (مفتاح جديد 64 حرفًا).
+
+### 7.3 النتيجة
+- الإصدار `v9` على `techtoon-mobile`، والمachine `0805625bed2378` بحالة `started`، والفحص `/health` ناجح.
+- `GET /health` → `200 Healthy` (قاعدة Neon متصلة).
+- `POST /api/auth/login` بمستخدم `admin` → **200** مع دور `ADMIN` و34 صلاحية.
+- `OPTIONS /api/auth/login` من أصل `https://techtoon-mobile.fly.dev` → **204** مع `Access-Control-Allow-Origin` صحيح.
+
+### 7.4 ملاحظة استرجاع
+- الرجوع الفوري: `flyctl releases rollback -a techtoon-mobile` (يعيد الإصدار `v8` الثابت السابق).
+- إعادة النشر: `deploy/mobile/prepare-context.ps1` ثم `flyctl deploy -c fly.toml` من مجلد السياق.
+- الحزمة المنشورة مأخوذة من الإصدار الحيّ لأن Flutter SDK غير متوفر محليًا؛ عند توفر Flutter يُستبدل هذا بإعادة بناء من المصدر مع `--dart-define=API_BASE_URL=https://techtoon-mobile.fly.dev`.

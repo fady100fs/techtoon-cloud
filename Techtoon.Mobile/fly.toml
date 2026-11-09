@@ -1,0 +1,11 @@
+# WARNING: do not deploy the static-only image from this folder.
+#
+# The Fly app "techtoon-mobile" now runs a combined image (Nginx + Techtoon.API).
+# Deploying the Flutter-only image from here would remove the API and make
+# mobile login fail again.
+#
+# Use the combined deployment kit instead:
+#   deploy/mobile/prepare-context.ps1
+#   flyctl deploy -c fly.toml   (from the assembled context directory)
+#
+# The authoritative Fly configuration is deploy/mobile/fly.toml.

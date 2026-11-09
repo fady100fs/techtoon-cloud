@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -8,6 +9,7 @@ using Techtoon.Api.HealthChecks;
 using Techtoon.Api.Middleware;
 using Techtoon.Api.Options;
 using Techtoon.Api.Services;
+using Techtoon.Data.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +59,10 @@ builder.Services.AddTechtoonSwagger();
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
 builder.Services.AddHealthChecks()
     .AddCheck<NeonDbHealthCheck>("neon-postgres", tags: new[] { "db", "neon" });
+
+// EF Core context for the controllers that use it. Configuring it here keeps the
+// provider bound to the configured connection string (and out of OnConfiguring).
+builder.Services.AddDbContext<TechtoonDbContext>(options => options.UseNpgsql(connStr));
 
 var app = builder.Build();
 

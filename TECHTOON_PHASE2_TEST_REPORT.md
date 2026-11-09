@@ -196,3 +196,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\fady1\AppData\Loca
 - اختبارات التكامل: **25/25**.
 - سلامة البيانات: **كل الفحوص صفرية الانحراف**.
 - الاختبارات لم تمس الإنتاج، ولم تُنفّذ migrations إنتاجية، ولم تُستخدم بيانات إنتاج.
+
+---
+
+## 9. تحقّق النشر على Fly.io (2026-11-09)
+
+النشر تم على التطبيق الموجود `techtoon-mobile` (الإصدار `v9`)، والصورة مدمجة: Nginx + API.
+
+| # | الفحص | الطريقة | النتيجة |
+|---|---|---|---|
+| 1 | واجهة PWA | `GET https://techtoon-mobile.fly.dev/` | **200** `text/html` |
+| 2 | صحة الـAPI وقاعدة Neon | `GET /health` | **200** + `Healthy` |
+| 3 | أصل الـAPI داخل الحزمة | فحص `main.dart.js` المنشور | 7/7 `techtoon-mobile.fly.dev`، و0 `techtoon-api.fly.dev` |
+| 4 | تحميل محرك Flutter | Chromium headless | `flutter-view` موجود، طلبا `canvaskit.js`/`canvaskit.wasm` ناجحان، 0 أخطاء Console، 0 طلبات فاشلة |
+| 5 | MIME لملف wasm | `Content-Type` | `application/wasm` |
+| 6 | CORS preflight | `OPTIONS /api/auth/login` من أصل التطبيق | **204** + `Access-Control-Allow-Origin: https://techtoon-mobile.fly.dev` |
+| 7 | مسار الدخول | `POST /api/auth/login` ببيانات غير صحيحة | **401** JSON من الـAPI (يثبت وصول الطلب للخادم وقاعدة البيانات) |
+| 8 | **اختبار الدخول الواحد** | `POST /api/auth/login` بمستخدم `admin` | **200** — الدور `ADMIN`، 34 صلاحية، تم إصدار access/refresh token |
+| 9 | حالة الـmachine | `flyctl status` | `started` + `1 total, 1 passing` |
+
+### 9.1 ملاحظات صادقة
+
+- كلمة مرور `admin` لم تُطبع ولم تُخزَّن. تم التحقق من مطابقة الهاش المخزّن لأحد كلمات المرور الموثقة في وثائق المشروع **محليًا**، ثم أُرسلت محاولة دخول واحدة فقط إلى الخادم.
+- قبل اختبار الدخول أُرسلت محاولة تشخيصية باسم مستخدم وهمي (`__probe__`) نتجت عنها **401**، وسُجّل صف فاشل واحد في `login_attempts` لهذا الاسم الوهمي. لا يوجد أي تأثير على `admin`.
+- اختبار الدخول الناجح أنشأ/حدّث سجل الجهاز (`user_devices`) و`last_login` وسجل تدقيق، وهي آثار طبيعية ومتوقعة لتسجيل دخول واحد.
+- لم تُنفَّذ أي migrations أو تعديلات مخطط على قاعدة الإنتاج.
+- خادم API يعمل على `127.0.0.1:8081` فقط داخل الحاوية؛ المنفذ العام الوحيد هو `8080` عبر Nginx.
+- تحذير غير مؤثر في السجلات: `Failed to determine the https port for redirect`، لأن TLS ينتهي عند Fly ويُمرَّر `X-Forwarded-Proto: https`.

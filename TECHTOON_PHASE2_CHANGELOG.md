@@ -1,7 +1,7 @@
 # سجل تغييرات المرحلة الثانية — Techtoon Accounting
 
 > **التاريخ:** 2026-11-09
-> **النوع:** تغييرات غير مُودعة (uncommitted) — لم يتم commit/push.
+> **النوع:** مُودعة محليًا في `cd8733d` + `a78c686` + إصلاح النشر (بدون push).
 > **المرجع:** معالجة نتائج التدقيق C2–C10 / H1–H10 / M1–M10.
 > **ملاحظة:** المستودع يحتوي أيضًا على تعديلات محلية سابقة للمرحلة الثانية (مثل `Techtoon.Core/Models/*`، `Techtoon.Data/Context/TechtoonDbContext.cs`، `models.py`، `services.py`، `MainWindow.xaml`، ملفات `.webview_data`، وحذف أرشيفات ZIP). **لم تُعدَّل هذه الملفات ضمن المرحلة الثانية**، وهي مذكورة هنا فقط للتمييز.
 
@@ -114,3 +114,43 @@
 - كل تغييرات المخطط كانت على **قاعدة الاختبار المحلية فقط** لمواءمة أعمدة الإنتاج (`invoices.total/paid_amount/...`, `payments.invoice_id`, `invoice_payments`, `user_permissions`). لا migrations إنتاجية.
 - الشيفرة تعتمد كشف الأعمدة وقت التشغيل (`information_schema`) حيث يختلف مخطط الإنتاج عن `models.py`، لذلك لا تنكسر عند غياب عمود اختياري.
 - لم تُحذف أي وظيفة أو تكامل قائم؛ الإضافات الجديدة متوافقة للخلف.
+
+---
+
+## 6. إصلاح نشر Fly.io (2026-11-09)
+
+### 6.1 ملفات أُنشئت
+
+| الملف | الغرض |
+|---|---|
+| `deploy/mobile/Dockerfile` | صورة مدمجة: بناء `Techtoon.Api` + Nginx يقدّم حزمة PWA |
+| `deploy/mobile/nginx.conf` | تقديم الملفات الثابتة وتمرير `/api/*` و`/health` إلى `127.0.0.1:8081` |
+| `deploy/mobile/start.sh` | تشغيل Nginx والـAPI معًا؛ خروج الحاوية عند موت أي منهما |
+| `deploy/mobile/fly.toml` | إعداد Fly لتطبيق `techtoon-mobile` (health check على `/health`) |
+| `deploy/mobile/prepare-context.ps1` | تجميع سياق بناء صغير (26.3 MB) بدل رفع المستودع كاملًا |
+| `deploy/mobile/mirror-pwa.ps1` | عكس حزمة PWA المنشورة وإعادة كتابة أصل الـAPI إلى نفس النطاق |
+| `deploy/.dockerignore` | استبعاد `bin/obj/.vs` من سياق البناء |
+
+### 6.2 ملفات عُدِّلت
+
+| الملف | التغيير | البند |
+|---|---|---|
+| `Techtoon.Api/Program.cs` | تسجيل `AddDbContext<TechtoonDbContext>` مع `UseNpgsql(connStr)` — ستة Controllers كانت ستفشل في DI | — |
+| `fly.toml` | إضافة أصل PWA إلى `Cors__AllowedOrigins__0` | H6 |
+| `Techtoon.Mobile/lib/core/services/api_service.dart` | تحويل 401 أثناء الدخول إلى رسالة «بيانات غير صحيحة» بدل «انتهت الجلسة» | C10 |
+
+### 6.3 خارج Git
+
+| المسار | الوصف |
+|---|---|
+| `Techtoon.Mobile/build/web/` | حزمة PWA المنشورة (27 ملفًا، 26.3 MB) مع أصل API مُعاد كتابته. مستبعدة من Git عبر `Techtoon.Mobile/.gitignore`. |
+| `C:\Users\fady1\AppData\Local\Temp\opencode\techtoon-deploy-context\` | سياق البناء المُجمَّع المستخدم في النشر |
+
+### 6.4 أسرار Fly
+
+| المفتاح | الحالة |
+|---|---|
+| `ConnectionStrings__DefaultConnection` | مضبوط (القيمة لم تُطبع) |
+| `Jwt__Secret` | مضبوط بمفتاح جديد 64 حرفًا (القيمة لم تُطبع) |
+
+> تدوير `Jwt__Secret` يُبطل أي توكنات قديمة؛ لا توجد توكنات إنتاجية سابقة لأن الـAPI لم يكن منشورًا.

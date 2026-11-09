@@ -1,0 +1,6 @@
+# Keeps the Fly build context small: only the assembled deploy context is sent.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.suo
