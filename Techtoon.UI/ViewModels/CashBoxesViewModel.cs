@@ -27,17 +27,17 @@ namespace Techtoon.UI.ViewModels
         public CashBoxesViewModel()
         {
             CashBoxes = new ObservableCollection<CashBoxRow>();
-            RefreshCommand = new UiRelayCommand(_ => Load());
-            Load();
+            RefreshCommand = new UiRelayCommand(_ => _ = LoadAsync());
+            _ = LoadAsync();
         }
 
-        public void Load()
+        public async System.Threading.Tasks.Task LoadAsync()
         {
             CashBoxes.Clear();
             try
             {
                 using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
-                conn.Open();
+                await conn.OpenAsync();
                 // حساب الرصيد ديناميكيًا: افتتاحي + قبض - صرف - مصروفات + قروض + تحويلات واردة - تحويلات صادرة
                 string sql = @"
                     SELECT cb.id, cb.name, cb.code, cb.type, COALESCE(cb.opening_balance, 0),
@@ -52,8 +52,8 @@ namespace Techtoon.UI.ViewModels
                     FROM cash_boxes cb WHERE cb.is_active = TRUE ORDER BY cb.name";
 
                 using var cmd = new NpgsqlCommand(sql, conn);
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
                 {
                     CashBoxes.Add(new CashBoxRow
                     {
@@ -61,8 +61,8 @@ namespace Techtoon.UI.ViewModels
                         Name = reader.GetString(1),
                         Code = reader.IsDBNull(2) ? "" : reader.GetString(2),
                         Type = reader.IsDBNull(3) ? "" : reader.GetString(3),
-                        OpeningBalance = (decimal)reader.GetDouble(4),
-                        CurrentBalance = (decimal)reader.GetDouble(5)
+                        OpeningBalance = Convert.ToDecimal(reader.GetValue(4)),
+                        CurrentBalance = Convert.ToDecimal(reader.GetValue(5))
                     });
                 }
             }
