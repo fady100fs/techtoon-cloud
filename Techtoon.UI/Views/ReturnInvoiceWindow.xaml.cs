@@ -18,14 +18,14 @@ namespace Techtoon.UI.Views
     {
         public int ItemId { get; set; }
         public string ItemName { get; set; }
-        public double OriginalQty { get; set; }
-        public double AlreadyReturned { get; set; }
-        public double Price { get; set; }
+        public decimal OriginalQty { get; set; }
+        public decimal AlreadyReturned { get; set; }
+        public decimal Price { get; set; }
 
-        public double AvailableToReturn { get { return OriginalQty - AlreadyReturned; } }
+        public decimal AvailableToReturn { get { return OriginalQty - AlreadyReturned; } }
 
-        private double _returnQty = 0;
-        public double ReturnQty
+        private decimal _returnQty = 0m;
+        public decimal ReturnQty
         {
             get { return _returnQty; }
             set
@@ -39,7 +39,7 @@ namespace Techtoon.UI.Views
             }
         }
 
-        public double ReturnTotal { get { return ReturnQty * Price; } }
+        public decimal ReturnTotal { get { return ReturnQty * Price; } }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string name) =>
@@ -111,8 +111,8 @@ namespace Techtoon.UI.Views
                 {
                     partyId = r.IsDBNull(0) ? 0 : r.GetInt32(0);
                     lblParty.Text = r.IsDBNull(1) ? "-" : r.GetString(1);
-                    lblTotal.Text = (r.IsDBNull(2) ? 0 : r.GetDouble(2)).ToString("0.00");
-                    lblPaid.Text = (r.IsDBNull(3) ? 0 : r.GetDouble(3)).ToString("0.00");
+                    lblTotal.Text = (r.IsDBNull(2) ? 0m : Convert.ToDecimal(r.GetValue(2))).ToString("0.00");
+                    lblPaid.Text = (r.IsDBNull(3) ? 0m : Convert.ToDecimal(r.GetValue(3))).ToString("0.00");
                     string origType = r.IsDBNull(4) ? "sales" : r.GetString(4);
                     cmbType.SelectedIndex = origType == "purchase" ? 1 : 0;
                 }
@@ -132,8 +132,8 @@ namespace Techtoon.UI.Views
                     {
                         ItemId = r.GetInt32(0),
                         ItemName = r.GetString(1),
-                        OriginalQty = r.GetDouble(2),
-                        Price = r.GetDouble(3),
+                        OriginalQty = Convert.ToDecimal(r.GetValue(2)),
+                        Price = Convert.ToDecimal(r.GetValue(3)),
                         ReturnQty = 0
                     });
                 }
@@ -142,8 +142,8 @@ namespace Techtoon.UI.Views
             // Load already-returned quantities for each item
             // (نبحث عن فواتير المرتجع المرتبطة بهذه الفاتورة عبر reference_invoice_id)
             // M8: one grouped query instead of one query per line (N+1).
-            double totalPrevReturn = 0;
-            var prevByItem = new System.Collections.Generic.Dictionary<int, double>();
+            decimal totalPrevReturn = 0m;
+            var prevByItem = new System.Collections.Generic.Dictionary<int, decimal>();
             if (Lines.Count > 0)
             {
                 var itemIds = Lines.Select(l => l.ItemId).Distinct().ToArray();
@@ -156,11 +156,11 @@ namespace Techtoon.UI.Views
                 cmd.Parameters.AddWithValue("ref", invoiceId);
                 cmd.Parameters.AddWithValue("items", itemIds);
                 using var r = cmd.ExecuteReader();
-                while (r.Read()) prevByItem[r.GetInt32(0)] = Convert.ToDouble(r.GetValue(1));
+                while (r.Read()) prevByItem[r.GetInt32(0)] = Convert.ToDecimal(r.GetValue(1));
             }
             foreach (var line in Lines)
             {
-                double prev = prevByItem.TryGetValue(line.ItemId, out var p) ? p : 0;
+                decimal prev = prevByItem.TryGetValue(line.ItemId, out var p) ? p : 0;
                 line.AlreadyReturned = prev;
                 totalPrevReturn += prev * line.Price;
             }
@@ -177,7 +177,7 @@ namespace Techtoon.UI.Views
 
         private void UpdateReturnTotal()
         {
-            double total = Lines.Sum(l => l.ReturnTotal);
+            decimal total = Lines.Sum(l => l.ReturnTotal);
             lblReturnTotal.Text = total.ToString("0.00");
         }
 
@@ -231,7 +231,7 @@ namespace Techtoon.UI.Views
                         var res = c2.ExecuteScalar();
                         if (res != null && res != DBNull.Value) partyId = Convert.ToInt32(res);
                     }
-                    double total = (double)returnLines.Sum(l => l.ReturnTotal);
+                    decimal total = returnLines.Sum(l => l.ReturnTotal);
 
                     cmd.Parameters.AddWithValue("num", retNum);
                     cmd.Parameters.AddWithValue("date", date);
@@ -317,7 +317,7 @@ namespace Techtoon.UI.Views
 
                 tx.Commit();
                 Saved = true;
-                double totalSaved = returnLines.Sum(l => l.ReturnTotal);
+                decimal totalSaved = returnLines.Sum(l => l.ReturnTotal);
                 MessageBox.Show($"تم حفظ المرتجع بنجاح\n\nرقم المرتجع: RET-{newInvoiceId}\nعدد الأصناف المرتجعة: {returnLines.Count}\nإجمالي قيمة المرتجع: {totalSaved:0.00}\n\nملاحظة: تم تحديث المخزون تلقائياً.");
                 DialogResult = true;
                 Close();
