@@ -12,6 +12,7 @@ public class PaymentDto
     public string? VoucherNo { get; set; }
     public string? Notes { get; set; }
     public int? CashBoxId { get; set; }
+    public int? InvoiceId { get; set; }
 }
 
 public class PaymentCreateDto
@@ -24,4 +25,5 @@ public class PaymentCreateDto
     public string? VoucherNo { get; set; }
     public string? Notes { get; set; }
     public int? CashBoxId { get; set; }
+    public int? InvoiceId { get; set; }
 }

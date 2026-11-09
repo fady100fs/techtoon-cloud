@@ -9,8 +9,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameController = TextEditingController(text: 'admin');
-  final _passwordController = TextEditingController(text: 'admin123');
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -22,20 +22,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      await apiService.login(_usernameController.text, _passwordController.text);
-      
+      await apiService.login(_usernameController.text.trim(), _passwordController.text);
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => MainShell()),
       );
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _errorMessage = 'بيانات الدخول غير صحيحة';
+        _errorMessage = e is ApiException ? e.message : 'تعذر تسجيل الدخول، حاول مرة أخرى';
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

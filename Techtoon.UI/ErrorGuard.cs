@@ -35,8 +35,11 @@ namespace Techtoon.UI
                     MessageBox.Show(ex.GetType().Name + "\n\n" + ex.Message + "\n\nالتقرير:\n" + file, "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
-            catch { }
-            if (_count >= 3) { Environment.Exit(1); }
+            catch (Exception reportEx)
+            {
+                // M3: never swallow a crash-reporting failure silently.
+                App.Log("ErrorGuard failed to report a crash: " + reportEx.Message);
+            }
         }
 
         private static string WriteLog(string source, Exception ex)

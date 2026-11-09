@@ -46,8 +46,9 @@ public static class ServiceCollectionExtensions
     {
         services.AddAuthorization(options =>
         {
-            // Permission policies will be registered in B-3
+            // C8: individual policies are supplied on demand by PermissionPolicyProvider.
         });
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
         return services;
     }
@@ -61,7 +62,10 @@ public static class ServiceCollectionExtensions
             {
                 if (allowedOrigins.Length == 0)
                 {
-                    policy.SetIsOriginAllowed(_ => true);
+                    // H6: never fall back to "allow any origin". With no configured origins
+                    // no browser origin is permitted; non-browser clients (WPF/Flutter) are
+                    // unaffected because CORS only applies to browsers.
+                    policy.WithOrigins(Array.Empty<string>());
                 }
                 else
                 {

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.Items;
+using Techtoon.Api.Security;
 using Techtoon.Api.Services;
 
 namespace Techtoon.Api.Controllers;
@@ -41,6 +42,7 @@ public class ItemsController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("settings")]
     public async Task<IActionResult> CreateItem([FromBody] ItemCreateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();
@@ -49,6 +51,7 @@ public class ItemsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [HasPermission("settings")]
     public async Task<IActionResult> UpdateItem(int id, [FromBody] ItemUpdateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();
@@ -58,6 +61,7 @@ public class ItemsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [HasPermission("settings")]
     public async Task<IActionResult> DeleteItem(int id)
     {
         if (_current.UserId == null) return Unauthorized();

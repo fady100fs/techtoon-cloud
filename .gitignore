@@ -1,4 +1,4 @@
-# Build outputs
+﻿# Build outputs
 **/bin/
 **/obj/
 **/build/
@@ -21,3 +21,10 @@ local.properties
 *.env
 appsettings.Development.json
 Techtoon.Streamlit/database.py
+
+# M2: never commit live browser/desktop sessions or WebView cache
+.sessions.json
+.webview_data/
+*.session
+*.pma
+throttle_store.dat

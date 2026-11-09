@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows;
 using Npgsql;
+using Techtoon.UI.Services;
 
 namespace Techtoon.UI.Views
 {
@@ -226,7 +227,7 @@ namespace Techtoon.UI.Views
                 cmd.Parameters.AddWithValue("@pid", partyId > 0 ? (object)partyId : DBNull.Value);
                 cmd.Parameters.AddWithValue("@aid", accountId > 0 ? (object)accountId : DBNull.Value);
                 cmd.Parameters.AddWithValue("@iid", invoiceId > 0 ? (object)invoiceId : DBNull.Value);
-                cmd.Parameters.AddWithValue("@amt", (double)amount);
+                cmd.Parameters.AddWithValue("@amt", amount);
                 cmd.Parameters.AddWithValue("@dt", date);
                 cmd.Parameters.AddWithValue("@cb", cashBoxId > 0 ? (object)cashBoxId : DBNull.Value);
                 cmd.Parameters.AddWithValue("@m", method);

@@ -143,18 +143,26 @@ namespace Techtoon.UI.Views
 
             // Load already-returned quantities for each item
             // (نبحث عن فواتير المرتجع المرتبطة بهذه الفاتورة عبر reference_invoice_id)
+            // M8: one grouped query instead of one query per line (N+1).
             double totalPrevReturn = 0;
-            foreach (var line in Lines)
+            var prevByItem = new System.Collections.Generic.Dictionary<int, double>();
+            if (Lines.Count > 0)
             {
+                var itemIds = Lines.Select(l => l.ItemId).Distinct().ToArray();
                 using var cmd = new NpgsqlCommand(
-                    "SELECT COALESCE(SUM(il.quantity), 0) " +
+                    "SELECT il.item_id, COALESCE(SUM(il.quantity), 0) " +
                     "FROM invoice_lines il " +
                     "JOIN invoices inv ON il.invoice_id = inv.id " +
-                    "WHERE inv.reference_invoice_id = @ref AND il.item_id = @item " +
-                    "AND inv.type IN ('sales_return','purchase_return')", conn);
+                    "WHERE inv.reference_invoice_id = @ref AND il.item_id = ANY(@items) " +
+                    "AND inv.type IN ('sales_return','purchase_return') GROUP BY il.item_id", conn);
                 cmd.Parameters.AddWithValue("ref", invoiceId);
-                cmd.Parameters.AddWithValue("item", line.ItemId);
-                var prev = Convert.ToDouble(cmd.ExecuteScalar());
+                cmd.Parameters.AddWithValue("items", itemIds);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) prevByItem[r.GetInt32(0)] = Convert.ToDouble(r.GetValue(1));
+            }
+            foreach (var line in Lines)
+            {
+                double prev = prevByItem.TryGetValue(line.ItemId, out var p) ? p : 0;
                 line.AlreadyReturned = prev;
                 totalPrevReturn += prev * line.Price;
             }
@@ -252,18 +260,61 @@ namespace Techtoon.UI.Views
                 }
 
                 // 3) Update inventory
+                // M8: return movements now carry warehouse, before/after quantities and cost,
+                // and stock_levels is updated in the same transaction.
+                int warehouseId = 0;
+                bool hasInvoiceWarehouse = ColumnExists(conn, tx, "invoices", "warehouse_id");
+                if (hasInvoiceWarehouse)
+                {
+                    using var wcmd = new NpgsqlCommand("SELECT warehouse_id FROM invoices WHERE id=@id", conn, tx);
+                    wcmd.Parameters.AddWithValue("@id", originalInvoiceId);
+                    var w = wcmd.ExecuteScalar();
+                    if (w != null && w != DBNull.Value) warehouseId = Convert.ToInt32(w);
+                }
+
+                bool movHasWarehouse = ColumnExists(conn, tx, "inventory_movements", "warehouse_id");
+                bool movHasBefore = ColumnExists(conn, tx, "inventory_movements", "before_quantity");
+                bool movHasAfter = ColumnExists(conn, tx, "inventory_movements", "after_quantity");
+                bool movHasCost = ColumnExists(conn, tx, "inventory_movements", "unit_cost");
+                bool movHasValue = ColumnExists(conn, tx, "inventory_movements", "total_value");
+                bool movHasRefType = ColumnExists(conn, tx, "inventory_movements", "reference_type");
+                bool movHasDate = ColumnExists(conn, tx, "inventory_movements", "date");
+                bool hasStockLevels = TableExists(conn, tx, "stock_levels");
+
+                var unitCosts = LoadUnitCosts(conn, tx, returnLines.Select(l => l.ItemId).Distinct().ToArray());
+
                 foreach (var l in returnLines)
                 {
                     string movType = returnType == "sales_return" ? "in" : "out";
-                    using var cmd = new NpgsqlCommand(
-                        "INSERT INTO inventory_movements (item_id, quantity, type, reference_id, reference_type, created_at) " +
-                        "VALUES (@item, @qty, @type, @ref, 'return', @now)", conn, tx);
-                    cmd.Parameters.AddWithValue("item", l.ItemId);
-                    cmd.Parameters.AddWithValue("qty", l.ReturnQty);
-                    cmd.Parameters.AddWithValue("type", movType);
-                    cmd.Parameters.AddWithValue("ref", newInvoiceId);
-                    cmd.Parameters.AddWithValue("now", DateTime.Now);
+                    decimal delta = returnType == "sales_return" ? (decimal)l.ReturnQty : -(decimal)l.ReturnQty;
+                    decimal before = GetCurrentStock(conn, tx, l.ItemId, warehouseId, hasStockLevels, movHasWarehouse);
+                    decimal after = before + delta;
+                    decimal unitCost = unitCosts.TryGetValue(l.ItemId, out var uc) ? uc : 0m;
+                    decimal totalValue = unitCost * (decimal)l.ReturnQty;
+
+                    var cols = new System.Collections.Generic.List<string> { "item_id", "quantity", "type", "reference_id" };
+                    var vals = new System.Collections.Generic.List<string> { "@item", "@qty", "@type", "@ref" };
+                    var cmd = new NpgsqlCommand();
+                    cmd.Connection = conn;
+                    cmd.Transaction = tx;
+                    cmd.Parameters.AddWithValue("@item", l.ItemId);
+                    cmd.Parameters.AddWithValue("@qty", l.ReturnQty);
+                    cmd.Parameters.AddWithValue("@type", movType);
+                    cmd.Parameters.AddWithValue("@ref", newInvoiceId);
+                    if (movHasRefType) { cols.Add("reference_type"); vals.Add("'return'"); }
+                    if (movHasWarehouse && warehouseId > 0) { cols.Add("warehouse_id"); vals.Add("@wh"); cmd.Parameters.AddWithValue("@wh", warehouseId); }
+                    if (movHasBefore) { cols.Add("before_quantity"); vals.Add("@before"); cmd.Parameters.AddWithValue("@before", before); }
+                    if (movHasAfter) { cols.Add("after_quantity"); vals.Add("@after"); cmd.Parameters.AddWithValue("@after", after); }
+                    if (movHasCost) { cols.Add("unit_cost"); vals.Add("@uc"); cmd.Parameters.AddWithValue("@uc", unitCost); }
+                    if (movHasValue) { cols.Add("total_value"); vals.Add("@tv"); cmd.Parameters.AddWithValue("@tv", totalValue); }
+                    if (movHasDate) { cols.Add("date"); vals.Add("@now"); cmd.Parameters.AddWithValue("@now", DateTime.Now); }
+                    else { cols.Add("created_at"); vals.Add("@now2"); cmd.Parameters.AddWithValue("@now2", DateTime.Now); }
+                    cmd.CommandText = "INSERT INTO inventory_movements (" + string.Join(",", cols) + ") VALUES (" + string.Join(",", vals) + ")";
                     cmd.ExecuteNonQuery();
+                    cmd.Dispose();
+
+                    if (hasStockLevels && warehouseId > 0)
+                        ApplyStockLevelDelta(conn, tx, l.ItemId, warehouseId, delta);
                 }
 
                 tx.Commit();
@@ -283,6 +334,89 @@ namespace Techtoon.UI.Views
         {
             DialogResult = false;
             Close();
+        }
+
+        private static bool ColumnExists(NpgsqlConnection conn, NpgsqlTransaction tx, string table, string column)
+        {
+            using var cmd = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=@t AND column_name=@c)", conn, tx);
+            cmd.Parameters.AddWithValue("@t", table.ToLowerInvariant());
+            cmd.Parameters.AddWithValue("@c", column.ToLowerInvariant());
+            return Convert.ToBoolean(cmd.ExecuteScalar());
+        }
+
+        private static bool TableExists(NpgsqlConnection conn, NpgsqlTransaction tx, string table)
+        {
+            using var cmd = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=@t)", conn, tx);
+            cmd.Parameters.AddWithValue("@t", table.ToLowerInvariant());
+            return Convert.ToBoolean(cmd.ExecuteScalar());
+        }
+
+        private static System.Collections.Generic.Dictionary<int, decimal> LoadUnitCosts(
+            NpgsqlConnection conn, NpgsqlTransaction tx, int[] itemIds)
+        {
+            var result = new System.Collections.Generic.Dictionary<int, decimal>();
+            if (itemIds == null || itemIds.Length == 0) return result;
+
+            bool hasAvg = ColumnExists(conn, tx, "items", "avg_cost_price");
+            bool hasCost = ColumnExists(conn, tx, "items", "cost_price");
+            if (!hasAvg && !hasCost) return result;
+
+            string expr = hasAvg && hasCost
+                ? "COALESCE(NULLIF(avg_cost_price,0), NULLIF(cost_price,0), 0)"
+                : hasAvg ? "COALESCE(avg_cost_price,0)" : "COALESCE(cost_price,0)";
+
+            using var cmd = new NpgsqlCommand("SELECT id, " + expr + " FROM items WHERE id = ANY(@ids)", conn, tx);
+            cmd.Parameters.AddWithValue("@ids", itemIds);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                result[Convert.ToInt32(r.GetValue(0))] = Convert.ToDecimal(r.GetValue(1));
+            return result;
+        }
+
+        private static decimal GetCurrentStock(NpgsqlConnection conn, NpgsqlTransaction tx, int itemId,
+            int warehouseId, bool hasStockLevels, bool movHasWarehouse)
+        {
+            if (hasStockLevels && warehouseId > 0)
+            {
+                using var cmd = new NpgsqlCommand(
+                    "SELECT COALESCE(quantity,0) FROM stock_levels WHERE item_id=@i AND warehouse_id=@w", conn, tx);
+                cmd.Parameters.AddWithValue("@i", itemId);
+                cmd.Parameters.AddWithValue("@w", warehouseId);
+                var v = cmd.ExecuteScalar();
+                if (v != null && v != DBNull.Value) return Convert.ToDecimal(v);
+            }
+
+            var sql = "SELECT COALESCE(SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) " +
+                      "WHEN type IN ('out','transfer_out') THEN -ABS(quantity) " +
+                      "WHEN type='adjustment' THEN quantity ELSE 0 END),0) " +
+                      "FROM inventory_movements WHERE item_id=@i";
+            if (movHasWarehouse && warehouseId > 0) sql += " AND warehouse_id=@w";
+            using var mcmd = new NpgsqlCommand(sql, conn, tx);
+            mcmd.Parameters.AddWithValue("@i", itemId);
+            if (movHasWarehouse && warehouseId > 0) mcmd.Parameters.AddWithValue("@w", warehouseId);
+            var mv = mcmd.ExecuteScalar();
+            return mv == null || mv == DBNull.Value ? 0m : Convert.ToDecimal(mv);
+        }
+
+        private static void ApplyStockLevelDelta(NpgsqlConnection conn, NpgsqlTransaction tx, int itemId, int warehouseId, decimal delta)
+        {
+            using (var upd = new NpgsqlCommand(
+                "UPDATE stock_levels SET quantity=COALESCE(quantity,0)+@d, last_updated=NOW() WHERE item_id=@i AND warehouse_id=@w", conn, tx))
+            {
+                upd.Parameters.AddWithValue("@d", delta);
+                upd.Parameters.AddWithValue("@i", itemId);
+                upd.Parameters.AddWithValue("@w", warehouseId);
+                if (upd.ExecuteNonQuery() > 0) return;
+            }
+
+            using var ins = new NpgsqlCommand(
+                "INSERT INTO stock_levels (warehouse_id, item_id, quantity, last_updated) VALUES (@w, @i, @d, NOW())", conn, tx);
+            ins.Parameters.AddWithValue("@w", warehouseId);
+            ins.Parameters.AddWithValue("@i", itemId);
+            ins.Parameters.AddWithValue("@d", delta);
+            ins.ExecuteNonQuery();
         }
     }
 }

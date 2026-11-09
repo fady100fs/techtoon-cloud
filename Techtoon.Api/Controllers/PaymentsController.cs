@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.Payments;
+using Techtoon.Api.Security;
 using Techtoon.Api.Services;
 
 namespace Techtoon.Api.Controllers;
@@ -43,6 +44,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("sales")]
     public async Task<IActionResult> CreatePayment([FromBody] PaymentCreateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();
@@ -58,6 +60,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [HasPermission("cancel_invoice")]
     public async Task<IActionResult> DeletePayment(int id)
     {
         if (_current.UserId == null) return Unauthorized();

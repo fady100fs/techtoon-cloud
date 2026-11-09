@@ -56,7 +56,7 @@ namespace Techtoon.UI.ViewModels
                 using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
                 conn.Open();
                 var sql = @"SELECT i.id, i.name, i.barcode, w.name, 
-                            COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening') THEN quantity WHEN type='out' THEN -quantity WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id),0),
+                            COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) WHEN type IN ('out','transfer_out') THEN -ABS(quantity) WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id),0),
                             COALESCE(sl.reserved_quantity,0), COALESCE(sl.damaged_quantity,0), COALESCE(sl.under_inspection_quantity,0),
                             COALESCE(i.avg_cost_price, i.cost_price, 0), COALESCE(i.min_stock,0)
                             FROM items i 

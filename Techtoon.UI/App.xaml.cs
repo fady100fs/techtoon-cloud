@@ -45,6 +45,8 @@ public partial class App : Application
             Log("  Stack: " + args.Exception.StackTrace);
             if (args.Exception.InnerException != null)
                 Log("  Inner: " + args.Exception.InnerException.Message);
+            // M3: inform the user instead of silently swallowing the exception.
+            ErrorGuard.Report("Dispatcher", args.Exception);
             args.Handled = true;
         };
 
@@ -81,7 +83,8 @@ public partial class App : Application
                     // نسخ احتياطي تلقائي (خلفية - لا يحجب الواجهة)
                     _ = System.Threading.Tasks.Task.Run(() =>
                     {
-                        try { Techtoon.UI.Services.AutoBackupScheduler.CheckAndBackupIfNeeded(connStr); } catch { }
+                        try { Techtoon.UI.Services.AutoBackupScheduler.CheckAndBackupIfNeeded(connStr); }
+                        catch (Exception backupEx) { App.Log("Background backup failed: " + backupEx.Message); }
                     });
                 }
             }

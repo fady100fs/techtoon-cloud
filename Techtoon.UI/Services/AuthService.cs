@@ -36,6 +36,18 @@ namespace Techtoon.UI.Services
             return await Task.FromResult(Login(username, password));
         }
 
+        /// <summary>
+        /// C2: fail closed on missing/empty/malformed password hashes.
+        /// A user row without a usable bcrypt hash must never authenticate.
+        /// </summary>
+        public static bool IsValidPasswordHash(string hash)
+        {
+            if (string.IsNullOrWhiteSpace(hash)) return false;
+            if (hash.Length != 60) return false;
+            if (!(hash.StartsWith("$2a$") || hash.StartsWith("$2b$") || hash.StartsWith("$2y$"))) return false;
+            return true;
+        }
+
         public static LoginResult Login(string username, string password)
         {
             var result = new LoginResult();
@@ -53,7 +65,15 @@ namespace Techtoon.UI.Services
                             if (!r.GetBoolean(5)) { result.ErrorMessage = "User inactive"; return result; }
 
                             string hash = r.GetString(2);
-                            if (!string.IsNullOrEmpty(hash) && !BCrypt.Net.BCrypt.Verify(password, hash))
+                            if (!IsValidPasswordHash(hash))
+                            {
+                                result.ErrorMessage = "Invalid credentials";
+                                return result;
+                            }
+                            bool passwordOk;
+                            try { passwordOk = BCrypt.Net.BCrypt.Verify(password ?? string.Empty, hash); }
+                            catch { passwordOk = false; }
+                            if (!passwordOk)
                             {
                                 result.ErrorMessage = "Wrong password";
                                 return result;
@@ -111,7 +131,11 @@ namespace Techtoon.UI.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // M4: permission loading failure must be visible; the user keeps no permissions.
+                App.Log("Failed to load permissions for user " + CurrentUser?.Id + ": " + ex.Message);
+            }
         }
 
         public static bool HasPermission(string key)
@@ -140,11 +164,17 @@ namespace Techtoon.UI.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                App.Log("Audit log write failed for action " + action + ": " + ex.Message);
+            }
         }
 
         public static async Task EnsureDefaultAdminAsync()
         {
+            // M1: never auto-seed a well-known admin/admin123 account. A bootstrap admin is
+            // created only when the operator supplies a strong password via the environment.
+            const string envVar = "TECHTOON_BOOTSTRAP_ADMIN_PASSWORD";
             try
             {
                 using (var conn = new NpgsqlConnection(GetCS()))
@@ -152,19 +182,29 @@ namespace Techtoon.UI.Services
                     conn.Open();
                     using (var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE username='admin'", conn))
                     {
-                        if (Convert.ToInt32(cmd.ExecuteScalar()) == 0)
-                        {
-                            string hash = BCrypt.Net.BCrypt.HashPassword("admin123", workFactor: 12);
-                            using (var c2 = new NpgsqlCommand("INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) VALUES ('admin', @h, 'Administrator', 'ADMIN', TRUE, NOW())", conn))
-                            {
-                                c2.Parameters.AddWithValue("h", hash);
-                                c2.ExecuteNonQuery();
-                            }
-                        }
+                        if (Convert.ToInt32(cmd.ExecuteScalar()) > 0) return;
                     }
+
+                    var bootstrapPassword = Environment.GetEnvironmentVariable(envVar);
+                    if (string.IsNullOrWhiteSpace(bootstrapPassword) || bootstrapPassword.Length < 12)
+                    {
+                        App.Log("No admin user exists. Set " + envVar + " (min 12 chars) once to bootstrap an admin account.");
+                        return;
+                    }
+
+                    string hash = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword, workFactor: 12);
+                    using (var c2 = new NpgsqlCommand("INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) VALUES ('admin', @h, 'Administrator', 'ADMIN', TRUE, NOW())", conn))
+                    {
+                        c2.Parameters.AddWithValue("h", hash);
+                        c2.ExecuteNonQuery();
+                    }
+                    App.Log("Bootstrap admin account created from " + envVar + " (change the password after first login).");
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                App.Log("EnsureDefaultAdminAsync failed: " + ex.Message);
+            }
             await Task.CompletedTask;
         }
 

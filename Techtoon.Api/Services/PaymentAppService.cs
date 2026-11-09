@@ -19,11 +19,45 @@ public interface IPaymentAppService
 public class PaymentAppService : IPaymentAppService
 {
     private readonly string _connStr;
-    public PaymentAppService(IConfiguration config) { _connStr = config.GetConnectionString("DefaultConnection") ?? ""; }
+    private readonly bool _hasInvoiceId;
+    private readonly bool _hasInvoicePayments;
+    private readonly bool _hasCurrencyId;
+
+    public PaymentAppService(IConfiguration config)
+    {
+        _connStr = config.GetConnectionString("DefaultConnection") ?? "";
+        using var conn = new NpgsqlConnection(_connStr);
+        conn.Open();
+        var payCols = LoadColumns(conn, "payments");
+        _hasInvoiceId = payCols.Contains("invoice_id");
+        _hasCurrencyId = payCols.Contains("currency_id");
+        _hasInvoicePayments = TableExists(conn, "invoice_payments");
+    }
+
+    private static HashSet<string> LoadColumns(NpgsqlConnection conn, string table)
+    {
+        var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var cmd = new NpgsqlCommand("SELECT column_name FROM information_schema.columns WHERE table_name=@t", conn);
+        cmd.Parameters.AddWithValue("t", table);
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) cols.Add(r.GetString(0));
+        return cols;
+    }
+
+    private static bool TableExists(NpgsqlConnection conn, string table)
+    {
+        using var cmd = new NpgsqlCommand(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=@t)", conn);
+        cmd.Parameters.AddWithValue("t", table);
+        return Convert.ToBoolean(cmd.ExecuteScalar());
+    }
 
     private static decimal SafeDecimal(object? v) => v == null || v == DBNull.Value ? 0m : Convert.ToDecimal(v);
     private static int SafeInt(object? v) => v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
     private static string SafeString(object? v) => v == null || v == DBNull.Value ? string.Empty : v.ToString() ?? string.Empty;
+
+    // H10: the canonical schema has `reference_number`; `voucher_no` does not exist.
+    private string InvoiceIdSelect => _hasInvoiceId ? "p.invoice_id " : "NULL::bigint AS invoice_id ";
 
     public async Task<PagedResultDto<PaymentDto>> GetPaymentsAsync(string? type, int? partyId, DateTime? from, DateTime? to, int page, int pageSize)
     {
@@ -50,7 +84,8 @@ public class PaymentAppService : IPaymentAppService
 
         var sql = "SELECT p.id::bigint, p.date, p.party_id, COALESCE(pt.name,'') AS party_name, " +
                   "p.amount::numeric, COALESCE(p.payment_type,'') AS payment_type, COALESCE(p.payment_method,'') AS payment_method, " +
-                  "COALESCE(p.voucher_no,'') AS voucher_no, COALESCE(p.notes,'') AS notes, p.cash_box_id " +
+                  "COALESCE(p.reference_number,'') AS reference_number, COALESCE(p.notes,'') AS notes, p.cash_box_id, " +
+                  InvoiceIdSelect +
                   "FROM payments p LEFT JOIN parties pt ON p.party_id = pt.id " + whereSql + " " +
                   "ORDER BY p.date DESC, p.id DESC LIMIT @limit OFFSET @offset";
 
@@ -62,19 +97,7 @@ public class PaymentAppService : IPaymentAppService
             using var r = await cmd.ExecuteReaderAsync();
             while (await r.ReadAsync())
             {
-                result.Items.Add(new PaymentDto
-                {
-                    Id = SafeInt(r["id"]),
-                    Date = r.GetDateTime(r.GetOrdinal("date")),
-                    PartyId = r["party_id"] == DBNull.Value ? null : SafeInt(r["party_id"]),
-                    PartyName = SafeString(r["party_name"]),
-                    Amount = SafeDecimal(r["amount"]),
-                    PaymentType = SafeString(r["payment_type"]),
-                    PaymentMethod = SafeString(r["payment_method"]),
-                    VoucherNo = r["voucher_no"] == DBNull.Value ? null : SafeString(r["voucher_no"]),
-                    Notes = r["notes"] == DBNull.Value ? null : SafeString(r["notes"]),
-                    CashBoxId = r["cash_box_id"] == DBNull.Value ? null : SafeInt(r["cash_box_id"])
-                });
+                result.Items.Add(Map(r));
             }
         }
         return result;
@@ -86,26 +109,30 @@ public class PaymentAppService : IPaymentAppService
         await conn.OpenAsync();
         var sql = "SELECT p.id::bigint, p.date, p.party_id, COALESCE(pt.name,'') AS party_name, " +
                   "p.amount::numeric, COALESCE(p.payment_type,'') AS payment_type, COALESCE(p.payment_method,'') AS payment_method, " +
-                  "COALESCE(p.voucher_no,'') AS voucher_no, COALESCE(p.notes,'') AS notes, p.cash_box_id " +
+                  "COALESCE(p.reference_number,'') AS reference_number, COALESCE(p.notes,'') AS notes, p.cash_box_id, " +
+                  InvoiceIdSelect +
                   "FROM payments p LEFT JOIN parties pt ON p.party_id = pt.id WHERE p.id = @id";
         using var cmd = new NpgsqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("id", id);
         using var r = await cmd.ExecuteReaderAsync();
         if (!await r.ReadAsync()) return null;
-        return new PaymentDto
-        {
-            Id = SafeInt(r["id"]),
-            Date = r.GetDateTime(r.GetOrdinal("date")),
-            PartyId = r["party_id"] == DBNull.Value ? null : SafeInt(r["party_id"]),
-            PartyName = SafeString(r["party_name"]),
-            Amount = SafeDecimal(r["amount"]),
-            PaymentType = SafeString(r["payment_type"]),
-            PaymentMethod = SafeString(r["payment_method"]),
-            VoucherNo = r["voucher_no"] == DBNull.Value ? null : SafeString(r["voucher_no"]),
-            Notes = r["notes"] == DBNull.Value ? null : SafeString(r["notes"]),
-            CashBoxId = r["cash_box_id"] == DBNull.Value ? null : SafeInt(r["cash_box_id"])
-        };
+        return Map(r);
     }
+
+    private static PaymentDto Map(NpgsqlDataReader r) => new PaymentDto
+    {
+        Id = SafeInt(r["id"]),
+        Date = r.GetDateTime(r.GetOrdinal("date")),
+        PartyId = r["party_id"] == DBNull.Value ? null : SafeInt(r["party_id"]),
+        PartyName = SafeString(r["party_name"]),
+        Amount = SafeDecimal(r["amount"]),
+        PaymentType = SafeString(r["payment_type"]),
+        PaymentMethod = SafeString(r["payment_method"]),
+        VoucherNo = r["reference_number"] == DBNull.Value ? null : SafeString(r["reference_number"]),
+        Notes = r["notes"] == DBNull.Value ? null : SafeString(r["notes"]),
+        CashBoxId = r["cash_box_id"] == DBNull.Value ? null : SafeInt(r["cash_box_id"]),
+        InvoiceId = r["invoice_id"] == DBNull.Value ? null : SafeInt(r["invoice_id"])
+    };
 
     public async Task<PaymentDto> CreatePaymentAsync(PaymentCreateDto dto, int userId)
     {
@@ -117,20 +144,47 @@ public class PaymentAppService : IPaymentAppService
         await conn.OpenAsync();
         using var tx = await conn.BeginTransactionAsync();
 
+        var cols = new List<string> { "date", "party_id", "amount", "payment_type", "payment_method", "reference_number", "notes", "cash_box_id" };
+        var vals = new List<string> { "@date", "@pid", "@amount", "@type", "@method", "@ref", "@notes", "@cb" };
+        var parms = new List<NpgsqlParameter>
+        {
+            new("date", dto.Date),
+            new("pid", (object?)dto.PartyId ?? DBNull.Value),
+            new("amount", dto.Amount),
+            new("type", dto.PaymentType),
+            new("method", dto.PaymentMethod),
+            new("ref", (object?)dto.VoucherNo ?? DBNull.Value),
+            new("notes", (object?)dto.Notes ?? DBNull.Value),
+            new("cb", (object?)dto.CashBoxId ?? DBNull.Value)
+        };
+        if (_hasCurrencyId) { cols.Add("currency_id"); vals.Add("1"); }
+        if (_hasInvoiceId && dto.InvoiceId.HasValue) { cols.Add("invoice_id"); vals.Add("@iid"); parms.Add(new NpgsqlParameter("iid", dto.InvoiceId.Value)); }
+
         int newId;
         using (var cmd = new NpgsqlCommand(
-            "INSERT INTO payments (date, party_id, amount, payment_type, payment_method, voucher_no, notes, cash_box_id) " +
-            "VALUES (@date, @pid, @amount, @type, @method, @vno, @notes, @cb) RETURNING id", conn, tx))
+            "INSERT INTO payments (" + string.Join(",", cols) + ") VALUES (" + string.Join(",", vals) + ") RETURNING id", conn, tx))
         {
-            cmd.Parameters.AddWithValue("date", dto.Date);
-            cmd.Parameters.AddWithValue("pid", (object?)dto.PartyId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("amount", dto.Amount);
-            cmd.Parameters.AddWithValue("type", dto.PaymentType);
-            cmd.Parameters.AddWithValue("method", dto.PaymentMethod);
-            cmd.Parameters.AddWithValue("vno", (object?)dto.VoucherNo ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("notes", (object?)dto.Notes ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("cb", (object?)dto.CashBoxId ?? DBNull.Value);
+            foreach (var p in parms) cmd.Parameters.Add(p);
             newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
+
+        // H10: an API payment linked to an invoice must be visible to invoice balances
+        // exactly like a payment entered through the WPF invoice editor.
+        if (dto.InvoiceId.HasValue)
+        {
+            if (_hasInvoicePayments)
+            {
+                using var cmd = new NpgsqlCommand(
+                    "INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at, created_at) " +
+                    "VALUES (@iid, @method, @amount, @ref, @paidAt, NOW())", conn, tx);
+                cmd.Parameters.AddWithValue("iid", dto.InvoiceId.Value);
+                cmd.Parameters.AddWithValue("method", dto.PaymentMethod);
+                cmd.Parameters.AddWithValue("amount", dto.Amount);
+                cmd.Parameters.AddWithValue("ref", (object?)dto.VoucherNo ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("paidAt", dto.Date);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            await ReconcileInvoiceAsync(conn, tx, dto.InvoiceId.Value, dto.Amount);
         }
 
         using (var cmd = new NpgsqlCommand(
@@ -153,10 +207,41 @@ public class PaymentAppService : IPaymentAppService
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync();
         using var tx = await conn.BeginTransactionAsync();
-        using var cmd = new NpgsqlCommand("DELETE FROM payments WHERE id = @id", conn, tx);
-        cmd.Parameters.AddWithValue("id", id);
-        var affected = await cmd.ExecuteNonQueryAsync();
-        if (affected == 0) { await tx.RollbackAsync(); return false; }
+
+        // H3: capture the invoice link before deleting so the invoice balance can be repaired.
+        int? invoiceId = null;
+        decimal amount = 0m;
+        using (var read = new NpgsqlCommand(
+            "SELECT amount::numeric, " + (_hasInvoiceId ? "invoice_id" : "NULL::bigint") + " FROM payments WHERE id = @id", conn, tx))
+        {
+            read.Parameters.AddWithValue("id", id);
+            using var r = await read.ExecuteReaderAsync();
+            if (!await r.ReadAsync()) { await tx.RollbackAsync(); return false; }
+            amount = SafeDecimal(r[0]);
+            invoiceId = r[1] == DBNull.Value ? null : SafeInt(r[1]);
+        }
+
+        using (var cmd = new NpgsqlCommand("DELETE FROM payments WHERE id = @id", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("id", id);
+            var affected = await cmd.ExecuteNonQueryAsync();
+            if (affected == 0) { await tx.RollbackAsync(); return false; }
+        }
+
+        if (invoiceId.HasValue)
+        {
+            if (_hasInvoicePayments)
+            {
+                // Remove one matching ledger row (best effort: amounts are decimals in the UI).
+                using var cmd = new NpgsqlCommand(
+                    "DELETE FROM invoice_payments WHERE id IN (" +
+                    "  SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt ORDER BY id DESC LIMIT 1)", conn, tx);
+                cmd.Parameters.AddWithValue("iid", invoiceId.Value);
+                cmd.Parameters.AddWithValue("amt", amount);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            await ReconcileInvoiceAsync(conn, tx, invoiceId.Value, -amount);
+        }
 
         using var cmd2 = new NpgsqlCommand(
             "INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, created_at) VALUES (@uid, 'delete_payment', 'payment', @eid, @details, NOW())",
@@ -168,5 +253,45 @@ public class PaymentAppService : IPaymentAppService
 
         await tx.CommitAsync();
         return true;
+    }
+
+    /// <summary>
+    /// H3/H10: recompute invoices.paid_amount and status from the authoritative ledger.
+    /// When no ledger table exists the stored balance is adjusted by <paramref name="delta"/>.
+    /// </summary>
+    private async Task ReconcileInvoiceAsync(NpgsqlConnection conn, NpgsqlTransaction tx, int invoiceId, decimal delta)
+    {
+        decimal paid;
+        if (_hasInvoicePayments)
+        {
+            using var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM invoice_payments WHERE invoice_id = @id", conn, tx);
+            cmd.Parameters.AddWithValue("id", invoiceId);
+            paid = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+        }
+        else if (_hasInvoiceId)
+        {
+            using var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id = @id", conn, tx);
+            cmd.Parameters.AddWithValue("id", invoiceId);
+            paid = Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+        }
+        else
+        {
+            using var cmd = new NpgsqlCommand("SELECT GREATEST(COALESCE(paid_amount,0) + @delta, 0) FROM invoices WHERE id = @id", conn, tx);
+            cmd.Parameters.AddWithValue("delta", delta);
+            cmd.Parameters.AddWithValue("id", invoiceId);
+            var v = await cmd.ExecuteScalarAsync();
+            if (v == null || v == DBNull.Value) return;
+            paid = Convert.ToDecimal(v);
+        }
+
+        using (var cmd = new NpgsqlCommand(
+            "UPDATE invoices SET paid_amount = @paid, " +
+            "status = CASE WHEN @paid >= COALESCE(total,0) THEN 'paid' WHEN @paid > 0 THEN 'partial' ELSE 'unpaid' END, " +
+            "updated_at = NOW() WHERE id = @id AND COALESCE(status,'') <> 'cancelled'", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("paid", paid);
+            cmd.Parameters.AddWithValue("id", invoiceId);
+            await cmd.ExecuteNonQueryAsync();
+        }
     }
 }

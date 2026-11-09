@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,6 +10,16 @@ using Techtoon.Api.Options;
 using Techtoon.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// H5: the app runs behind Fly's proxy. Trust exactly one hop of X-Forwarded-For/Proto
+// so RemoteIpAddress (rate limiting, audit) sees the real client and not the proxy.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Bind options
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
@@ -50,8 +61,8 @@ builder.Services.AddHealthChecks()
 var app = builder.Build();
 
 // Pipeline
+app.UseForwardedHeaders();
 app.UseMiddleware<ErrorHandlingMiddleware>();
-app.UseMiddleware<IdempotencyMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -59,11 +70,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("TechtoonMobile");
 app.UseAuthentication();
 app.UseAuthorization();
+
+// H7: idempotency needs the authenticated user id, so it must run after authentication.
+app.UseMiddleware<IdempotencyMiddleware>();
+
 app.MapControllers();
 
 // Health endpoints

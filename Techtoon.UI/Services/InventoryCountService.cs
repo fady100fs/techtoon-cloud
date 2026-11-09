@@ -89,7 +89,7 @@ namespace Techtoon.UI.Services
                 var items = new List<(int itemId, string name, string barcode, double bookQty, decimal unitCost)>();
                 using (var cmd = new NpgsqlCommand(
                     "SELECT i.id, i.name, i.barcode, " +
-                    "COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening') THEN quantity WHEN type='out' THEN -quantity WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id AND (warehouse_id=@wh OR warehouse_id IS NULL)),0), " +
+                    "COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) WHEN type IN ('out','transfer_out') THEN -ABS(quantity) WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id AND (warehouse_id=@wh OR warehouse_id IS NULL)),0), " +
                     "COALESCE(i.avg_cost_price, i.cost_price, 0) " +
                     "FROM items i WHERE i.is_active = TRUE AND i.is_kit IS NOT TRUE ORDER BY i.name", conn, tx))
                 {

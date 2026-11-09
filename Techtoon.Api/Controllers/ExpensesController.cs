@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.Expenses;
+using Techtoon.Api.Security;
 using Techtoon.Api.Services;
 
 namespace Techtoon.Api.Controllers;
@@ -42,6 +43,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("expenses")]
     public async Task<IActionResult> CreateExpense([FromBody] ExpenseCreateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();
@@ -57,6 +59,7 @@ public class ExpensesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [HasPermission("expenses")]
     public async Task<IActionResult> DeleteExpense(int id)
     {
         if (_current.UserId == null) return Unauthorized();

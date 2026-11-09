@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.Common;
 using Techtoon.Api.DTOs.Items;
+using Techtoon.Core.Inventory;
 
 namespace Techtoon.Api.Services;
 
@@ -98,7 +99,7 @@ public class ItemAppService : IItemAppService
                   "COALESCE(i.is_kit,false)::boolean AS is_kit, " +
                   "i.category_id, " +
                   "COALESCE(i.total_purchased_qty,0)::numeric AS total_purchased_qty, " +
-                  "COALESCE((SELECT SUM(quantity) FROM inventory_movements WHERE item_id = i.id), 0)::numeric AS movement_sum " +
+                  "COALESCE((SELECT SUM(" + InventorySignConvention.SignedQuantitySql("im") + ") FROM inventory_movements im WHERE im.item_id = i.id), 0)::numeric AS movement_sum " +
                   "FROM items i " + whereSql + " ORDER BY i.name LIMIT @limit OFFSET @offset";
 
         using (var cmd = new NpgsqlCommand(sql, conn))
@@ -142,7 +143,7 @@ public class ItemAppService : IItemAppService
                   "i.category_id, " +
                   "i.inventory_account_id, i.cogs_account_id, i.revenue_account_id, " +
                   "COALESCE(i.total_purchased_qty,0)::numeric AS total_purchased_qty, " +
-                  "COALESCE((SELECT SUM(quantity) FROM inventory_movements WHERE item_id = i.id), 0)::numeric AS movement_sum " +
+                  "COALESCE((SELECT SUM(" + InventorySignConvention.SignedQuantitySql("im") + ") FROM inventory_movements im WHERE im.item_id = i.id), 0)::numeric AS movement_sum " +
                   "FROM items i WHERE i.id = @id";
 
         using var cmd = new NpgsqlCommand(sql, conn);
@@ -279,7 +280,7 @@ public class ItemAppService : IItemAppService
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync();
         using var cmd = new NpgsqlCommand(
-            "SELECT COALESCE(opening_quantity,0)::numeric + COALESCE((SELECT SUM(quantity) FROM inventory_movements WHERE item_id = @id), 0)::numeric " +
+            "SELECT COALESCE(opening_quantity,0)::numeric + COALESCE((SELECT SUM(" + InventorySignConvention.SignedQuantitySql("im") + ") FROM inventory_movements im WHERE im.item_id = @id), 0)::numeric " +
             "FROM items WHERE id = @id", conn);
         cmd.Parameters.AddWithValue("id", itemId);
         var result = await cmd.ExecuteScalarAsync();
@@ -298,9 +299,9 @@ public class ItemAppService : IItemAppService
             "COALESCE(i.min_stock,0)::numeric AS min_stock, " +
             "COALESCE(i.is_kit,false)::boolean AS is_kit, " +
             "i.category_id, " +
-            "COALESCE((SELECT SUM(quantity) FROM inventory_movements WHERE item_id = i.id), 0)::numeric AS movement_sum " +
+            "COALESCE((SELECT SUM(" + InventorySignConvention.SignedQuantitySql("im") + ") FROM inventory_movements im WHERE im.item_id = i.id), 0)::numeric AS movement_sum " +
             "FROM items i WHERE i.min_stock > 0 AND " +
-            "(COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(quantity) FROM inventory_movements WHERE item_id = i.id), 0)) <= i.min_stock " +
+            "(COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(" + InventorySignConvention.SignedQuantitySql("im") + ") FROM inventory_movements im WHERE im.item_id = i.id), 0)) <= i.min_stock " +
             "ORDER BY i.name", conn);
         using var r = await cmd.ExecuteReaderAsync();
         while (await r.ReadAsync())

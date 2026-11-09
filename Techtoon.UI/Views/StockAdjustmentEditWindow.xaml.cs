@@ -110,7 +110,7 @@ namespace Techtoon.UI.Views
             using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
             conn.Open();
             using var cmd = new NpgsqlCommand(
-                "SELECT COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening') THEN quantity WHEN type='out' THEN -quantity WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id AND (@wh=0 OR warehouse_id=@wh OR warehouse_id IS NULL)),0), " +
+                "SELECT COALESCE(i.opening_quantity,0) + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) WHEN type IN ('out','transfer_out') THEN -ABS(quantity) WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id AND (@wh=0 OR warehouse_id=@wh OR warehouse_id IS NULL)),0), " +
                 "COALESCE(i.avg_cost_price, i.cost_price, 0) FROM items i WHERE i.id=@item", conn);
             cmd.Parameters.AddWithValue("wh", whId);
             cmd.Parameters.AddWithValue("item", itemId);
@@ -201,7 +201,8 @@ namespace Techtoon.UI.Views
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
-            if (Saved) DialogResult = true;
+            if (Saved) AuditService.Log(0 > 0 ? "UPDATE" : "CREATE", "StockAdjutment", 0 > 0 ? 0 : 0, "Saved from EditWindow");
+            DialogResult = true;
             Close();
         }
     }

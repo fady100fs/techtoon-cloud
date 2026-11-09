@@ -169,7 +169,7 @@ namespace Techtoon.UI.ViewModels
                     using (var cmd = new NpgsqlCommand(@"
                         SELECT COALESCE(SUM(
                             i.opening_quantity * COALESCE(i.avg_cost_price, i.cost_price, 0) +
-                            COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening') THEN quantity WHEN type='out' THEN -quantity WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id), 0) * COALESCE(i.avg_cost_price, i.cost_price, 0)
+                            COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) WHEN type IN ('out','transfer_out') THEN -ABS(quantity) WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id), 0) * COALESCE(i.avg_cost_price, i.cost_price, 0)
                         ), 0)
                         FROM items i WHERE i.is_kit IS NOT TRUE", conn))
                         stockValue = Convert.ToDecimal(cmd.ExecuteScalar());
@@ -211,7 +211,7 @@ namespace Techtoon.UI.ViewModels
                     using (var cmd = new NpgsqlCommand(@"
                         SELECT i.name, i.min_stock,
                             i.opening_quantity + COALESCE((
-                                SELECT SUM(CASE WHEN type IN ('in','opening') THEN quantity WHEN type='out' THEN -quantity WHEN type='adjustment' THEN quantity ELSE 0 END)
+                                SELECT SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) WHEN type IN ('out','transfer_out') THEN -ABS(quantity) WHEN type='adjustment' THEN quantity ELSE 0 END)
                                 FROM inventory_movements WHERE item_id=i.id
                             ), 0) as stock
                         FROM items i

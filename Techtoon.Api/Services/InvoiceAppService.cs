@@ -23,6 +23,9 @@ public class InvoiceAppService : IInvoiceAppService
     private readonly HashSet<string> _invCols;
     private readonly HashSet<string> _lineCols;
     private readonly HashSet<string> _movCols;
+    private readonly bool _hasAvgCost;
+    private readonly bool _hasCostPrice;
+    private readonly bool _hasItemCost;
 
     public InvoiceAppService(IConfiguration config)
     {
@@ -32,6 +35,10 @@ public class InvoiceAppService : IInvoiceAppService
         _invCols = LoadColumns(conn, "invoices");
         _lineCols = LoadColumns(conn, "invoice_lines");
         _movCols = LoadColumns(conn, "inventory_movements");
+        var itemCols = LoadColumns(conn, "items");
+        _hasAvgCost = itemCols.Contains("avg_cost_price");
+        _hasCostPrice = itemCols.Contains("cost_price");
+        _hasItemCost = _hasAvgCost || _hasCostPrice;
     }
 
     private static HashSet<string> LoadColumns(NpgsqlConnection conn, string table)
@@ -270,6 +277,9 @@ public class InvoiceAppService : IInvoiceAppService
                 newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
             }
 
+            // H10: capture the real item cost so invoice lines carry COGS instead of 0.
+            var itemCosts = await LoadItemCostsAsync(conn, tx, dto.Lines);
+
             foreach (var line in dto.Lines)
             {
                 var lineTotal = line.Quantity * line.Price - line.Discount;
@@ -284,7 +294,7 @@ public class InvoiceAppService : IInvoiceAppService
                     new NpgsqlParameter("price", line.Price),
                     new NpgsqlParameter("total", lineTotal)
                 };
-                if (HasLine("cost_price")) { lCols.Add("cost_price"); lVals.Add("@cost"); lParms.Add(new NpgsqlParameter("cost", NpgsqlTypes.NpgsqlDbType.Numeric) { Value = 0m }); }
+                if (HasLine("cost_price")) { lCols.Add("cost_price"); lVals.Add("@cost"); lParms.Add(new NpgsqlParameter("cost", NpgsqlTypes.NpgsqlDbType.Numeric) { Value = itemCosts.TryGetValue(line.ItemId, out var unitCost) ? unitCost : 0m }); }
                 if (HasLine("discount")) { lCols.Add("discount"); lVals.Add("@disc"); lParms.Add(new NpgsqlParameter("disc", line.Discount)); }
 
                 using (var cmd = new NpgsqlCommand("INSERT INTO invoice_lines (" + string.Join(",", lCols) + ") VALUES (" + string.Join(",", lVals) + ")", conn, tx))
@@ -295,14 +305,15 @@ public class InvoiceAppService : IInvoiceAppService
 
                 if (HasMov("item_id") && HasMov("quantity") && HasMov("type"))
                 {
+                    // C5: writers store positive magnitudes for in/out; the sign is carried by `type`.
                     var movType = dto.Type == "sales" ? "out" : "in";
-                    var qtySigned = dto.Type == "sales" ? -line.Quantity : line.Quantity;
+                    var qtyMagnitude = Math.Abs(line.Quantity);
                     var mCols = new List<string> { "item_id", "type", "quantity" };
                     var mVals = new List<string> { "@item", "@mtype", "@qty" };
                     var mParms = new List<NpgsqlParameter> {
                         new NpgsqlParameter("item", line.ItemId),
                         new NpgsqlParameter("mtype", movType),
-                        new NpgsqlParameter("qty", qtySigned)
+                        new NpgsqlParameter("qty", qtyMagnitude)
                     };
                     if (HasMov("date")) { mCols.Add("date"); mVals.Add("NOW()"); }
                     if (HasMov("reference_id")) { mCols.Add("reference_id"); mVals.Add("@refId"); mParms.Add(new NpgsqlParameter("refId", newId)); }
@@ -385,7 +396,13 @@ public class InvoiceAppService : IInvoiceAppService
         }
         if (HasMov("reference_id") && HasMov("reference_type"))
         {
-            using var cmd = new NpgsqlCommand("UPDATE inventory_movements SET quantity = -quantity WHERE reference_id = @id AND reference_type = 'invoice'", conn, tx);
+            // C5: cancel by reversing the movement type, not by negating the quantity.
+            // Also normalise legacy negative in/out rows to positive magnitudes.
+            using var cmd = new NpgsqlCommand(
+                "UPDATE inventory_movements SET " +
+                "type = CASE WHEN type = 'out' THEN 'in' WHEN type = 'in' THEN 'out' ELSE type END, " +
+                "quantity = ABS(quantity) " +
+                "WHERE reference_id = @id AND reference_type = 'invoice'", conn, tx);
             cmd.Parameters.AddWithValue("id", id);
             await cmd.ExecuteNonQueryAsync();
         }
@@ -394,15 +411,52 @@ public class InvoiceAppService : IInvoiceAppService
         return true;
     }
 
+    private async Task<Dictionary<int, decimal>> LoadItemCostsAsync(NpgsqlConnection conn, NpgsqlTransaction tx, List<InvoiceLineInputDto> lines)
+    {
+        var costs = new Dictionary<int, decimal>();
+        if (!_hasItemCost || lines == null || lines.Count == 0) return costs;
+
+        var ids = new HashSet<int>();
+        foreach (var l in lines) if (l.ItemId > 0) ids.Add(l.ItemId);
+        if (ids.Count == 0) return costs;
+
+        var costExpr = _hasAvgCost && _hasCostPrice
+            ? "COALESCE(NULLIF(avg_cost_price,0), NULLIF(cost_price,0), 0)"
+            : _hasAvgCost
+                ? "COALESCE(avg_cost_price,0)"
+                : "COALESCE(cost_price,0)";
+        using var cmd = new NpgsqlCommand("SELECT id, " + costExpr + "::numeric FROM items WHERE id = ANY(@ids)", conn, tx);
+        cmd.Parameters.AddWithValue("ids", ids.ToArray());
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+            costs[SafeInt(r[0])] = SafeDecimal(r[1]);
+        return costs;
+    }
+
     private async Task<string> GenerateInvoiceNumberAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string type)
     {
         var prefix = type == "sales" ? "SAL" : "PUR";
         var year = DateTime.Now.Year;
-        using var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM invoices WHERE type = @t AND EXTRACT(YEAR FROM date) = @y", conn, tx);
+
+        // H8: COUNT(*)+1 produced duplicate numbers under concurrency (and after deletions).
+        // Serialise numbering per type/year with a transaction-scoped advisory lock, then
+        // take MAX(suffix)+1 so deleted invoices can never cause a reuse.
+        var lockKey = prefix + "-" + year;
+        using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtext(@key))", conn, tx))
+        {
+            lockCmd.Parameters.AddWithValue("key", lockKey);
+            await lockCmd.ExecuteScalarAsync();
+        }
+
+        using var cmd = new NpgsqlCommand(
+            "SELECT COALESCE(MAX(SUBSTRING(invoice_number FROM '([0-9]+)$')::int), 0) " +
+            "FROM invoices WHERE type = @t AND date >= @start AND date < @end AND invoice_number LIKE @like", conn, tx);
         cmd.Parameters.AddWithValue("t", type);
-        cmd.Parameters.AddWithValue("y", year);
-        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-        return prefix + "-" + year + "-" + (count + 1).ToString("D6");
+        cmd.Parameters.AddWithValue("start", new DateTime(year, 1, 1));
+        cmd.Parameters.AddWithValue("end", new DateTime(year + 1, 1, 1));
+        cmd.Parameters.AddWithValue("like", prefix + "-" + year + "-%");
+        var max = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        return prefix + "-" + year + "-" + (max + 1).ToString("D6");
     }
 
     private async Task LogAuditAsync(NpgsqlConnection conn, NpgsqlTransaction tx, int userId, string action, string entityType, int entityId, string details)

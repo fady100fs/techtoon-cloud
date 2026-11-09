@@ -103,7 +103,7 @@ namespace Techtoon.UI.ViewModels
                                 PartyName = reader.IsDBNull(2) ? "" : reader.GetString(2),
                                 AccountName = reader.IsDBNull(3) ? "" : reader.GetString(3),
                                 VoucherType = reader.IsDBNull(4) ? "" : reader.GetString(4),
-                                Amount = reader.IsDBNull(5) ? 0m : (decimal)reader.GetDouble(5),
+                                Amount = reader.IsDBNull(5) ? 0m : Convert.ToDecimal(reader.GetValue(5)),
                                 Method = reader.IsDBNull(6) ? "" : reader.GetString(6),
                                 Reference = reader.IsDBNull(7) ? "" : reader.GetString(7),
                                 Notes = reader.IsDBNull(8) ? "" : reader.GetString(8)
@@ -157,10 +157,35 @@ namespace Techtoon.UI.ViewModels
             {
                 conn = new NpgsqlConnection(_connectionString);
                 conn.Open();
-                using (var cmd = new NpgsqlCommand("DELETE FROM payments WHERE id=@id", conn))
+                // H3: deleting a receipt/payment must repair invoices.paid_amount for the
+                // linked invoice; otherwise customer/supplier balances silently drift.
+                using (var tx = conn.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@id", SelectedPayment.Id);
-                    cmd.ExecuteNonQuery();
+                    int? invoiceId = null;
+                    decimal amount = 0m;
+                    bool hasInvoiceId = ColumnExists(conn, tx, "payments", "invoice_id");
+                    if (hasInvoiceId)
+                    {
+                        using var read = new NpgsqlCommand("SELECT invoice_id, COALESCE(amount,0) FROM payments WHERE id=@id", conn, tx);
+                        read.Parameters.AddWithValue("@id", SelectedPayment.Id);
+                        using var r = read.ExecuteReader();
+                        if (r.Read())
+                        {
+                            invoiceId = r.IsDBNull(0) ? (int?)null : r.GetInt32(0);
+                            amount = r.IsDBNull(1) ? 0m : Convert.ToDecimal(r.GetValue(1));
+                        }
+                    }
+
+                    using (var cmd = new NpgsqlCommand("DELETE FROM payments WHERE id=@id", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@id", SelectedPayment.Id);
+                        if (cmd.ExecuteNonQuery() == 0) { tx.Rollback(); return; }
+                    }
+
+                    if (invoiceId.HasValue)
+                        ReconcileInvoicePaid(conn, tx, invoiceId.Value, amount);
+
+                    tx.Commit();
                 }
                 LoadPayments();
             }
@@ -172,6 +197,77 @@ namespace Techtoon.UI.ViewModels
             {
                 if (conn != null) conn.Close();
             }
+        }
+
+        private static bool ColumnExists(NpgsqlConnection conn, NpgsqlTransaction tx, string table, string column)
+        {
+            using var cmd = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=@t AND column_name=@c)", conn, tx);
+            cmd.Parameters.AddWithValue("@t", table);
+            cmd.Parameters.AddWithValue("@c", column);
+            return Convert.ToBoolean(cmd.ExecuteScalar());
+        }
+
+        private static bool TableExists(NpgsqlConnection conn, NpgsqlTransaction tx, string table)
+        {
+            using var cmd = new NpgsqlCommand(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=@t)", conn, tx);
+            cmd.Parameters.AddWithValue("@t", table);
+            return Convert.ToBoolean(cmd.ExecuteScalar());
+        }
+
+        /// <summary>
+        /// Recomputes invoices.paid_amount from the ledger that owns this invoice.
+        /// The WPF payment window writes payments.invoice_id; the invoice editor writes
+        /// invoice_payments. Prefer invoice_payments when it has rows, otherwise use payments.
+        /// </summary>
+        private static void ReconcileInvoicePaid(NpgsqlConnection conn, NpgsqlTransaction tx, int invoiceId, decimal deletedAmount)
+        {
+            decimal paid;
+            if (TableExists(conn, tx, "invoice_payments"))
+            {
+                using (var check = new NpgsqlCommand("SELECT COUNT(*) FROM invoice_payments WHERE invoice_id=@id", conn, tx))
+                {
+                    check.Parameters.AddWithValue("@id", invoiceId);
+                    if (Convert.ToInt64(check.ExecuteScalar()) > 0)
+                    {
+                        using var sum = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM invoice_payments WHERE invoice_id=@id", conn, tx);
+                        sum.Parameters.AddWithValue("@id", invoiceId);
+                        paid = Convert.ToDecimal(sum.ExecuteScalar());
+                        UpdateInvoicePaid(conn, tx, invoiceId, paid);
+                        return;
+                    }
+                }
+            }
+
+            if (ColumnExists(conn, tx, "payments", "invoice_id"))
+            {
+                using var sum = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=@id", conn, tx);
+                sum.Parameters.AddWithValue("@id", invoiceId);
+                paid = Convert.ToDecimal(sum.ExecuteScalar());
+            }
+            else
+            {
+                using var cur = new NpgsqlCommand("SELECT GREATEST(COALESCE(paid_amount,0) - @amt, 0) FROM invoices WHERE id=@id", conn, tx);
+                cur.Parameters.AddWithValue("@amt", deletedAmount);
+                cur.Parameters.AddWithValue("@id", invoiceId);
+                var v = cur.ExecuteScalar();
+                if (v == null || v == DBNull.Value) return;
+                paid = Convert.ToDecimal(v);
+            }
+
+            UpdateInvoicePaid(conn, tx, invoiceId, paid);
+        }
+
+        private static void UpdateInvoicePaid(NpgsqlConnection conn, NpgsqlTransaction tx, int invoiceId, decimal paid)
+        {
+            using var cmd = new NpgsqlCommand(
+                "UPDATE invoices SET paid_amount=@paid, " +
+                "status=CASE WHEN @paid >= COALESCE(total,0) THEN 'paid' WHEN @paid > 0 THEN 'partial' ELSE 'unpaid' END, " +
+                "updated_at=NOW() WHERE id=@id AND COALESCE(status,'') <> 'cancelled'", conn, tx);
+            cmd.Parameters.AddWithValue("@paid", paid);
+            cmd.Parameters.AddWithValue("@id", invoiceId);
+            cmd.ExecuteNonQuery();
         }
     }
 }

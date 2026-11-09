@@ -14,6 +14,14 @@ namespace Techtoon.UI.Services
     {
         public static string GetCS() { return Techtoon.UI.Services.SecureConnectionManager.GetConnectionString(); }
 
+        /// <summary>
+        /// M9: the service layer must not open WPF dialogs. Hosts can override this to surface
+        /// print failures in the UI; by default they are logged.
+        /// </summary>
+        public static Action<string> ErrorReporter { get; set; } = message => App.Log(message);
+
+        private static void ReportError(string message) => ErrorReporter?.Invoke(message);
+
         public static void PrintInvoiceThermal58(int invoiceId) { PrintInvoiceThermal(invoiceId, 230, "Thermal 58mm"); }
         public static void PrintInvoiceThermal80(int invoiceId) { PrintInvoiceThermal(invoiceId, 320, "Thermal 80mm"); }
 
@@ -71,7 +79,7 @@ namespace Techtoon.UI.Services
                     }
                     catch (Exception ex)
                     {
-                        System.Windows.MessageBox.Show("خطأ الطباعة: " + ex.Message);
+                        ReportError("خطأ الطباعة: " + ex.Message);
                     }
                 };
 
@@ -127,7 +135,7 @@ namespace Techtoon.UI.Services
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("خطأ المعاينة: " + ex.Message);
+                ReportError("خطأ المعاينة: " + ex.Message);
             }
         }
 public static void PrintInvoiceA4(int invoiceId)
@@ -145,7 +153,7 @@ public static void PrintInvoiceA4(int invoiceId)
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
                     conn.Open();
-                    using (var cmd = new NpgsqlCommand("SELECT voucher_no, date, party_name, amount, method, notes FROM payments WHERE id=@id", conn))
+                    using (var cmd = new NpgsqlCommand("SELECT p.id, p.date, COALESCE(pt.name,''), p.amount, p.payment_method, p.notes FROM payments p LEFT JOIN parties pt ON pt.id = p.party_id WHERE p.id=@id", conn))
                     {
                         cmd.Parameters.AddWithValue("id", paymentId);
                         using (var r = cmd.ExecuteReader())
@@ -160,7 +168,7 @@ public static void PrintInvoiceA4(int invoiceId)
                             };
                             doc.Blocks.Add(new Paragraph(new Run(title)) { FontSize = 16, FontWeight = FontWeights.Bold, TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 0, 0, 10) });
                             doc.Blocks.Add(new Paragraph(new Run(new string('-', 30))) { TextAlignment = TextAlignment.Center });
-                            doc.Blocks.Add(new Paragraph(new Run("\u0631\u0642\u0645 \u0627\u0644\u0633\u0646\u062F: " + (r.IsDBNull(0) ? "" : r.GetString(0)))) { TextAlignment = TextAlignment.Right });
+                            doc.Blocks.Add(new Paragraph(new Run("\u0631\u0642\u0645 \u0627\u0644\u0633\u0646\u062F: " + (r.IsDBNull(0) ? "" : r.GetInt32(0).ToString()))) { TextAlignment = TextAlignment.Right });
                             doc.Blocks.Add(new Paragraph(new Run("\u0627\u0644\u062A\u0627\u0631\u064A\u062E: " + (r.IsDBNull(1) ? DateTime.Now : r.GetDateTime(1)).ToString("yyyy-MM-dd HH:mm"))) { TextAlignment = TextAlignment.Right });
                             doc.Blocks.Add(new Paragraph(new Run("\u0627\u0644\u0637\u0631\u0641: " + (r.IsDBNull(2) ? "" : r.GetString(2)))) { TextAlignment = TextAlignment.Right });
                             doc.Blocks.Add(new Paragraph(new Run(new string('-', 30))) { TextAlignment = TextAlignment.Center });
@@ -223,7 +231,7 @@ public static void PrintInvoiceA4(int invoiceId)
                                 table.RowGroups[0].Rows.Add(row);
                             }
                     }
-                    using (var cmd = new NpgsqlCommand("SELECT voucher_no, date, amount FROM payments WHERE party_id=@pid AND date BETWEEN @from AND @to ORDER BY date", conn))
+                    using (var cmd = new NpgsqlCommand("SELECT p.id, p.date, p.amount FROM payments p WHERE p.party_id=@pid AND p.date BETWEEN @from AND @to ORDER BY p.date", conn))
                     {
                         cmd.Parameters.AddWithValue("pid", partyId);
                         cmd.Parameters.AddWithValue("from", fromDate);
@@ -233,7 +241,7 @@ public static void PrintInvoiceA4(int invoiceId)
                             {
                                 var row = new TableRow();
                                 row.Cells.Add(CreateCell(r.GetDateTime(1).ToString("yyyy-MM-dd")));
-                                row.Cells.Add(CreateCell(r.IsDBNull(0) ? "" : r.GetString(0)));
+                                row.Cells.Add(CreateCell(r.IsDBNull(0) ? "" : r.GetInt32(0).ToString()));
                                 row.Cells.Add(CreateCell("\u062F\u0641\u0639\u0629"));
                                 row.Cells.Add(CreateCell(""));
                                 row.Cells.Add(CreateCell(r.IsDBNull(2) ? "0" : ((decimal)r.GetDouble(2)).ToString("N2")));
@@ -275,7 +283,7 @@ public static void PrintInvoiceA4(int invoiceId)
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
                     conn.Open();
-                    using (var cmd = new NpgsqlCommand("SELECT i.name, i.barcode, i.opening_quantity + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening') THEN quantity WHEN type='out' THEN -quantity WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id), 0), COALESCE(i.min_stock,0), COALESCE(i.avg_cost_price, i.cost_price, 0) FROM items i WHERE i.is_kit IS NOT TRUE ORDER BY i.name", conn))
+                    using (var cmd = new NpgsqlCommand("SELECT i.name, i.barcode, i.opening_quantity + COALESCE((SELECT SUM(CASE WHEN type IN ('in','opening','transfer_in') THEN ABS(quantity) WHEN type IN ('out','transfer_out') THEN -ABS(quantity) WHEN type='adjustment' THEN quantity ELSE 0 END) FROM inventory_movements WHERE item_id=i.id), 0), COALESCE(i.min_stock,0), COALESCE(i.avg_cost_price, i.cost_price, 0) FROM items i WHERE i.is_kit IS NOT TRUE ORDER BY i.name", conn))
                     using (var r = cmd.ExecuteReader())
                         while (r.Read())
                         {

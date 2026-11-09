@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.Parties;
+using Techtoon.Api.Security;
 using Techtoon.Api.Services;
 
 namespace Techtoon.Api.Controllers;
@@ -41,6 +42,7 @@ public class PartiesController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("sales")]
     public async Task<IActionResult> CreateParty([FromBody] PartyCreateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();
@@ -49,6 +51,7 @@ public class PartiesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
+    [HasPermission("sales")]
     public async Task<IActionResult> UpdateParty(int id, [FromBody] PartyUpdateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();
@@ -58,6 +61,7 @@ public class PartiesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [HasPermission("settings")]
     public async Task<IActionResult> DeleteParty(int id)
     {
         if (_current.UserId == null) return Unauthorized();

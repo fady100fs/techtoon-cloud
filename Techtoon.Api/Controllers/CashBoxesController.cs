@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.CashBoxes;
+using Techtoon.Api.Security;
 using Techtoon.Api.Services;
 
 namespace Techtoon.Api.Controllers;
@@ -36,6 +37,7 @@ public class CashBoxesController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("settings")]
     public async Task<IActionResult> CreateCashBox([FromBody] CashBoxCreateDto dto)
     {
         if (_current.UserId == null) return Unauthorized();

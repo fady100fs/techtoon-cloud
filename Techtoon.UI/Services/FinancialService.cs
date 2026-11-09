@@ -59,70 +59,76 @@ namespace Techtoon.UI.Services
         /// </summary>
         public static CashBoxBalance GetCashBoxBalance(int cashBoxId)
         {
-            var result = new CashBoxBalance();
-            try
+            using (var conn = new NpgsqlConnection(GetCS()))
             {
-                using (var conn = new NpgsqlConnection(GetCS()))
+                conn.Open();
+                // C6: SQL failures must surface to the caller, never degrade to a silent zero
+                // balance (a zero balance used to trigger bogus closing adjustments).
+                return GetCashBoxBalance(conn, null, cashBoxId, false);
+            }
+        }
+
+        /// <summary>
+        /// Computes the cash box balance using an existing connection (and optional transaction).
+        /// Callers that mutate cash must pass lockRow=true so concurrent transfers serialise.
+        /// </summary>
+        private static CashBoxBalance GetCashBoxBalance(NpgsqlConnection conn, NpgsqlTransaction tran, int cashBoxId, bool lockRow)
+        {
+            var result = new CashBoxBalance();
+
+            // 1) cash box header (optionally row-locked for TOCTOU-safe transfers)
+            using (var cmd = new NpgsqlCommand("SELECT id, name, COALESCE(opening_balance,0) FROM cash_boxes WHERE id=@id" + (lockRow ? " FOR UPDATE" : ""), conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                using (var r = cmd.ExecuteReader())
                 {
-                    conn.Open();
-                    
-                    // 1) بيانات الصندوق
-                    using (var cmd = new NpgsqlCommand("SELECT id, name, COALESCE(opening_balance,0) FROM cash_boxes WHERE id=@id", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", cashBoxId);
-                        using (var r = cmd.ExecuteReader())
-                        {
-                            if (r.Read())
-                            {
-                                result.Id = r.GetInt32(0);
-                                result.Name = r.GetString(1);
-                                result.OpeningBalance = Convert.ToDecimal(r.GetValue(2));
-                            }
-                        }
-                    }
-
-                    // 2) إجمالي القبض (payments type='receipt')
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE cash_box_id=@id AND type='receipt'", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", cashBoxId);
-                        result.TotalReceipts = Convert.ToDecimal(cmd.ExecuteScalar());
-                    }
-
-                    // 3) إجمالي الصرف (payments type='payment')
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE cash_box_id=@id AND type='payment'", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", cashBoxId);
-                        result.TotalPayments = Convert.ToDecimal(cmd.ExecuteScalar());
-                    }
-
-                    // 4) إجمالي المصروفات
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE cash_box_id=@id", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", cashBoxId);
-                        result.TotalExpenses = Convert.ToDecimal(cmd.ExecuteScalar());
-                    }
-
-                    // 5) تحويلات واردة
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM cash_transfers WHERE to_cash_box_id=@id AND status='completed'", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", cashBoxId);
-                        result.TotalTransfersIn = Convert.ToDecimal(cmd.ExecuteScalar());
-                    }
-
-                    // 6) تحويلات صادرة
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM cash_transfers WHERE from_cash_box_id=@id AND status='completed'", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", cashBoxId);
-                        result.TotalTransfersOut = Convert.ToDecimal(cmd.ExecuteScalar());
-                    }
-
-                    // 7) الرصيد الحالي
-                    result.CurrentBalance = result.OpeningBalance + result.TotalReceipts 
-                        - result.TotalPayments - result.TotalExpenses 
-                        + result.TotalTransfersIn - result.TotalTransfersOut;
+                    if (!r.Read())
+                        throw new InvalidOperationException("Cash box not found: " + cashBoxId);
+                    result.Id = r.GetInt32(0);
+                    result.Name = r.GetString(1);
+                    result.OpeningBalance = Convert.ToDecimal(r.GetValue(2));
                 }
             }
-            catch { }
+
+            // 2) إجمالي القبض
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE cash_box_id=@id AND payment_type='receipt'", conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                result.TotalReceipts = Convert.ToDecimal(cmd.ExecuteScalar());
+            }
+
+            // 3) إجمالي الصرف
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE cash_box_id=@id AND payment_type='payment'", conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                result.TotalPayments = Convert.ToDecimal(cmd.ExecuteScalar());
+            }
+
+            // 4) إجمالي المصروفات
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM expenses WHERE cash_box_id=@id", conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                result.TotalExpenses = Convert.ToDecimal(cmd.ExecuteScalar());
+            }
+
+            // 5) تحويلات واردة
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM cash_transfers WHERE to_cash_box_id=@id AND status='completed'", conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                result.TotalTransfersIn = Convert.ToDecimal(cmd.ExecuteScalar());
+            }
+
+            // 6) تحويلات صادرة
+            using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM cash_transfers WHERE from_cash_box_id=@id AND status='completed'", conn, tran))
+            {
+                cmd.Parameters.AddWithValue("id", cashBoxId);
+                result.TotalTransfersOut = Convert.ToDecimal(cmd.ExecuteScalar());
+            }
+
+            // 7) الرصيد الحالي
+            result.CurrentBalance = result.OpeningBalance + result.TotalReceipts
+                - result.TotalPayments - result.TotalExpenses
+                + result.TotalTransfersIn - result.TotalTransfersOut;
             return result;
         }
 
@@ -132,47 +138,58 @@ namespace Techtoon.UI.Services
         public static async Task<bool> TransferBetweenCashBoxesAsync(int fromId, int toId, decimal amount, string notes)
         {
             if (amount <= 0 || fromId == toId) return false;
-            try
+
+            using (var conn = new NpgsqlConnection(GetCS()))
             {
-                using (var conn = new NpgsqlConnection(GetCS()))
+                conn.Open();
+                using (var tran = conn.BeginTransaction())
                 {
-                    conn.Open();
-                    using (var tran = conn.BeginTransaction())
+                    try
                     {
-                        try
+                        // H2: lock both cash box rows in a deterministic order so concurrent
+                        // transfers cannot both pass the balance check (TOCTOU), and opposite
+                        // transfers cannot deadlock.
+                        using (var lockCmd = new NpgsqlCommand(
+                            "SELECT id FROM cash_boxes WHERE id IN (@a,@b) ORDER BY id FOR UPDATE", conn, tran))
                         {
-                            // تحقق من الرصيد
-                            var balance = GetCashBoxBalance(fromId);
-                            if (balance.CurrentBalance < amount)
-                            {
-                                return false; // رصيد غير كافٍ
-                            }
-
-                            // سجل التحويل
-                            using (var cmd = new NpgsqlCommand(@"
-                                INSERT INTO cash_transfers (date, from_cash_box_id, to_cash_box_id, amount, notes, status, created_at)
-                                VALUES (NOW(), @from, @to, @amt, @notes, 'completed', NOW())", conn, tran))
-                            {
-                                cmd.Parameters.AddWithValue("from", fromId);
-                                cmd.Parameters.AddWithValue("to", toId);
-                                cmd.Parameters.AddWithValue("amt", amount);
-                                cmd.Parameters.AddWithValue("notes", (object)notes ?? DBNull.Value);
-                                cmd.ExecuteNonQuery();
-                            }
-
-                            tran.Commit();
-                            return true;
+                            lockCmd.Parameters.AddWithValue("a", fromId);
+                            lockCmd.Parameters.AddWithValue("b", toId);
+                            using var lr = lockCmd.ExecuteReader();
+                            int locked = 0;
+                            while (lr.Read()) locked++;
+                            if (locked != (fromId == toId ? 1 : 2))
+                                throw new InvalidOperationException("Cash box not found");
                         }
-                        catch
+
+                        // Balance is computed inside the same transaction, after the lock.
+                        var balance = GetCashBoxBalance(conn, tran, fromId, false);
+                        if (balance.CurrentBalance < amount)
                         {
-                            try { tran.Rollback(); } catch { }
-                            throw;
+                            tran.Rollback();
+                            return false; // insufficient funds
                         }
+
+                        using (var cmd = new NpgsqlCommand(@"
+                            INSERT INTO cash_transfers (date, from_cash_box_id, to_cash_box_id, amount, notes, status, created_at)
+                            VALUES (NOW(), @from, @to, @amt, @notes, 'completed', NOW())", conn, tran))
+                        {
+                            cmd.Parameters.AddWithValue("from", fromId);
+                            cmd.Parameters.AddWithValue("to", toId);
+                            cmd.Parameters.AddWithValue("amt", amount);
+                            cmd.Parameters.AddWithValue("notes", (object)notes ?? DBNull.Value);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        tran.Commit();
+                        return true;
+                    }
+                    catch
+                    {
+                        try { tran.Rollback(); } catch { /* preserve original exception */ }
+                        throw;
                     }
                 }
             }
-            catch { return false; }
-            await Task.CompletedTask;
         }
 
         /// <summary>
@@ -206,8 +223,10 @@ namespace Techtoon.UI.Services
                                 cmd.ExecuteNonQuery();
                             }
 
-                            // لو فيه عجز/زيادة، سجل تسوية
-                            if (difference != 0)
+                            // C6: only a real cash deficit is booked as an adjustment expense.
+                            // A surplus must never be recorded as an expense, and the block is only
+                            // reached when the expected balance was computed successfully.
+                            if (difference < 0)
                             {
                                 using (var cmd = new NpgsqlCommand(@"
                                     INSERT INTO expenses (date, category_id, amount, description, payment_method, cash_box_id, notes)
@@ -231,7 +250,11 @@ namespace Techtoon.UI.Services
                     }
                 }
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                // C6: never report a failed close as a successful "zero difference" close.
+                throw new InvalidOperationException("Failed to close shift for cash box " + cashBoxId, ex);
+            }
             await Task.CompletedTask;
         }
 
@@ -248,7 +271,7 @@ namespace Techtoon.UI.Services
                     conn.Open();
 
                     // المقبوضات
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE type='receipt' AND date BETWEEN @from AND @to", conn))
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_type='receipt' AND date BETWEEN @from AND @to", conn))
                     {
                         cmd.Parameters.AddWithValue("from", fromDate);
                         cmd.Parameters.AddWithValue("to", toDate);
@@ -256,7 +279,7 @@ namespace Techtoon.UI.Services
                     }
 
                     // المدفوعات
-                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE type='payment' AND date BETWEEN @from AND @to", conn))
+                    using (var cmd = new NpgsqlCommand("SELECT COALESCE(SUM(amount),0) FROM payments WHERE payment_type='payment' AND date BETWEEN @from AND @to", conn))
                     {
                         cmd.Parameters.AddWithValue("from", fromDate);
                         cmd.Parameters.AddWithValue("to", toDate);
@@ -302,7 +325,11 @@ namespace Techtoon.UI.Services
                     report.OperatingProfit = report.GrossProfit - report.TotalExpenses;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // C6/M4: surface failures instead of returning an all-zero report.
+                throw new InvalidOperationException("Failed to build cash flow report", ex);
+            }
             return report;
         }
     }

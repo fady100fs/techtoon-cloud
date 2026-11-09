@@ -36,6 +36,15 @@ public class AuthAppService : IAuthAppService
         _logger = logger;
     }
 
+    /// <summary>C2: reject missing/empty/malformed bcrypt hashes (fail closed).</summary>
+    internal static bool IsValidPasswordHash(string? hash)
+    {
+        if (string.IsNullOrWhiteSpace(hash)) return false;
+        if (hash.Length != 60) return false;
+        if (!(hash.StartsWith("$2a$") || hash.StartsWith("$2b$") || hash.StartsWith("$2y$"))) return false;
+        return true;
+    }
+
     public async Task<TokenResponseDto> LoginAsync(LoginRequestDto request, string ipAddress)
     {
         if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
@@ -78,7 +87,17 @@ public class AuthAppService : IAuthAppService
             throw new UnauthorizedAccessException("Account is disabled");
         }
 
-        if (!string.IsNullOrEmpty(hash) && !BCrypt.Net.BCrypt.Verify(request.Password, hash))
+        // C2: fail closed on missing/empty/malformed password hashes.
+        // A user row without a usable bcrypt hash must never authenticate.
+        bool passwordOk;
+        try
+        {
+            passwordOk = IsValidPasswordHash(hash) &&
+                BCrypt.Net.BCrypt.Verify(request.Password ?? string.Empty, hash);
+        }
+        catch { passwordOk = false; }
+
+        if (!passwordOk)
         {
             await LogLoginAttemptAsync(username, ipAddress, false, "Wrong password");
             throw new UnauthorizedAccessException("Invalid username or password");
@@ -129,22 +148,40 @@ public class AuthAppService : IAuthAppService
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync();
 
-        int userId;
-        string username, fullName, role, deviceId;
+        int userId = 0;
+        string username = "", fullName = "", role = "", deviceId = "";
+        bool found;
 
         using (var cmd = new NpgsqlCommand(
-            "SELECT ud.id, ud.user_id, u.username, COALESCE(u.full_name,''), COALESCE(u.role,'SALESPERSON'), ud.device_id FROM user_devices ud JOIN users u ON ud.user_id = u.id WHERE ud.refresh_token_hash = @h AND ud.is_revoked = FALSE AND u.is_active = TRUE",
+            "SELECT ud.id, ud.user_id, u.username, COALESCE(u.full_name,''), COALESCE(u.role,'SALESPERSON'), ud.device_id FROM user_devices ud JOIN users u ON ud.user_id = u.id " +
+            "WHERE ud.refresh_token_hash = @h AND ud.is_revoked = FALSE AND u.is_active = TRUE " +
+            "AND ud.last_seen > NOW() - make_interval(days => @days)",
             conn))
         {
             cmd.Parameters.AddWithValue("h", refreshHash);
+            cmd.Parameters.AddWithValue("days", Math.Max(1, _jwtOptions.RefreshTokenDays));
             using var r = await cmd.ExecuteReaderAsync();
-            if (!await r.ReadAsync())
-                throw new UnauthorizedAccessException("Invalid or expired refresh token");
-            userId = r.GetInt32(1);
-            username = r.GetString(2);
-            fullName = r.IsDBNull(3) ? "" : r.GetString(3);
-            role = r.IsDBNull(4) ? "SALESPERSON" : r.GetString(4);
-            deviceId = r.GetString(5);
+            found = await r.ReadAsync();
+            if (found)
+            {
+                userId = r.GetInt32(1);
+                username = r.GetString(2);
+                fullName = r.IsDBNull(3) ? "" : r.GetString(3);
+                role = r.IsDBNull(4) ? "SALESPERSON" : r.GetString(4);
+                deviceId = r.GetString(5);
+            }
+        }
+
+        if (!found)
+        {
+            // H9: expire stale refresh tokens instead of accepting them forever.
+            using var expire = new NpgsqlCommand(
+                "UPDATE user_devices SET is_revoked = TRUE WHERE refresh_token_hash = @h AND last_seen <= NOW() - make_interval(days => @days)",
+                conn);
+            expire.Parameters.AddWithValue("h", refreshHash);
+            expire.Parameters.AddWithValue("days", Math.Max(1, _jwtOptions.RefreshTokenDays));
+            await expire.ExecuteNonQueryAsync();
+            throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }
 
         var permissions = await LoadPermissionsAsync(conn, userId);
@@ -310,7 +347,11 @@ public class AuthAppService : IAuthAppService
             cmd.Parameters.AddWithValue("r", (object?)reason ?? DBNull.Value);
             await cmd.ExecuteNonQueryAsync();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // H5: a failed login-attempt write must never disable rate limiting silently.
+            _logger.LogError(ex, "Failed to record login attempt for user {User} from {Ip}", username, ipAddress);
+        }
     }
 
     private async Task LogAuditAsync(NpgsqlConnection conn, int userId, string username, string action, string entityType, int entityId, string details)
@@ -328,6 +369,9 @@ public class AuthAppService : IAuthAppService
             cmd.Parameters.AddWithValue("details", details);
             await cmd.ExecuteNonQueryAsync();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write audit log for action {Action} entity {Entity}", action, entityType);
+        }
     }
 }

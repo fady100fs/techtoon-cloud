@@ -380,7 +380,7 @@ namespace Techtoon.UI.Views
                         {
                             if (Id > 0)
                             {
-                                using (var cmd = new NpgsqlCommand("UPDATE invoices SET invoice_number=@sn, date=@dt, type=@tp, party_id=@pid, warehouse_id=@wid, subtotal=@st, discount_amount=@da, total=@tt, paid_amount=@pa, currency_id=1, status='draft', currency_id=1, updated_at=NOW() WHERE id=@id", conn, tran))
+                                using (var cmd = new NpgsqlCommand("UPDATE invoices SET invoice_number=@sn, date=@dt, type=@tp, party_id=@pid, warehouse_id=@wid, subtotal=@st, discount_amount=@da, total=@tt, paid_amount=@pa, currency_id=1, status='draft', updated_at=NOW() WHERE id=@id", conn, tran))
                                 {
                                     cmd.Parameters.AddWithValue("id", Id);
                                     cmd.Parameters.AddWithValue("sn", SerialNumber);
@@ -485,40 +485,61 @@ public async System.Threading.Tasks.Task SaveAsync()
             try
             {
                 RefreshTotals();
-                using (var conn = new NpgsqlConnection(GetConnectionString()))
+                // C3: header + lines + payments must be one atomic unit. Any failure rolls back
+                // the whole save so a partially written invoice can never be persisted.
+                // H4: DB work runs off the WPF UI thread.
+                await System.Threading.Tasks.Task.Run(() =>
                 {
-                    conn.Open();
-                    if (Id > 0)
+                    using (var conn = new NpgsqlConnection(GetConnectionString()))
                     {
-                        using (var cmd = new NpgsqlCommand("UPDATE invoices SET invoice_number=@sn, date=@dt, type=@tp, party_id=@pid, warehouse_id=@wid, subtotal=@st, discount_amount=@da, total=@tt, paid_amount=@pa, currency_id=1, updated_at=NOW() WHERE id=@id", conn))
+                        conn.Open();
+                        using (var tran = conn.BeginTransaction())
                         {
-                            cmd.Parameters.AddWithValue("id", Id); cmd.Parameters.AddWithValue("sn", SerialNumber); cmd.Parameters.AddWithValue("dt", InvoiceDate); cmd.Parameters.AddWithValue("tp", InvoiceType);
-                            cmd.Parameters.AddWithValue("pid", PartyId > 0 ? (object)PartyId : DBNull.Value); cmd.Parameters.AddWithValue("wid", WarehouseId > 0 ? (object)WarehouseId : DBNull.Value);
-                            cmd.Parameters.AddWithValue("st", Subtotal); cmd.Parameters.AddWithValue("da", DiscountAmount); cmd.Parameters.AddWithValue("tt", Total); cmd.Parameters.AddWithValue("pa", TotalPaid);
-                            cmd.ExecuteNonQuery();
+                            try
+                            {
+                                if (Id > 0)
+                                {
+                                    using (var cmd = new NpgsqlCommand("UPDATE invoices SET invoice_number=@sn, date=@dt, type=@tp, party_id=@pid, warehouse_id=@wid, subtotal=@st, discount_amount=@da, total=@tt, paid_amount=@pa, currency_id=1, updated_at=NOW() WHERE id=@id", conn, tran))
+                                    {
+                                        cmd.Parameters.AddWithValue("id", Id); cmd.Parameters.AddWithValue("sn", SerialNumber); cmd.Parameters.AddWithValue("dt", InvoiceDate); cmd.Parameters.AddWithValue("tp", InvoiceType);
+                                        cmd.Parameters.AddWithValue("pid", PartyId > 0 ? (object)PartyId : DBNull.Value); cmd.Parameters.AddWithValue("wid", WarehouseId > 0 ? (object)WarehouseId : DBNull.Value);
+                                        cmd.Parameters.AddWithValue("st", Subtotal); cmd.Parameters.AddWithValue("da", DiscountAmount); cmd.Parameters.AddWithValue("tt", Total); cmd.Parameters.AddWithValue("pa", TotalPaid);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                }
+                                else
+                                {
+                                    using (var cmd = new NpgsqlCommand("INSERT INTO invoices (invoice_number, date, type, party_id, warehouse_id, subtotal, discount_amount, total, paid_amount, status, currency_id, created_at, updated_at) VALUES (@sn, @dt, @tp, @pid, @wid, @st, @da, @tt, @pa, @status, 1, NOW(), NOW()) RETURNING id", conn, tran))
+                                    {
+                                        cmd.Parameters.AddWithValue("sn", SerialNumber); cmd.Parameters.AddWithValue("dt", InvoiceDate); cmd.Parameters.AddWithValue("tp", InvoiceType);
+                                        cmd.Parameters.AddWithValue("pid", PartyId > 0 ? (object)PartyId : DBNull.Value); cmd.Parameters.AddWithValue("wid", WarehouseId > 0 ? (object)WarehouseId : DBNull.Value);
+                                        cmd.Parameters.AddWithValue("st", Subtotal); cmd.Parameters.AddWithValue("da", DiscountAmount); cmd.Parameters.AddWithValue("tt", Total); cmd.Parameters.AddWithValue("pa", TotalPaid);
+                                        cmd.Parameters.AddWithValue("status", TotalPaid >= Total ? "paid" : (TotalPaid > 0 ? "partial" : "unpaid"));
+                                        var o = cmd.ExecuteScalar(); if (o != null && o != DBNull.Value) Id = Convert.ToInt32(o);
+                                    }
+                                }
+                                using (var cmd = new NpgsqlCommand("DELETE FROM invoice_lines WHERE invoice_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
+                                foreach (var line in Lines) { if (line.ItemId <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_lines (invoice_id, item_id, quantity, price, discount, total) VALUES (@inv, @iid, @qty, @prc, @dsc, @tot)", conn, tran)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("iid", line.ItemId); cmd.Parameters.AddWithValue("qty", line.Quantity); cmd.Parameters.AddWithValue("prc", line.Price); cmd.Parameters.AddWithValue("dsc", line.Discount); cmd.Parameters.AddWithValue("tot", line.Total); cmd.ExecuteNonQuery(); } }
+                                using (var cmd = new NpgsqlCommand("DELETE FROM invoice_payments WHERE invoice_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
+                                foreach (var pay in Payments) { if (pay.Amount <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at) VALUES (@inv, @mth, @amt, @ref, @pdt)", conn, tran)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("mth", pay.Method); cmd.Parameters.AddWithValue("amt", pay.Amount); cmd.Parameters.AddWithValue("ref", (object)pay.Reference ?? DBNull.Value); cmd.Parameters.AddWithValue("pdt", pay.PaymentDate); cmd.ExecuteNonQuery(); } }
+                                tran.Commit();
+                            }
+                            catch
+                            {
+                                try { tran.Rollback(); } catch { /* rollback best-effort; original exception wins */ }
+                                throw;
+                            }
                         }
                     }
-                    else
-                    {
-                        using (var cmd = new NpgsqlCommand("INSERT INTO invoices (invoice_number, date, type, party_id, warehouse_id, subtotal, discount_amount, total, paid_amount, status, currency_id, created_at, updated_at) VALUES (@sn, @dt, @tp, @pid, @wid, @st, @da, @tt, @pa, @status, 1, NOW(), NOW()) RETURNING id", conn))
-                        {
-                            cmd.Parameters.AddWithValue("sn", SerialNumber); cmd.Parameters.AddWithValue("dt", InvoiceDate); cmd.Parameters.AddWithValue("tp", InvoiceType);
-                            cmd.Parameters.AddWithValue("pid", PartyId > 0 ? (object)PartyId : DBNull.Value); cmd.Parameters.AddWithValue("wid", WarehouseId > 0 ? (object)WarehouseId : DBNull.Value);
-                            cmd.Parameters.AddWithValue("st", Subtotal); cmd.Parameters.AddWithValue("da", DiscountAmount); cmd.Parameters.AddWithValue("tt", Total); cmd.Parameters.AddWithValue("pa", TotalPaid);
-                            cmd.Parameters.AddWithValue("status", TotalPaid >= Total ? "paid" : (TotalPaid > 0 ? "partial" : "unpaid"));
-                            var o = cmd.ExecuteScalar(); if (o != null && o != DBNull.Value) Id = Convert.ToInt32(o);
-                        }
-                    }
-                    using (var cmd = new NpgsqlCommand("DELETE FROM invoice_lines WHERE invoice_id=@id", conn)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
-                    foreach (var line in Lines) { if (line.ItemId <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_lines (invoice_id, item_id, quantity, price, discount, total) VALUES (@inv, @iid, @qty, @prc, @dsc, @tot)", conn)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("iid", line.ItemId); cmd.Parameters.AddWithValue("qty", line.Quantity); cmd.Parameters.AddWithValue("prc", line.Price); cmd.Parameters.AddWithValue("dsc", line.Discount); cmd.Parameters.AddWithValue("tot", line.Total); cmd.ExecuteNonQuery(); } }
-                    using (var cmd = new NpgsqlCommand("DELETE FROM invoice_payments WHERE invoice_id=@id", conn)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
-                    foreach (var pay in Payments) { if (pay.Amount <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at) VALUES (@inv, @mth, @amt, @ref, @pdt)", conn)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("mth", pay.Method); cmd.Parameters.AddWithValue("amt", pay.Amount); cmd.Parameters.AddWithValue("ref", (object)pay.Reference ?? DBNull.Value); cmd.Parameters.AddWithValue("pdt", pay.PaymentDate); cmd.ExecuteNonQuery(); } }
-                }
+                });
                 StatusMessage = "Saved! ID: " + Id; DialogResult = true; RequestClose?.Invoke();
             }
-            catch (Exception ex) { StatusMessage = "Save error: " + ex.Message; }
-            finally { IsBusy = false; }
-            await System.Threading.Tasks.Task.CompletedTask;
+            catch (Exception ex)
+            {
+                StatusMessage = "Save error: " + ex.Message;
+                System.Windows.MessageBox.Show("\u0641\u0634\u0644 \u062D\u0641\u0638 \u0627\u0644\u0641\u0627\u062A\u0648\u0631\u0629\u060C \u0644\u0645 \u064A\u062A\u0645 \u062D\u0641\u0638 \u0623\u064A \u062C\u0632\u0621:\n" + ex.Message, "\u062E\u0637\u0623 \u0627\u0644\u062D\u0641\u0638", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+            finally { IsBusy = false; _isSaving = false; }
         }
         private void PrintThermal58()
         {
