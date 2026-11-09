@@ -23,8 +23,8 @@ namespace Techtoon.UI.Views
             try { ColRem.Header = "\u0645\u062A\u0628\u0642\u064A"; } catch { }
             try { ColStatus.Header = "\u062D\u0627\u0644\u0629"; } catch { }
         }
-        private void UserControl_Loaded(object sender, RoutedEventArgs e) { if (DataContext is InvoicesViewModel vm) vm.LoadInvoices(); }
-        private void DgInvoices_MouseDoubleClick(object sender, MouseButtonEventArgs e) { if (DataContext is InvoicesViewModel vm && vm.SelectedInvoice != null) { var win = new InvoiceEditWindow(vm.SelectedInvoice.Id); win.ShowDialog(); vm.LoadInvoices(); } }
+        private void UserControl_Loaded(object sender, RoutedEventArgs e) { if (DataContext is InvoicesViewModel vm) _ = vm.LoadInvoicesAsync(); }
+        private void DgInvoices_MouseDoubleClick(object sender, MouseButtonEventArgs e) { if (DataContext is InvoicesViewModel vm && vm.SelectedInvoice != null) { var win = new InvoiceEditWindow(vm.SelectedInvoice.Id); win.ShowDialog(); _ = vm.LoadInvoicesAsync(); } }
         private void DgInvoices_KeyDown(object sender, KeyEventArgs e) { if (e.Key == Key.Delete && DataContext is InvoicesViewModel vm && vm.SelectedInvoice != null) { vm.DeleteInvoiceCommand.Execute(null); e.Handled = true; } }
         private void BtnReturn_Click(object sender, RoutedEventArgs e)
         {
@@ -35,7 +35,7 @@ namespace Techtoon.UI.Views
                 win.ShowDialog();
                 // Refresh list after return
                 if (DataContext is ViewModels.InvoicesViewModel vm)
-                    vm.LoadInvoices();
+                    _ = vm.LoadInvoicesAsync();
             }
             catch (Exception ex)
             {

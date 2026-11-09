@@ -56,13 +56,13 @@ namespace Techtoon.UI.ViewModels
         public InvoicesViewModel()
         {
             Invoices = new ObservableCollection<InvoiceRow>();
-            RefreshCommand = new UiRelayCommand(_ => LoadInvoices());
+            RefreshCommand = new UiRelayCommand(_ => _ = LoadInvoicesAsync());
             NewInvoiceCommand = new UiRelayCommand(_ => OpenNew());
             EditInvoiceCommand = new UiRelayCommand(_ => OpenEdit(), _ => SelectedInvoice != null);
             DeleteInvoiceCommand = new UiRelayCommand(_ => DeleteSelected(), _ => SelectedInvoice != null);
-            SearchCommand = new UiRelayCommand(_ => LoadInvoices());
+            SearchCommand = new UiRelayCommand(_ => _ = LoadInvoicesAsync());
             ClearSearchCommand = new UiRelayCommand(_ => ClearSearch());
-            LoadInvoices();
+            _ = LoadInvoicesAsync();
         }
 
         public static string GetCS() { return Techtoon.UI.Services.SecureConnectionManager.GetConnectionString(); }
@@ -73,17 +73,17 @@ namespace Techtoon.UI.ViewModels
             SearchByParty = "";
             FromDate = null;
             ToDate = null;
-            LoadInvoices();
+            _ = LoadInvoicesAsync();
         }
 
-        public void LoadInvoices()
+        public async System.Threading.Tasks.Task LoadInvoicesAsync()
         {
             Invoices.Clear();
             try
             {
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
-                    conn.Open();
+                    await conn.OpenAsync();
                     var sql = "SELECT i.id, i.invoice_number, i.date, i.type, i.total, i.paid_amount, " +
                               "COALESCE(p.name,'') AS party_name, i.status " +
                               "FROM invoices i LEFT JOIN parties p ON i.party_id = p.id " +
@@ -121,16 +121,16 @@ namespace Techtoon.UI.ViewModels
                         if (ToDate.HasValue)
                             cmd.Parameters.AddWithValue("to", ToDate.Value.AddDays(1));
 
-                        using (var r = cmd.ExecuteReader())
-                            while (r.Read())
+                        using (var r = await cmd.ExecuteReaderAsync())
+                            while (await r.ReadAsync())
                                 Invoices.Add(new InvoiceRow
                                 {
                                     Id = r.GetInt32(0),
                                     InvoiceNumber = r.IsDBNull(1) ? "" : r.GetString(1),
                                     Date = r.IsDBNull(2) ? DateTime.MinValue : r.GetDateTime(2),
                                     Type = r.IsDBNull(3) ? "" : r.GetString(3),
-                                    Total = r.IsDBNull(4) ? 0 : (decimal)r.GetDouble(4),
-                                    Paid = r.IsDBNull(5) ? 0 : (decimal)r.GetDouble(5),
+                                    Total = r.IsDBNull(4) ? 0m : Convert.ToDecimal(r.GetValue(4)),
+                                    Paid = r.IsDBNull(5) ? 0m : Convert.ToDecimal(r.GetValue(5)),
                                     PartyName = r.IsDBNull(6) ? "" : r.GetString(6),
                                     Status = r.IsDBNull(7) ? "" : r.GetString(7)
                                 });
@@ -141,8 +141,8 @@ namespace Techtoon.UI.ViewModels
             catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
         }
 
-        private void OpenNew() { try { var w = new InvoiceEditWindow(null); w.ShowDialog(); LoadInvoices(); } catch { } }
-        private void OpenEdit() { try { if (_selectedInvoice == null) return; var w = new InvoiceEditWindow(_selectedInvoice.Id); w.ShowDialog(); LoadInvoices(); } catch { } }
+        private void OpenNew() { try { var w = new InvoiceEditWindow(null); w.ShowDialog(); _ = LoadInvoicesAsync(); } catch { } }
+        private void OpenEdit() { try { if (_selectedInvoice == null) return; var w = new InvoiceEditWindow(_selectedInvoice.Id); w.ShowDialog(); _ = LoadInvoicesAsync(); } catch { } }
         private void DeleteSelected()
         {
             if (_selectedInvoice == null) return;
@@ -153,10 +153,16 @@ namespace Techtoon.UI.ViewModels
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
                     conn.Open();
-                    foreach (var t in new[] { "invoice_lines", "invoice_payments" }) { using (var c = new NpgsqlCommand("DELETE FROM " + t + " WHERE invoice_id=@id", conn)) { c.Parameters.AddWithValue("id", _selectedInvoice.Id); c.ExecuteNonQuery(); } }
-                    using (var c = new NpgsqlCommand("DELETE FROM invoices WHERE id=@id", conn)) { c.Parameters.AddWithValue("id", _selectedInvoice.Id); c.ExecuteNonQuery(); }
+                    using var tran = conn.BeginTransaction();
+                    try
+                    {
+                        foreach (var t in new[] { "invoice_lines", "invoice_payments" }) { using (var c = new NpgsqlCommand("DELETE FROM " + t + " WHERE invoice_id=@id", conn, tran)) { c.Parameters.AddWithValue("id", _selectedInvoice.Id); c.ExecuteNonQuery(); } }
+                        using (var c = new NpgsqlCommand("DELETE FROM invoices WHERE id=@id", conn, tran)) { c.Parameters.AddWithValue("id", _selectedInvoice.Id); c.ExecuteNonQuery(); }
+                        tran.Commit();
+                    }
+                    catch { try { tran.Rollback(); } catch { } throw; }
                 }
-                LoadInvoices();
+                _ = LoadInvoicesAsync();
             }
             catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
         }
