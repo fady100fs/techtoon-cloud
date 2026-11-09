@@ -17,12 +17,6 @@ namespace Techtoon.UI.Services
 
         private static readonly string EncryptedFilePath = Path.Combine(AppDataDir, "connection.enc");
 
-        // قيمة افتراضية (fallback) لو لم يوجد ملف مشفّر — تُستخدم أول مرة فقط
-        private const string DefaultConnection =
-            "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;" +
-            "Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;" +
-            "SSL Mode=Require;Trust Server Certificate=true";
-
         public static string GetConnectionString()
         {
             try
@@ -30,18 +24,24 @@ namespace Techtoon.UI.Services
                 if (!Directory.Exists(AppDataDir))
                     Directory.CreateDirectory(AppDataDir);
 
-                // إن لم يوجد ملف مشفّر، أنشئه من القيمة الافتراضية (أول تشغيل)
+                // أول تشغيل: يجب توفير connection string عبر إعدادات المشغل
+                // (env var TECHTOON_PG_CONNECTION) أو SaveConnectionString قبل أول تشغيل.
                 if (!File.Exists(EncryptedFilePath))
                 {
-                    SaveConnectionString(DefaultConnection);
+                    var envCs = Environment.GetEnvironmentVariable("TECHTOON_PG_CONNECTION");
+                    if (!string.IsNullOrWhiteSpace(envCs))
+                        SaveConnectionString(envCs);
+                    else
+                        throw new InvalidOperationException(
+                            "No connection string configured. Set TECHTOON_PG_CONNECTION or call SaveConnectionString() before first run.");
                 }
 
                 return LoadConnectionString();
             }
-            catch
+            catch (Exception ex) when (!(ex is InvalidOperationException && ex.Message.Contains("No connection string")))
             {
-                // fallback آمن لو فشل DPAPI
-                return DefaultConnection;
+                // لا fallback مكشوف — رمي الخطأ بوضوح
+                throw;
             }
         }
 

@@ -14,7 +14,8 @@ namespace Techtoon.Data
                 var cs = Environment.GetEnvironmentVariable("TECHTOON_PG_CONNECTION");
                 if (string.IsNullOrWhiteSpace(cs))
                 {
-                    cs = "Host=localhost;Database=techtoon;Username=postgres;Password=postgres";
+                    throw new InvalidOperationException(
+                        "TECHTOON_PG_CONNECTION environment variable is not set.");
                 }
                 optionsBuilder.UseNpgsql(cs);
             }

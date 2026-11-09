@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Techtoon.Api.DTOs.CashBoxes;
+using Techtoon.Core.Finance; // P0-4: single source for balance math (mirrored in SQL below)
 
 namespace Techtoon.Api.Services;
 
@@ -36,13 +37,18 @@ public class CashBoxAppService : ICashBoxAppService
     private static int SafeInt(object? v) => v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
     private static string SafeString(object? v) => v == null || v == DBNull.Value ? string.Empty : v.ToString() ?? string.Empty;
 
+    // P0-4: SQL mirrors Techtoon.Core.Finance.BalanceCalculator.CashBoxBalance:
+    // opening + receipts - payments - expenses + transfersIn - transfersOut
+    // (previously omitted transfers — now unified with WPF FinancialService).
     private string BuildBalanceExpr()
     {
         var opening = Has("opening_balance") ? "COALESCE(c.opening_balance,0)::numeric" : "0::numeric";
         return opening + " + " +
                "COALESCE((SELECT SUM(amount) FROM payments WHERE cash_box_id = c.id AND payment_type='receipt'), 0)::numeric - " +
                "COALESCE((SELECT SUM(amount) FROM payments WHERE cash_box_id = c.id AND payment_type='payment'), 0)::numeric - " +
-               "COALESCE((SELECT SUM(amount) FROM expenses WHERE cash_box_id = c.id), 0)::numeric";
+               "COALESCE((SELECT SUM(amount) FROM expenses WHERE cash_box_id = c.id), 0)::numeric + " +
+               "COALESCE((SELECT SUM(amount) FROM cash_transfers WHERE to_cash_box_id = c.id AND status='completed'), 0)::numeric - " +
+               "COALESCE((SELECT SUM(amount) FROM cash_transfers WHERE from_cash_box_id = c.id AND status='completed'), 0)::numeric";
     }
 
     private string BuildSelectColumns()

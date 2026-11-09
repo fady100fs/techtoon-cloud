@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Npgsql;
+using Techtoon.Core.Finance;
 
 namespace Techtoon.UI.Services
 {
@@ -125,10 +126,10 @@ namespace Techtoon.UI.Services
                 result.TotalTransfersOut = Convert.ToDecimal(cmd.ExecuteScalar());
             }
 
-            // 7) الرصيد الحالي
-            result.CurrentBalance = result.OpeningBalance + result.TotalReceipts
-                - result.TotalPayments - result.TotalExpenses
-                + result.TotalTransfersIn - result.TotalTransfersOut;
+            // 7) الرصيد الحالي — مصدر واحد P0-4
+            result.CurrentBalance = BalanceCalculator.CashBoxBalance(
+                result.OpeningBalance, result.TotalReceipts, result.TotalPayments,
+                result.TotalExpenses, result.TotalTransfersIn, result.TotalTransfersOut);
             return result;
         }
 
@@ -206,7 +207,8 @@ namespace Techtoon.UI.Services
                     {
                         try
                         {
-                            var balance = GetCashBoxBalance(cashBoxId);
+                            // P0-4: احسب داخل المعاملة (كان يستدعي GetCashBoxBalance(cashBoxId) خارجها)
+                            var balance = GetCashBoxBalance(conn, tran, cashBoxId, false);
                             decimal expected = balance.CurrentBalance;
                             decimal difference = actualClosing - expected;
 

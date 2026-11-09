@@ -1,95 +1,77 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Windows;
+using System.Linq;
 using System.Windows.Input;
-using Techtoon.UI.Services;
-using Techtoon.UI.Views;
+using CommunityToolkit.Mvvm.Input;
+using Npgsql;
 
 namespace Techtoon.UI.ViewModels
 {
+    public class LoanRow : ViewModelBase
+    {
+        public int Id { get; set; }
+        public string BorrowerName { get; set; }
+        public decimal PrincipalAmount { get; set; }
+        public DateTime LoanDate { get; set; }
+        public string StatusDisplay { get; set; }
+    }
+
     public class LoansViewModel : ViewModelBase
     {
-        public ObservableCollection<Loan> Loans { get; set; }
-        private Loan _selected;
-        public Loan Selected { get => _selected; set { _selected = value; OnPropertyChanged("Selected"); } }
-
+        public ObservableCollection<LoanRow> Loans { get; } = new();
+        private LoanRow _selectedItem;
+        public LoanRow SelectedItem { get => _selectedItem; set => SetProperty(ref _selectedItem, value); }
+        private string _searchText = "";
+        public string SearchText { get => _searchText; set { SetProperty(ref _searchText, value); LoadLoans(); } }
         private string _statusMessage = "";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
-        private string _typeFilter = "";
-        public string TypeFilter { get => _typeFilter; set { _typeFilter = value; OnPropertyChanged("TypeFilter"); } }
-
-        public ICommand RefreshCommand { get; set; }
-        public ICommand NewCommand { get; set; }
-        public ICommand EditCommand { get; set; }
-        public ICommand DeleteCommand { get; set; }
-        public ICommand FilterAllCommand { get; set; }
-        public ICommand FilterInstallmentCommand { get; set; }
-        public ICommand FilterOverdraftCommand { get; set; }
+        public ICommand RefreshCommand { get; }
+        public ICommand AddCommand { get; }
+        public ICommand EditCommand { get; }
+        public ICommand DeleteCommand { get; }
 
         public LoansViewModel()
         {
-            Loans = new ObservableCollection<Loan>();
-            RefreshCommand = new UiRelayCommand(_ => Load());
-            NewCommand = new UiRelayCommand(_ => NewLoan());
-            EditCommand = new UiRelayCommand(_ => EditLoan(), _ => Selected != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteLoan(), _ => Selected != null);
-            FilterAllCommand = new UiRelayCommand(_ => { TypeFilter = ""; Load(); });
-            FilterInstallmentCommand = new UiRelayCommand(_ => { TypeFilter = "installment"; Load(); });
-            FilterOverdraftCommand = new UiRelayCommand(_ => { TypeFilter = "overdraft"; Load(); });
-            Load();
+            RefreshCommand = new RelayCommand(LoadLoans);
+            AddCommand = new RelayCommand(() => OpenEditWindow(0));
+            EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteLoan, () => SelectedItem != null);
+            LoadLoans();
         }
 
-        public void Load()
+        public static string GetCS() => Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
+
+        public void LoadLoans()
         {
             Loans.Clear();
-            try
-            {
-                var list = LoansService.GetAllLoans(string.IsNullOrEmpty(TypeFilter) ? null : TypeFilter);
-                foreach (var l in list) Loans.Add(l);
-                StatusMessage = "Loaded: " + Loans.Count + " loans";
-            }
-            catch (Exception ex) 
-            { 
-                StatusMessage = "Error: " + ex.Message; 
-            }
+            try {
+                using var conn = new NpgsqlConnection(GetCS());
+                conn.Open();
+                string sql = @"SELECT id, COALESCE(borrower_name,''), principal_amount, loan_date, COALESCE(status,'active') FROM loans WHERE 1=1";
+                if (!string.IsNullOrWhiteSpace(SearchText)) sql = sql.Replace("ORDER BY", " AND borrower_name ILIKE @q ORDER BY");
+                sql += " ORDER BY loan_date DESC LIMIT 500";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                if (!string.IsNullOrWhiteSpace(SearchText)) cmd.Parameters.AddWithValue("q", "%" + SearchText + "%");
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) Loans.Add(new LoanRow {
+                    Id = r.GetInt32(0), BorrowerName = r.IsDBNull(1) ? "" : r.GetString(1),
+                    PrincipalAmount = r.IsDBNull(2) ? 0 : (decimal)r.GetDouble(2),
+                    LoanDate = r.IsDBNull(3) ? DateTime.MinValue : r.GetDateTime(3),
+                    StatusDisplay = r.IsDBNull(4) ? "" : r.GetString(4)
+                });
+                StatusMessage = "Loaded " + Loans.Count;
+            } catch (Exception ex) { StatusMessage = "Err: " + ex.Message; }
         }
 
-        private void NewLoan()
-        {
-            try
-            {
-                var win = new LoanEditWindow();
-                win.Owner = Application.Current.MainWindow;
-                if (win.ShowDialog() == true) Load();
-            }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
-        }
-
-        private void EditLoan()
-        {
-            if (Selected == null) return;
-            try
-            {
-                var win = new LoanEditWindow();
-                win.LoadForEdit(Selected);
-                win.Owner = Application.Current.MainWindow;
-                if (win.ShowDialog() == true) Load();
-            }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
-        }
-
-        private void DeleteLoan()
-        {
-            if (Selected == null) return;
-            if (MessageBox.Show($"حذف القرض '{Selected.LoanName}'؟ سيتم حذف جدول الأقساط المرتبط به.", "تأكيد الحذف", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-            
-            try
-            {
-                LoansService.DeleteLoan(Selected.Id);
-                Load();
-            }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+        private void OpenEditWindow(int id) { try { new Views.LoansEditWindow(id).ShowDialog(); LoadLoans(); } catch { } }
+        private void DeleteLoan() {
+            if (SelectedItem == null) return;
+            if (System.Windows.MessageBox.Show("Confirm Delete?", "Confirm", System.Windows.MessageBoxButton.YesNo) != System.Windows.MessageBoxResult.Yes) return;
+            try { using var conn = new NpgsqlConnection(GetCS()); conn.Open();
+                using var cmd = new NpgsqlCommand("DELETE FROM loans WHERE id = @id", conn);
+                cmd.Parameters.AddWithValue("id", SelectedItem.Id); cmd.ExecuteNonQuery(); LoadLoans();
+            } catch (Exception ex) { StatusMessage = "Err: " + ex.Message; }
         }
     }
 }

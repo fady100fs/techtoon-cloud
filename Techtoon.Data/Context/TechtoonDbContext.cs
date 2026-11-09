@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Techtoon.Core.Models;
 
 namespace Techtoon.Data.Context;
@@ -49,7 +49,13 @@ public class TechtoonDbContext : DbContext
     {
         if (!optionsBuilder.IsConfigured)
         {
-            optionsBuilder.UseNpgsql("Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;SSL Mode=Require;Trust Server Certificate=true;Pooling=true;Timeout=15;CommandTimeout=60");
+            var cs = Environment.GetEnvironmentVariable("TECHTOON_PG_CONNECTION");
+            if (string.IsNullOrWhiteSpace(cs))
+            {
+                throw new InvalidOperationException(
+                    "TECHTOON_PG_CONNECTION environment variable is not set.");
+            }
+            optionsBuilder.UseNpgsql(cs);
         }
     }
 
@@ -104,7 +110,7 @@ public class TechtoonDbContext : DbContext
         modelBuilder.Entity<Employee>(e => e.HasIndex(emp => emp.EmployeeCode).IsUnique());
         modelBuilder.Entity<AppSetting>(e => { e.HasIndex(s => s.Key).IsUnique(); e.HasIndex(s => s.Category); });
 
-        // تكوين علاقات CashTransfer (لها مفتاحان أجنبيان指向 CashBox)
+        // ØªÙƒÙˆÙŠÙ† Ø¹Ù„Ø§Ù‚Ø§Øª CashTransfer (Ù„Ù‡Ø§ Ù…ÙØªØ§Ø­Ø§Ù† Ø£Ø¬Ù†Ø¨ÙŠØ§Ù†æŒ‡å‘ CashBox)
         modelBuilder.Entity<CashTransfer>(e =>
         {
             e.HasOne(t => t.FromCashBox)
@@ -118,7 +124,7 @@ public class TechtoonDbContext : DbContext
              .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // تكوين علاقات WarehouseTransfer (لها مفتاحان أجنبيان指向 Warehouse)
+        // ØªÙƒÙˆÙŠÙ† Ø¹Ù„Ø§Ù‚Ø§Øª WarehouseTransfer (Ù„Ù‡Ø§ Ù…ÙØªØ§Ø­Ø§Ù† Ø£Ø¬Ù†Ø¨ÙŠØ§Ù†æŒ‡å‘ Warehouse)
         modelBuilder.Entity<WarehouseTransfer>(e =>
         {
             e.HasOne(t => t.FromWarehouse)
@@ -136,5 +142,35 @@ public class TechtoonDbContext : DbContext
             e.HasOne(p => p.Invoice).WithMany().HasForeignKey(p => p.InvoiceId);
             e.HasOne(p => p.CashBox).WithMany().HasForeignKey(p => p.CashBoxId);
         });
-    }
+    }    // === النماذج المتقدمة (29 DbSet جديد) ===
+    public DbSet<KitComponentHistory> KitComponentHistories { get; set; }
+    public DbSet<WarehouseTransferLine> WarehouseTransferLines { get; set; }
+    public DbSet<WarehouseTransferLog> WarehouseTransferLogs { get; set; }
+    public DbSet<CashTransferLog> CashTransferLogs { get; set; }
+    public DbSet<BankStatement> BankStatements { get; set; }
+    public DbSet<BankStatementLine> BankStatementLines { get; set; }
+    public DbSet<BankStatementImportTemplate> BankStatementImportTemplates { get; set; }
+    public DbSet<BankStatementImportLog> BankStatementImportLogs { get; set; }
+    public DbSet<BankReconciliation> BankReconciliations { get; set; }
+    public DbSet<ReconciliationMatch> ReconciliationMatches { get; set; }
+    public DbSet<ReconciliationAdjustment> ReconciliationAdjustments { get; set; }
+    public DbSet<RecurringJournalTemplate> RecurringJournalTemplates { get; set; }
+    public DbSet<RecurringJournalLine> RecurringJournalLines { get; set; }
+    public DbSet<RecurringJournalExecution> RecurringJournalExecutions { get; set; }
+    public DbSet<PettyCashCustody> PettyCashCustodies { get; set; }
+    public DbSet<PettyCashExpense> PettyCashExpenses { get; set; }
+    public DbSet<PettyCashSettlement> PettyCashSettlements { get; set; }
+    public DbSet<CustodyIncreaseRequest> CustodyIncreaseRequests { get; set; }
+    public DbSet<EarlyPaymentDiscountPolicy> EarlyPaymentDiscountPolicies { get; set; }
+    public DbSet<PartyDiscountPolicy> PartyDiscountPolicies { get; set; }
+    public DbSet<InvoiceDiscountApplication> InvoiceDiscountApplications { get; set; }
+    public DbSet<LateFeePolicy> LateFeePolicies { get; set; }
+    public DbSet<PartyLateFeeException> PartyLateFeeExceptions { get; set; }
+    public DbSet<InvoiceLateFee> InvoiceLateFees { get; set; }
+    public DbSet<BadDebtWriteoff> BadDebtWriteoffs { get; set; }
+    public DbSet<BadDebtReversal> BadDebtReversals { get; set; }
+    public DbSet<BadDebtAttachment> BadDebtAttachments { get; set; }
+    public DbSet<ReportingSetting> ReportingSettings { get; set; }
+    public DbSet<CashRecognitionLog> CashRecognitionLogs { get; set; }
+
 }

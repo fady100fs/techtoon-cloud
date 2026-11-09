@@ -49,9 +49,7 @@ namespace Techtoon.UI.Views
     public partial class ReturnInvoiceWindow : Window
     {
         private readonly string _connectionString =
-            "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;" +
-            "Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;" +
-            "SSL Mode=Require;Trust Server Certificate=true";
+            Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
 
         public ObservableCollection<ReturnInvoiceOption> Invoices { get; } = new ObservableCollection<ReturnInvoiceOption>();
         public ObservableCollection<ReturnLineItem> Lines { get; } = new ObservableCollection<ReturnLineItem>();

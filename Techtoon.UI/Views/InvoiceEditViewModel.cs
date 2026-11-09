@@ -136,7 +136,7 @@ namespace Techtoon.UI.Views
             AddByBarcodeCommand = new UiRelayCommand(p => { _ = AddByBarcodeAsync(p?.ToString() ?? ""); });
         }
 
-        public static string GetConnectionString() { return "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;SSL Mode=Require;Trust Server Certificate=true"; }
+        public static string GetConnectionString() { return Techtoon.UI.Services.SecureConnectionManager.GetConnectionString(); }
 
         public async System.Threading.Tasks.Task LoadAsync()
         {

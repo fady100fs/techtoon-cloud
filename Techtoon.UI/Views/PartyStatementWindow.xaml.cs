@@ -28,9 +28,7 @@ namespace Techtoon.UI.Views
     public partial class PartyStatementWindow : Window
     {
         private readonly string _connectionString =
-            "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;" +
-            "Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;" +
-            "SSL Mode=Require;Trust Server Certificate=true";
+            Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
 
         public ObservableCollection<PartyStatementParty> Parties { get; } = new ObservableCollection<PartyStatementParty>();
         public ObservableCollection<StatementRow> Rows { get; } = new ObservableCollection<StatementRow>();

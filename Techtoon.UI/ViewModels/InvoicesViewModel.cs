@@ -65,7 +65,7 @@ namespace Techtoon.UI.ViewModels
             LoadInvoices();
         }
 
-        public static string GetCS() { return "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;SSL Mode=Require;Trust Server Certificate=true"; }
+        public static string GetCS() { return Techtoon.UI.Services.SecureConnectionManager.GetConnectionString(); }
 
         private void ClearSearch()
         {

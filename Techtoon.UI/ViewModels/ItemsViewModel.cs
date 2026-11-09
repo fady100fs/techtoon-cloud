@@ -80,7 +80,7 @@ namespace Techtoon.UI.ViewModels
             LoadWarehouses();
         }
 
-        public static string GetCS() => "Host=ep-bitter-night-za726w59-pooler.c-2.eu-west-2.aws.neon.tech;Port=5432;Username=neondb_owner;Password=npg_K9nHVkY5OjRC;Database=neondb;SSL Mode=Require;Trust Server Certificate=true";
+        public static string GetCS() => Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
 
         public void LoadItems()
         {
