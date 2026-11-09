@@ -48,6 +48,18 @@ namespace Techtoon.UI.ViewModels
         private string _statusMessage = "";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         
+        // P0-4 Batch 10: pagination contract يعمل مع API (page/pageSize)
+        private int _page = 1;
+        public int Page { get => _page; set { if (SetProperty(ref _page, Math.Max(1, value))) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        private int _pageSize = 50;
+        public int PageSize { get => _pageSize; set { if (SetProperty(ref _pageSize, Math.Max(1, value))) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        private int _totalCount;
+        public int TotalCount { get => _totalCount; set { if (SetProperty(ref _totalCount, value)) { OnPropertyChanged(nameof(TotalPages)); OnPropertyChanged(nameof(PageInfo)); } } }
+        public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(TotalCount / (double)PageSize) : 0;
+        public string PageInfo => TotalPages > 0 ? $"صفحة {Page} من {TotalPages} ({TotalCount} صنف)" : $"صفحة {Page} (0 صنف)";
+        public bool CanGoPrev => Page > 1;
+        public bool CanGoNext => TotalPages == 0 || Page < TotalPages;
+        
         private bool _selectAll;
         public bool SelectAll
         {
@@ -56,6 +68,8 @@ namespace Techtoon.UI.ViewModels
         }
 
         public ICommand RefreshCommand { get; }
+        public ICommand NextPageCommand { get; }
+        public ICommand PrevPageCommand { get; }
         public ICommand EditCommand { get; }
         public ICommand AddCommand { get; }
         public ICommand DeleteCommand { get; }
@@ -68,6 +82,8 @@ namespace Techtoon.UI.ViewModels
         public ItemsViewModel()
         {
             RefreshCommand = new RelayCommand(() => _ = LoadItemsAsync());
+            NextPageCommand = new RelayCommand(() => { if (CanGoNext) { Page++; _ = LoadItemsAsync(); } }, () => CanGoNext);
+            PrevPageCommand = new RelayCommand(() => { if (CanGoPrev) { Page--; _ = LoadItemsAsync(); } }, () => CanGoPrev);
             EditCommand = new RelayCommand(EditSelected, () => Items.Any(i => i.IsSelected));
             AddCommand = new RelayCommand(AddNewItem);
             DeleteCommand = new RelayCommand(DeleteSelected, () => Items.Any(i => i.IsSelected));
@@ -89,6 +105,14 @@ namespace Techtoon.UI.ViewModels
             {
                 using var conn = new NpgsqlConnection(GetCS());
                 await conn.OpenAsync();
+                // P0-4 Batch 10: COUNT أولًا (يعمل مع page/pageSize)
+                string countSql = "SELECT COUNT(*) FROM items i WHERE 1=1" + (!string.IsNullOrWhiteSpace(SearchText) ? " AND (i.name ILIKE @q OR i.barcode ILIKE @q)" : "");
+                using (var cc = new NpgsqlCommand(countSql, conn))
+                {
+                    if (!string.IsNullOrWhiteSpace(SearchText)) cc.Parameters.AddWithValue("q", "%" + SearchText + "%");
+                    TotalCount = Convert.ToInt32(await cc.ExecuteScalarAsync());
+                }
+                if (TotalPages > 0 && Page > TotalPages) Page = TotalPages;
                 string sql = @"SELECT i.id, i.name, COALESCE(i.barcode,''), COALESCE(i.sell_price,0), COALESCE(i.cost_price,0),
                     i.opening_quantity + COALESCE((SELECT SUM(CASE WHEN im.type IN ('in','opening','transfer_in') THEN ABS(im.quantity) WHEN im.type IN ('out','transfer_out') THEN -ABS(im.quantity) WHEN im.type='adjustment' THEN im.quantity ELSE 0 END) FROM inventory_movements im WHERE im.item_id=i.id), 0),
                     COALESCE(i.min_stock,0), COALESCE(i.is_active, TRUE), COALESCE(i.is_kit, FALSE),
@@ -96,9 +120,11 @@ namespace Techtoon.UI.ViewModels
                     (SELECT w.name FROM stock_levels sl JOIN warehouses w ON w.id = sl.warehouse_id WHERE sl.item_id = i.id LIMIT 1)
                     FROM items i WHERE 1=1";
                 if (!string.IsNullOrWhiteSpace(SearchText)) sql += " AND (i.name ILIKE @q OR i.barcode ILIKE @q)";
-                sql += " ORDER BY i.name LIMIT 500";
+                sql += " ORDER BY i.name LIMIT @limit OFFSET @offset";
                 using var cmd = new NpgsqlCommand(sql, conn);
                 if (!string.IsNullOrWhiteSpace(SearchText)) cmd.Parameters.AddWithValue("q", "%" + SearchText + "%");
+                cmd.Parameters.AddWithValue("limit", PageSize);
+                cmd.Parameters.AddWithValue("offset", (Page - 1) * PageSize);
                 using var r = await cmd.ExecuteReaderAsync();
                 while (await r.ReadAsync())
                     Items.Add(new ItemRow { 
