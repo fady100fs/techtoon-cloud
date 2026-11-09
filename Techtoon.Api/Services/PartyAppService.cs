@@ -76,6 +76,7 @@ public class PartyAppService : IPartyAppService
 
         var sql = "SELECT p.id::bigint, p.name, COALESCE(p.type,'') AS type, COALESCE(p.phone,'') AS phone, " +
                   "COALESCE(p.opening_balance,0)::numeric AS opening_balance, " +
+                  "COALESCE(p.opening_balance,0)::numeric + " +
                   "COALESCE((SELECT SUM(amount) FROM payments WHERE party_id = p.id AND payment_type='receipt'), 0)::numeric - " +
                   "COALESCE((SELECT SUM(amount) FROM payments WHERE party_id = p.id AND payment_type='payment'), 0)::numeric + " +
                   "COALESCE((SELECT SUM(total) FROM invoices WHERE party_id = p.id AND type='sales'), 0)::numeric - " +
@@ -111,6 +112,7 @@ public class PartyAppService : IPartyAppService
         var sql = "SELECT p.id::bigint, p.name, COALESCE(p.type,'') AS type, COALESCE(p.phone,'') AS phone, " +
                   "COALESCE(p.email,'') AS email, COALESCE(p.address,'') AS address, COALESCE(p.tax_number,'') AS tax_number, " +
                   "COALESCE(p.opening_balance,0)::numeric AS opening_balance, " +
+                  "COALESCE(p.opening_balance,0)::numeric + " +
                   "COALESCE((SELECT SUM(amount) FROM payments WHERE party_id = p.id AND payment_type='receipt'), 0)::numeric - " +
                   "COALESCE((SELECT SUM(amount) FROM payments WHERE party_id = p.id AND payment_type='payment'), 0)::numeric + " +
                   "COALESCE((SELECT SUM(total) FROM invoices WHERE party_id = p.id AND type='sales'), 0)::numeric - " +
