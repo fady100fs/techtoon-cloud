@@ -1,21 +1,46 @@
 # INCOMPLETE FEATURES
 
-> لا حذف بدون إثبات وموافقة. Flutter/Streamlit مهملان (قرار مالك).
+> آخر تحديث: 2026-11-10 (بعد P4). لا حذف بدون إثبات وموافقة. Flutter/Streamlit مهملان (قرار مالك).
+
+## مُغلق في P4 ✅
+
+| الميزة | الحالة |
+|---|---|
+| crash الـ XamlParseException على كل DataGrid | **مُغلق** (`VirtualizationMode="Simple"` → `Recycling`) |
+| تكرار بطاقات لوحة التحكم | **مُغلق** (حarmon التحميل المتزامن) |
+| أزرار الخزائن غير الظاهرة | **مُغلق** (Content + عنوان) |
+| قوائم العهدة الفارغة (موظفون/حسابات) | **مُغلق** (`status` case + `accounts.type` نص + إظهار الأخطاء) |
+| `/api/employees` يرجع 500 | **مُغلق** (SQL projection + تصفير NULL) |
+| السلف = قروض المنشأة (خلط المفاهيم) | **مُغلق** (تبويبان منفصلان: سلف موظف / قروض منشأة) |
+| أنواع القروض (ثابتة/متغيرة/جارٍ مدين/بدون فائدة) | **مُغلق** (جدول أقساط يُولَّد آليًا) |
+| صفحة جدول الأقساط بعد إنشاء القرض | **مُغلق** (`LoanScheduleWindow` تُفتح تلقائيًا + زر دائم) |
+| دورة القرض غير مغلقة على الخزينة | **مُغلق** (صرف/استلام/تسديد/تسوية/حذف — 24/24 اختبار DB) |
+
+## متبقٍ
 
 | # | الميزة | الوضع | السبب | ما يحتاج |
 |---|--------|-------|-------|----------|
 | 1 | RecurringInvoicesView | stub (نص "قيد التطوير") | لا VM/خدمة | VM + جدول/خدمة (قرار معماري) |
-| 2 | Expenses PUT (API) | مفقود (Mobile PUT=405) | Service بلا Update | UpdateExpenseAsync + PUT |
-| 3 | Employees/Warehouses/Salaries/Loans write | read-only | P2.19 stubs | Controllers + Mobile forms (Flutter غير مطلوب) |
-| 4 | FinancialService | orphan (0 callers) | لا أحد يستدعيه | Wire إلى Transfer/Close UI أو حذف (قرار) |
-| 5 | LoanEditWindow | orphan duplicate | LoansEditWindow المستخدم | حذف أو توثيق (قرار) |
-| 6 | 54 sync files | تدريجي | P0-4 batches (8 hot paths تمت) | Batches لاحقة |
-| 7 | 106 in-progress | محلي فقط | عمل ميزات قيد التطوير | إتمام + موافقة قبل push |
-| 8 | Mobile create (invoices/cashboxes) | read-only | Flutter SDK غير متوفر + link-only | قرار (تخطي مقصود) |
-| 9 | Deleted Invoice/Return ledger reversal | partial | يحتاج قرار محاسبي (credit-note vs cash) | موافقة P1 |
-| 10 | Tests (WPF UI) | manual | لا أتمتة سطح مكتب | بيئة اختبار يدوية |
+| 2 | Expenses PUT (API) | مفقود (Mobile PUT=405) | Service بلا Update | `UpdateExpenseAsync` + PUT |
+| 3 | Mobile: شاشات القراءة فقط | كما هي | Flutter SDK غير متاح + link-only قرار مالك | قرار (متخطى) |
+| 4 | FinancialService | orphan (0 callers) | لا أحد يستدعيه | Wire أو حذف (قرار) |
+| 5 | BankReconciliation: تسوية تلقائية للقرض | غير مربوطة | bank recon لا يعرف القروض | قرار محاسبي |
+| 6 | 54 sync files | تدريجي | P0-4 batches (8 hot paths) | Batches لاحقة |
+| 7 | ~106 in-progress | محلي فقط | عمل ميزات قيد التطوير | إتمام + موافقة قبل push |
+| 8 | التسديد الجماعي للأقساط (سداد عدة أقساط دفعة واحدة) | غير موجود | Currently قسط-by-قسط | ميزة تحسينية |
+| 9 | اختبارات WPF UI | يدوي | لا أتمتة سطح مكتب | بيئة اختبار يدوية |
+| 10 | Currency FX في القروض | غير موجود | النظامviginal بدون عملات | قرار محاسبي |
+| 11 | C1 (تدوير أسرار Neon) | لم يُنفذ | قرار مالك | موافقة |
 
 ## قرارات مطلوبة من المالك
-- D1-D6 (تدوين في TECHTOON_PENDING_DECISIONS.md).
-- Cash auto-refund للمرتجعات.
-- Streamlit/Flutter مهملان (مؤكد).
+
+1. **الحسابات التلقائية للقروض:** الترحيل الحالي يربط `liability_account_id` و`interest_expense_account_id` يدويًا. هل تريد ربطًا تلقائيًا بحساب "قروض بنكية" و"مصروف فوائد"؟ (يحتاج حسابات معيارية موجودة في `accounts`).
+2. **الفائدة المتغيرة:** حالياً إعادة الحساب يدوية بزر. هل تريد ربطها بمؤشر خارجي (SOFR/IBOR)؟ يتطلب جدول أسعار تاريخي — معماري.
+3. **السداد الجماعي:** هل تريد زر "سداد عدة أقساط دفعة واحدة"؟
+4. **خطة السداد:** هل تريد دعم الدفعات غير المنتظمة (Bullet /定制 amortization)؟
+
+## ملاحظات
+
+- **Production DB:** الترحيل `P4_loans_closed_loop.sql` **إضافي فقط** (جدول جديد + أعمدة جديدة + تصفير NULL). لم تُنشأ أي سجلات إنتاجية.
+- **Rollback:** حذف `loan_payments` + الأعمدة `employee_id/custody_id/repayment_method/interest_type` من `loans` (قيود `fk_li_loan` تُحذف أولًا).
+- **نسخة احتياطية:** `D:\PROG\Accounting_Prog\_backups\techtoon-prod-pre-p03-20261109.dump` (قبل P0-3).

@@ -1,29 +1,84 @@
 # CRUD TEST RESULTS
 
+> آخر تحديث: 2026-11-10 (P4)
+
 ## Build & Unit Tests
-- `dotnet build Techtoon.sln`: **0 errors** (4 warnings CS0649).
-- `dotnet test Techtoon.Tests`: **13/13 passed** (BalanceCalculator, InventorySignConvention).
 
-## Fly API Smoke (v15 → v16 pending)
-| Endpoint | v14 | v15 | v16 (متوقع بعد النشر) |
-|----------|-----|-----|-----------------------|
-| /health | 200 | 200 | 200 |
-| POST login | 200 | 200 | 200 |
-| items/parties/invoices/payments/cashboxes/expenses/kits | 200 | 200 | 200 |
-| warehouses/employees | — | 200 | 200 |
-| salaries | — | 400 (OrderBy) | 200 (fixed) |
-| loans | — | 500 (CashBoxId shadow) | 200 (fixed) |
-| Error contract 401 | {status,message} | problem+json | problem+json |
+| البند | النتيجة |
+|---|---|
+| `dotnet build Techtoon.sln` | **0 أخطاء** (4 تحذيرات CS0649/CS8629 حميدة) |
+| `dotnet test Techtoon.Tests` | **21/21 ناجح** (13 سابق + 8 جديدة لحاسبة الأقساط) |
 
-## DB (prod read-only)
-- Double columns: **0** (P0-3 migration + views).
-- Views: 5/5 present.
-- Items count: 112 (بعد حذف "فرق" + مخزن فرعي).
+### اختبارات حاسبة الأقساط الجديدة (`LoanScheduleCalculatorTests`)
+| الاختبار | النتيجة |
+|---|---|
+| مجموع أقساط الأصل = رأس المال (فائدة ثابتة) | PASS |
+| ثبات القسط (Annuity) | PASS |
+| الفائدة المتغيرة تنخفض مع الرصيد | PASS |
+| الجارٍ المدين: فائدة فقط، الأصل يبقى للبنك | PASS |
+| بدون فائدة: تقسيم متساوٍ | PASS |
+| فترة السماح تُرجّع تواريخ الاستحقاق | PASS |
+| التكرار الربع سنوي | PASS |
+| مدخلات غير صالحة ترمي استثناء | PASS |
 
-## Test DB CRUD (محلي, techtoon_test)
-- P0-3 rehearsal: 86 double → 2 (test) / 0 (prod).
-- API integration Phase 2: 25/25 (سابقًا).
+## اختبار قاعدة البيانات المتكامل (قاعدة `techtoon_test` — منفصلة عن الإنتاج)
 
-## ما لم يُختبر
-- WPF UI يدوي (خارج CI).
-- Writes على prod (محظور عمدًا).
+**النتيجة: 24/24 PASS**
+
+| # | السيناريو | المتوقع | الفعلي | الحالة |
+|---|---|---|---|---|
+| T1 | صرف سلفة (موظف) من خزينة 1000 | الخزينة 500 | 500 | PASS |
+| T1 | استرداد جزئي 200 | الخزينة 700، المتبقي 300 | مطابق | PASS |
+| T1 | حذف سلفة مستردة | ممنوع (0 صفوف) | 0 | PASS |
+| T1 | السلفة ما زالت موجودة | 1 | 1 | PASS |
+| T2 | توليد 12 قسطًا | 12 | 12 | PASS |
+| T2 | مجموع الأصل = رأس المال | 120000 | 120000 | PASS |
+| T2 | استلام القرض | الخزينة 120700 | 120700 | PASS |
+| T2 | تسديد القسط الأول | status=paid | paid | PASS |
+| T2 | `paid_amount` يزيد بقسط الأصل فقط | 9461.85 | 9461.85 | PASS |
+| T2 | `remaining` ينقص بقسط الأصل فقط | 110538.15 | 110538.15 | PASS |
+| T2 | الخزينة بعد التسديد | 110038.15 | 110038.15 | PASS |
+| T2 | القرض يبقى نشطًا | active | active | PASS |
+| T3 | الجارٍ المدين: كل الأصل = 0 | 0 | 0 | PASS |
+| T3 | الأصل يبقى مستحقًا (200000) | 200000 | 200000 | PASS |
+| T3 | دفع الفائدة لا يقلّل الأصل | 200000 | 200000 | PASS |
+| T3 | دفع الفائدة لا يزيد `paid_amount` | 0 | 0 | PASS |
+| T4 | وجود سجل `loan_payments` يمنع الحذف | 1 | 1 | PASS |
+| T4 | FK cascade يحذف الأقساط مع القرض | 0 | 0 | PASS |
+| T5 | لا أقساط يتيمة | 0 | 0 | PASS |
+| T5 | لا تسديدات يتيمة | 0 | 0 | PASS |
+| T5 | رصيد الخزينة لا يصبح سالبًا | true | true | PASS |
+| T5 | لا قرض برصيد سالب | 0 | 0 | PASS |
+| T5 | مسدد + متبقي = رأس المال | 120000 | 120000 | PASS |
+
+**تنظيف:** حُذفت كل صفوف الاختبار من `techtoon_test` بعد الاختبار (`TRUNCATE`).
+
+## Fly Production Smoke (v17 — بعد P4)
+
+| Endpoint | v16 | v17 |
+|----------|-----|-----|
+| `/health` | 200 | **200** |
+| `POST /api/auth/login` | 200 | **200** |
+| `/api/employees` | **500** | **200** ✅ (الإصلاح الأساسي) |
+| `/api/loans` | 200 | **200** |
+| `/api/salaries` | 200 | **200** |
+| `/api/petty-cash/custodies` | 200 | **200** |
+| `/api/items` / `payments` / `cashboxes` / `parties` / `invoices` | 200 | **200** |
+
+**سجلات Fly:** آخر خطأ مسجَّل `07:34:50Z` (قبل v17) — `Column 'allowances' is null`. بعد النشر: **صفر أخطاء**؛ آخر سطر `Health check 'servicecheck-00-http-8080' is now passing`.
+
+## قاعدة الإنتاج (read-only بعد الترحيل)
+
+```
+PROD loans = 0
+PROD loan_installments = 0
+PROD loan_payments = 0
+PROD payments = 0
+PROD employees = 1
+```
+✅ لا سجلات إنتاجية أُنشئت أو حُذفت — الترحيل إضافي فقط (جدول + أعمدة + تصفير NULL).
+
+## ما لم يُختبر آليًا
+
+- **WPF UI يدوي**: اختبارات الفأرة الفعلية (المستخدم). الإصلاحات موثقة في `TECHTOON_P4_CHANGELOG.md` ومُثبتة منطقيًا + البناء ناجح.
+- **Writes على الإنتاج**: محظورة عمدًا (لا بيانات حقيقية تختبر).
