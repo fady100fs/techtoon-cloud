@@ -84,12 +84,18 @@ public partial class PettyCashEditWindow : Window
 
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
+        // P4: employee_id / cash_box_id / custody_account_id إلزامية (NOT NULL) — نتحقق بوضوح
+        if (CmbEmp.SelectedItem is not ComboItem emp) { MessageBox.Show("اختر الموظف (إلزامي)."); return; }
+        if (CmbCB.SelectedItem is not ComboItem cbx) { MessageBox.Show("اختر الخزينة (إلزامي)."); return; }
+        if (CmbCustAcc.SelectedItem is not ComboItem acc) { MessageBox.Show("اختر حساب العهدة (إلزامي)."); return; }
+        if (!decimal.TryParse(TxtAmt.Text, System.Globalization.CultureInfo.CurrentCulture, out var amount) || amount <= 0)
+        { MessageBox.Show("المبلغ غير صحيح."); return; }
         try
         {
-            var p0 = ((ComboItem)CmbEmp.SelectedItem)?.Id ?? 0;
-            var p1 = TxtAmt.Text;
-            var p2 = ((ComboItem)CmbCB.SelectedItem)?.Id ?? 0;
-            var p3 = ((ComboItem)CmbCustAcc.SelectedItem)?.Id ?? 0;
+            var p0 = emp.Id;
+            var p1 = amount.ToString();
+            var p2 = cbx.Id;
+            var p3 = acc.Id;
             var p4 = DpDate.SelectedDate ?? DateTime.Now;
             var p5 = TxtDesc.Text;
             using var conn = new NpgsqlConnection(GetCS());
@@ -98,35 +104,50 @@ public partial class PettyCashEditWindow : Window
             {
                 using var cmd = new NpgsqlCommand(@"UPDATE petty_cash_custodies SET employee_id=@p0, amount=@p1, cash_box_id=@p2, custody_account_id=@p3, issued_date=@p4, description=@p5 WHERE id=@id", conn);
                 cmd.Parameters.AddWithValue("id", _id);
-            cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
-            decimal _decl1;
-            if (!decimal.TryParse(p1, System.Globalization.CultureInfo.CurrentCulture, out _decl1)) _decl1 = 0;
-            cmd.Parameters.AddWithValue("p1", _decl1);
-            cmd.Parameters.AddWithValue("p2", (object)p2 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p3", (object)p3 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p5", (object)p5 ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("p0", p0);
+                cmd.Parameters.AddWithValue("p1", amount);
+                cmd.Parameters.AddWithValue("p2", p2);
+                cmd.Parameters.AddWithValue("p3", p3);
+                cmd.Parameters.AddWithValue("p4", p4);
+                cmd.Parameters.AddWithValue("p5", (object?)p5 ?? DBNull.Value);
                 cmd.ExecuteNonQuery();
             }
             else
             {
-                using var cmd = new NpgsqlCommand(@"INSERT INTO petty_cash_custodies (employee_id, amount, cash_box_id, custody_account_id, issued_date, description, status, created_by, created_at) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, 'open', 1, NOW())", conn);
-            cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
-            decimal _decl1;
-            if (!decimal.TryParse(p1, System.Globalization.CultureInfo.CurrentCulture, out _decl1)) _decl1 = 0;
-            cmd.Parameters.AddWithValue("p1", _decl1);
-            cmd.Parameters.AddWithValue("p2", (object)p2 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p3", (object)p3 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p5", (object)p5 ?? DBNull.Value);
-                cmd.ExecuteNonQuery();
+                // P4: رقم العهدة يُولَّد تلقائيًا (كان يُحفظ فارغًا)
+                var custodyNo = "عهد-" + DateTime.Now.ToString("yyyyMMdd") + "-" + (GenerateCustodyNumber(conn));
+                using var cmd = new NpgsqlCommand(@"INSERT INTO petty_cash_custodies (custody_number, employee_id, amount, cash_box_id, custody_account_id, issued_date, description, status, created_by, created_at) VALUES (@cn, @p0, @p1, @p2, @p3, @p4, @p5, 'open', 1, NOW())", conn);
+                cmd.Parameters.AddWithValue("cn", custodyNo);
+                cmd.Parameters.AddWithValue("p0", p0);
+                cmd.Parameters.AddWithValue("p1", amount);
+                cmd.Parameters.AddWithValue("p2", p2);
+                cmd.Parameters.AddWithValue("p3", p3);
+                cmd.Parameters.AddWithValue("p4", p4);
+                cmd.Parameters.AddWithValue("p5", (object?)p5 ?? DBNull.Value);
+                cmd.CommandText = cmd.CommandText.Replace("'open', 1, NOW())", "'open', 1, NOW()) RETURNING id");
+                var newId = Convert.ToInt32(cmd.ExecuteScalar());
+                AuditService.Log("CREATE", "PettyCash", newId, "Custody created: " + custodyNo);
+                DialogResult = true;
+                Close();
+                return;
             }
-            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "PettyCash", _id > 0 ? _id : 0, "Saved from EditWindow");
+            AuditService.Log("UPDATE", "PettyCash", _id, "Custody updated");
             DialogResult = true;
             Close();
         }
         catch (Exception ex) { LblStatus.Text = "\u062E\u0637\u0623: " + ex.Message; }
     }
+
+        /// <summary>P4: تسلسل رقم العهدة (يتابع بعد آخر سجل).</summary>
+        private static int GenerateCustodyNumber(NpgsqlConnection conn)
+        {
+            try
+            {
+                using var cmd = new NpgsqlCommand("SELECT COALESCE(MAX(id),0) FROM petty_cash_custodies", conn);
+                return Convert.ToInt32(cmd.ExecuteScalar()) + 1;
+            }
+            catch { return 1; }
+        }
 
     private void BtnDelete_Click(object sender, RoutedEventArgs e)
     {

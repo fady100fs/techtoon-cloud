@@ -443,7 +443,9 @@ namespace Techtoon.UI.Views
                 using (var cmd = new NpgsqlCommand("SELECT id, name FROM accounts WHERE UPPER(COALESCE(type,''))='EXPENSE' ORDER BY name", conn))
                 using (var r = cmd.ExecuteReader())
                     while (r.Read()) _cmbIntExp.Items.Add(new ComboItem { Id = r.GetInt32(0), Name = r.GetString(1) });
-                _cmbLiab.SelectedIndex = 0; _cmbIntExp.SelectedIndex = 0;
+                // P4: ربط تلقائي بأول حساب التزام/مصروف (حلقة محاسبية مغلقة) — "تلقائي" يبقى متاحًا
+                if (_cmbLiab.Items.Count > 1) _cmbLiab.SelectedIndex = 1;
+                if (_cmbIntExp.Items.Count > 1) _cmbIntExp.SelectedIndex = 1;
             }
             catch { }
         }

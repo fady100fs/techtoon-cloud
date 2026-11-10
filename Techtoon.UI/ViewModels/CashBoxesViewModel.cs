@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using Npgsql;
 using Techtoon.UI.Services;
+using Techtoon.UI.Views;
 
 namespace Techtoon.UI.ViewModels
 {
@@ -108,6 +109,7 @@ namespace Techtoon.UI.ViewModels
                 using var cmd = new NpgsqlCommand("DELETE FROM cash_boxes WHERE id=@id", conn);
                 cmd.Parameters.AddWithValue("id", SelectedRow.Id);
                 cmd.ExecuteNonQuery();
+                AuditService.Log("DELETE", "CashBox", SelectedRow.Id, "Deleted cash box: " + SelectedRow.Name);
                 _ = LoadAsync();
             }
             catch (Exception ex) { MessageBox.Show("خطأ: " + ex.Message); }
@@ -121,20 +123,26 @@ namespace Techtoon.UI.ViewModels
         private readonly TextBox _txtName = new TextBox { Margin = new Thickness(5) };
         private readonly TextBox _txtCode = new TextBox { Margin = new Thickness(5) };
         private readonly TextBox _txtOpening = new TextBox { Margin = new Thickness(5), Text = "0" };
-        private readonly TextBox _txtType = new TextBox { Margin = new Thickness(5), Text = "CASH" };
-        private readonly TextBox _txtStatus = new TextBox { Margin = new Thickness(5), Text = "" };
+        private readonly ComboBox _cmbType = new ComboBox { Margin = new Thickness(5), Width = 120 };
+        private readonly ComboBox _cmbAccount = new ComboBox { Margin = new Thickness(5), Width = 170, DisplayMemberPath = "Name" };
 
         public CashBoxEditor(int id)
         {
             _id = id;
             Title = id > 0 ? "تعديل خزينة" : "إضافة خزينة";
-            Width = 380; Height = 320; WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            Width = 430; Height = 400; WindowStartupLocation = WindowStartupLocation.CenterScreen;
             FlowDirection = FlowDirection.RightToLeft;
+            _cmbType.Items.Add("CASH");
+            _cmbType.Items.Add("BANK");
+            _cmbType.SelectedIndex = 0;
+            LoadAccounts();
+
             var panel = new StackPanel { Margin = new Thickness(10) };
             panel.Children.Add(new TextBlock { Text = "الاسم:" }); panel.Children.Add(_txtName);
-            panel.Children.Add(new TextBlock { Text = "الكود:" }); panel.Children.Add(_txtCode);
-            panel.Children.Add(new TextBlock { Text = "النوع (CASH/BANK):" }); panel.Children.Add(_txtType);
+            panel.Children.Add(new TextBlock { Text = "الكود (يُولَّد تلقائيًا إن تُرك فارغًا):" }); panel.Children.Add(_txtCode);
+            panel.Children.Add(new TextBlock { Text = "النوع:" }); panel.Children.Add(_cmbType);
             panel.Children.Add(new TextBlock { Text = "رصيد افتتاحي:" }); panel.Children.Add(_txtOpening);
+            panel.Children.Add(new TextBlock { Text = "الحساب المرتبط (إلزامي):" }); panel.Children.Add(_cmbAccount);
             var btns = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 10, 0, 0) };
             var btnSave = new Button { Content = "حفظ", Padding = new Thickness(15, 5, 15, 5), Margin = new Thickness(0, 0, 5, 0) };
             var btnCancel = new Button { Content = "إلغاء", Padding = new Thickness(15, 5, 15, 5) };
@@ -146,16 +154,43 @@ namespace Techtoon.UI.ViewModels
             if (_id > 0) LoadData();
         }
 
+        /// <summary>P4: cash_boxes.account_id إلزامي (NOT NULL) — نحمّل حسابات الأصول لاختياره.</summary>
+        private void LoadAccounts()
+        {
+            try
+            {
+                using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
+                conn.Open();
+                _cmbAccount.Items.Clear();
+                using var cmd = new NpgsqlCommand("SELECT id, name FROM accounts WHERE UPPER(COALESCE(type,''))='ASSET' ORDER BY name", conn);
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) _cmbAccount.Items.Add(new ComboItem { Id = r.GetInt32(0), Name = r.GetString(1) });
+                if (_cmbAccount.Items.Count > 0) _cmbAccount.SelectedIndex = 0;
+                else MessageBox.Show("لا توجد حسابات أصول. أضف حسابًا من صفحة دليل الحسابات أولًا.", "تنبيه");
+            }
+            catch (Exception ex) { MessageBox.Show("خطأ تحميل الحسابات: " + ex.Message); }
+        }
+
         private void LoadData()
         {
             try
             {
                 using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
                 conn.Open();
-                using var cmd = new NpgsqlCommand("SELECT name, COALESCE(code,''), COALESCE(type,'CASH'), COALESCE(opening_balance,0) FROM cash_boxes WHERE id=@id", conn);
+                using var cmd = new NpgsqlCommand("SELECT name, COALESCE(code,''), COALESCE(type,'CASH'), COALESCE(opening_balance,0), COALESCE(account_id,0) FROM cash_boxes WHERE id=@id", conn);
                 cmd.Parameters.AddWithValue("id", _id);
                 using var r = cmd.ExecuteReader();
-                if (r.Read()) { _txtName.Text = r.IsDBNull(0) ? "" : r.GetString(0); _txtCode.Text = r.IsDBNull(1) ? "" : r.GetString(1); _txtType.Text = r.IsDBNull(2) ? "" : r.GetString(2); _txtOpening.Text = Convert.ToDecimal(r.GetValue(3)).ToString("0.00"); }
+                if (r.Read())
+                {
+                    _txtName.Text = r.IsDBNull(0) ? "" : r.GetString(0);
+                    _txtCode.Text = r.IsDBNull(1) ? "" : r.GetString(1);
+                    var t = r.IsDBNull(2) ? "CASH" : r.GetString(2);
+                    _cmbType.SelectedIndex = _cmbType.Items.Contains(t) ? _cmbType.Items.IndexOf(t) : 0;
+                    _txtOpening.Text = Convert.ToDecimal(r.GetValue(3)).ToString("0.00");
+                    var accId = Convert.ToInt32(r.GetValue(4));
+                    for (int i = 0; i < _cmbAccount.Items.Count; i++)
+                        if (((ComboItem)_cmbAccount.Items[i]).Id == accId) { _cmbAccount.SelectedIndex = i; break; }
+                }
             }
             catch (Exception ex) { MessageBox.Show("خطأ: " + ex.Message); }
         }
@@ -164,6 +199,8 @@ namespace Techtoon.UI.ViewModels
         {
             if (string.IsNullOrWhiteSpace(_txtName.Text)) { MessageBox.Show("الاسم مطلوب"); return; }
             if (!decimal.TryParse(_txtOpening.Text, out var opening)) { MessageBox.Show("رصيد غير صحيح"); return; }
+            if (_cmbAccount.SelectedItem is not ComboItem acc) { MessageBox.Show("اختر الحساب المرتبط بالخزينة (إلزامي)"); return; }
+            var type = _cmbType.SelectedItem?.ToString() ?? "CASH";
             try
             {
                 using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
@@ -171,24 +208,39 @@ namespace Techtoon.UI.ViewModels
                 using var tx = conn.BeginTransaction();
                 if (_id > 0)
                 {
-                    using var cmd = new NpgsqlCommand("UPDATE cash_boxes SET name=@n, code=@c, type=@t, opening_balance=@o WHERE id=@id", conn, tx);
+                    using var cmd = new NpgsqlCommand("UPDATE cash_boxes SET name=@n, code=@c, type=@t, opening_balance=@o, account_id=@acc WHERE id=@id", conn, tx);
                     cmd.Parameters.AddWithValue("id", _id); cmd.Parameters.AddWithValue("n", _txtName.Text.Trim());
-                    cmd.Parameters.AddWithValue("c", string.IsNullOrWhiteSpace(_txtCode.Text) ? (object)DBNull.Value : _txtCode.Text.Trim());
-                    cmd.Parameters.AddWithValue("t", string.IsNullOrWhiteSpace(_txtType.Text) ? "CASH" : _txtType.Text.Trim().ToUpper());
-                    cmd.Parameters.AddWithValue("o", opening); cmd.ExecuteNonQuery();
+                    cmd.Parameters.AddWithValue("c", ResolveCode(conn, tx));
+                    cmd.Parameters.AddWithValue("t", type);
+                    cmd.Parameters.AddWithValue("o", opening); cmd.Parameters.AddWithValue("acc", acc.Id); cmd.ExecuteNonQuery();
                 }
                 else
                 {
-                    using var cmd = new NpgsqlCommand("INSERT INTO cash_boxes (name, code, type, opening_balance, is_active, created_at) VALUES (@n,@c,@t,@o,TRUE,NOW()) RETURNING id", conn, tx);
+                    using var cmd = new NpgsqlCommand("INSERT INTO cash_boxes (name, code, type, opening_balance, is_active, created_at, account_id) VALUES (@n,@c,@t,@o,TRUE,NOW(),@acc) RETURNING id", conn, tx);
                     cmd.Parameters.AddWithValue("n", _txtName.Text.Trim());
-                    cmd.Parameters.AddWithValue("c", string.IsNullOrWhiteSpace(_txtCode.Text) ? (object)DBNull.Value : _txtCode.Text.Trim());
-                    cmd.Parameters.AddWithValue("t", string.IsNullOrWhiteSpace(_txtType.Text) ? "CASH" : _txtType.Text.Trim().ToUpper());
-                    cmd.Parameters.AddWithValue("o", opening); cmd.ExecuteScalar();
+                    cmd.Parameters.AddWithValue("c", ResolveCode(conn, tx));
+                    cmd.Parameters.AddWithValue("t", type);
+                    cmd.Parameters.AddWithValue("o", opening); cmd.Parameters.AddWithValue("acc", acc.Id);
+                    var newId = Convert.ToInt32(cmd.ExecuteScalar());
+                    using var up = new NpgsqlCommand("UPDATE cash_boxes SET code=@c2 WHERE id=@id", conn, tx);
+                    up.Parameters.AddWithValue("@c2", "CB" + newId.ToString("000"));
+                    up.Parameters.AddWithValue("@id", newId);
+                    up.ExecuteNonQuery();
                 }
                 tx.Commit();
+                AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "CashBox", _id, (string.IsNullOrWhiteSpace(_txtName.Text) ? "" : _txtName.Text.Trim()));
                 DialogResult = true; Close();
             }
             catch (Exception ex) { MessageBox.Show("خطأ: " + ex.Message); }
+        }
+
+        /// <summary>P4: cash_boxes.code إلزامي (NOT NULL) — نولّد كودًا فريدًا إذا تُرك فارغًا.</summary>
+        private object ResolveCode(NpgsqlConnection conn, NpgsqlTransaction tx)
+        {
+            if (!string.IsNullOrWhiteSpace(_txtCode.Text)) return _txtCode.Text.Trim();
+            using var probe = new NpgsqlCommand("SELECT COALESCE(MAX(id),0) FROM cash_boxes", conn, tx);
+            var maxId = Convert.ToInt32(probe.ExecuteScalar());
+            return "CB" + (maxId + 1).ToString("000");
         }
     }
 }

@@ -1,79 +1,74 @@
 # FULL PAGE FUNCTIONALITY AUDIT
 
-> **التاريخ:** 2026-11-09
-> **النطاق:** جميع صفحات WPF (60 XAML) + Mobile PWA + API (18 controllers)
+> **2026-11-10** — مبني على الفحص الآلي + **اختبار فعلي من الواجهة** على قاعدة معزولة.
+> المعيار: `ENGINEERING_RULE.md`. التفاصيل والأدلة: `REALITY_AUDIT.md`، `CRUD_TEST_RESULTS.md`.
 
-## 1. WPF — 60 صفحة
+## A. WPF — الصفحات التشغيلية (تم فحصها جميعًا)
 
-| # | الصفحة | Create | List | Edit | Delete/Cancel | Search | DB-save | الحالة |
-|---|--------|--------|------|------|---------------|--------|---------|--------|
-| 1 | Accounts | ✓ | ✓ | ✓ | ✓ | — | ✓ | complete |
-| 2 | AuditLog | — (read-only) | ✓ | — | — | ✓ | — | complete (read-only) |
-| 3 | BadDebts | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 4 | BankReconciliation | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 5 | **CashBoxes** | **✓ (أُصلح — كان ميتًا)** | ✓ | ✓ | ✓ (مع فحص FK) | — | ✓ | complete (أصلح Batch) |
-| 6 | CostCenters | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 7 | DamagedItems | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | complete |
-| 8 | Dashboard | — | ✓ | — | — | — | — | complete (read-only) |
-| 9 | DataManagement | — | ◐ | — | ✓ (admin) | — | ✓ | complete |
-| 10 | EarlyPaymentDiscount | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 11 | Employees | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 12 | ExpenseCategories | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 13 | Invoices | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 14 | Items | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 15 | LatePaymentFees | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 16 | Loans | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 17 | Parties | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 18 | Payments | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 19 | PettyCash | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 20 | **RecurringInvoices** | ✗ stub | ✗ | ✗ | ✗ | ✗ | ✗ | **incomplete (stub)** |
-| 21 | RecurringJournals | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 22 | Reports | — | ✓ | — | — | ◐ | — | complete (report) |
-| 23 | Salaries | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 24 | Settings | — | — | — | — | — | ✓ (backup) | complete |
-| 25 | StockAdjustments | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | complete |
-| 26 | StockCountSessions | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | complete |
-| 27 | StockLevels | — | ✓ | — | — | ✓ | — | complete (read-only) |
-| 28 | Users/Permissions | ✓ | ✓ | ✓ | ◐ (soft toggle) | ✓ | ✓ | complete (soft-delete by design) |
-| 29 | Warehouses | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 30 | WarehouseTransfers | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | complete |
-| 31 | WriteoffRequests | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | complete |
+| # | الصفحة | Create | List | Edit | Delete/Cancel | بحث | حفظ فعلي في DB | الحالة |
+|---|--------|--------|------|------|---------------|------|----------------|--------|
+| 1 | Accounts | ✓ | ✓ | ✓ | ✓ | — | ✓ | PASS (من الواجهة: غير مُختبَر) |
+| 2 | AuditLog | — | ✓ | — | — | ✓ | — | PASS (قراءة فقط) |
+| 3 | BadDebts | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 4 | BankReconciliation | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 5 | **CashBoxes** | ✓ | ✓ | ✓ | ✓ | — | ✓ | **PASS (من الواجهة)** — أُصلح: code + account_id + سجل تدقيق |
+| 6 | CostCenters | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 7 | DamagedItems | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | NOT VERIFIED (واجهة) |
+| 8 | Dashboard | — | ✓ | — | — | — | — | **PASS** — أُصلح التكرار (حارس تحميل) |
+| 9 | DataManagement | — | ◐ | — | ✓ (admin) | — | ✓ | NOT VERIFIED (واجهة) |
+| 10 | EarlyPaymentDiscount | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 11 | Employees | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 12 | ExpenseCategories | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 13 | Invoices | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 14 | Items | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 15 | LatePaymentFees | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 16 | **Loans — سلف الموظفين** | ✓ | ✓ | ✓ | ✓ (استرداد) | ✓ | ✓ | **PASS (من الواجهة)** |
+| 17 | **Loans — قروض المنشأة** | ✓ | ✓ | ✓ | ✓ (إقفال) | ✓ | ✓ | **PASS (من الواجهة)** + جدول أقساط وتسديد |
+| 18 | Parties | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 19 | Payments | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 20 | **PettyCash (العهد)** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | **PASS (من الواجهة)** — أُصلح: القوائم + التحقق + رقم العهدة |
+| 21 | RecurringInvoices | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **NOT IMPLEMENTED** (stub) |
+| 22 | RecurringJournals | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 23 | Reports | — | ✓ | — | — | ◐ | — | PASS (تحليلي — بلا CRUD) |
+| 24 | Salaries | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 25 | Settings | — | — | — | — | — | ✓ (backup) | NOT VERIFIED (واجهة) |
+| 26 | StockAdjustments | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | NOT VERIFIED (واجهة) |
+| 27 | StockCountSessions | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | NOT VERIFIED (واجهة) |
+| 28 | StockLevels | — | ✓ | — | — | ✓ | — | PASS (قراءة فقط) |
+| 29 | Users/Permissions | ✓ | ✓ | ✓ | ◐ (soft) | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 30 | Warehouses | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 31 | WarehouseTransfers | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | NOT VERIFIED (واجهة) |
+| 32 | WriteoffRequests | ✓ | ✓ | ✓ | ✓ | ◐ | ✓ | NOT VERIFIED (واجهة) |
 
-+ 29 Edit/Window dialogs: كلها save/delete/cancel تعمل (ماعدا LoanEditWindow orphan duplicate غير مستخدم).
+> **NOT VERIFIED (واجهة)** = الكود متصل بالـ DB وINSERT/UPDATE/DELETE موجودة وجردتها ومطابقتها مع أعمدة NOT NULL — لكن لم يُنفَّذ الاختبار بالنقر الفعلي بعد (وقت الجولة).
 
-**نتيجة WPF:** 29/31 complete، 1 stub (RecurringInvoices)، 1 أُصلح (CashBoxes).
+## B. Mobile / PWA
 
-## 2. Mobile PWA
+| الشاشة | CRUD | الحالة |
+|--------|------|--------|
+| Products · Parties · Payments | كامل (مع API) | NOT VERIFIED (Flutter SDK غير متاح) |
+| Dashboard · CashBoxes · Inventory · Loans · Generic ×8 | قراءة | NOT VERIFIED |
+| **Reports** | **لا شيء** | **NOT IMPLEMENTED** (stub بلا بيانات وهمية) |
+| Sales (تحويل) / Settings | stub | NOT IMPLEMENTED |
 
-| الشاشة | List | Create | Edit | Delete | الحالة |
-|--------|------|--------|------|--------|--------|
-| Products | ✓ | ✓ | ✓ | ✓ | full CRUD |
-| Parties | ✓ | ✓ | ✓ | ✓ | full CRUD |
-| Payments/Expenses | ✓ | ✓ | ✓ (أُصلح PUT) | ✓ | full CRUD (بعد إصلاح) |
-| Invoices | ✓ | — | — | ✓ | List+Delete |
-| CashBoxes/Inventory/Loans | ✓ | — | — | — | read-only |
-| Generic ×8 | ✓ | — | — | — | read-only |
-| Reports/Settings | — | — | — | — | placeholder |
+> قرار المالك: Flutter/PWA = link-only — لا أولوية تطوير.
 
-**قرار مالك:** Flutter/mobile app غير مطلوب (link-only). شاشات Mobile ليست أولوية.
+## C. API (18 controller)
 
-## 3. API (18 controllers)
+| الحالة | التفاصيل |
+|--------|----------|
+| **PASS** | `/api/employees` (كان 500 → 200)، `/api/loans`، `/api/payments` CRUD + PUT + 400 واضح، `/health`، عقد problem+json |
+| **NOT IMPLEMENTED** | `Expenses PUT` (Mobile 405)، `RecurringInvoices` |
+| **NOT VERIFIED** | بقية الـ endpoints (مختبرة smoke فقط: 200) |
 
-Full CRUD server: Items, Parties, Kits. الباقي Create+Read أو Read فقط. **Payments/Expenses PUT أُضيف** (كان 405 لـ Mobile).
+## D. قواعد الفواتير/السندات/القروض
 
-## 4. قواعد الفواتير/السندات
-
-- Invoices: tx (invoice+lines+movements+payments) atomic ✓.
-- Payments: invoice_payments + reconcile (P1.2) ✓.
-- Returns: linked + stock reversal ✓ (cash refund مقصودًا لم يُنفذ).
-- Deletes: N+1 batched + FK checks ✓.
-
-## 5. Tests
-
-- Build: 0 errors.
-- xUnit: 13/13.
-- Fly: health 200, login 200, 15 endpoints 200 (قبل v15: loans 500 + salaries 400 — جارٍ إصلاحهما في v16).
-
----
-
-> التفاصيل: CRUD_IMPLEMENTATION_REPORT.md / CRUD_TEST_RESULTS.md / INCOMPLETE_FEATURES.md
+| القاعدة | الحالة |
+|---------|--------|
+| الفاتورة تُحفظ ذرّيًا (فاتورة+سطور+حركات+مدفوعات في Transaction) | PASS (موثّق في P0) |
+| السند يكتب `invoice_payments` ويُصلح رصيد الفاتورة (إنشاء/تعديل/حذف) | PASS (موثّق في P1) |
+| المرتجع يُنشئ حركة عكسية للمخزون | PASS (موثّق في P1) |
+| **القرض: استلام ← جدول أقساط ← تسديد ← رصيد الخزينة** | **PASS (من الواجهة)** |
+| **الجاري المدين: فائدة فقط، الأصل يبقى للبنك** | **PASS (من الواجهة)** |
+| الحذف يُمنع عند وجود حركات/تسديدات | PASS (منطق) / NOT VERIFIED (من الواجهة) |
+| لا سجلات يتيمة بعد الحذف | PASS (24/24 DB test) |

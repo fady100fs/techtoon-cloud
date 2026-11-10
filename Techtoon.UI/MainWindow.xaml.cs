@@ -10,6 +10,13 @@ namespace Techtoon.UI
         {
             InitializeComponent();
             PasswordBox.KeyDown += PasswordBox_KeyDown;
+            // P4: نقل كلمة المرور عند كل تغيير (لصق/تعيين آلي/تحرير) —<KeyDown وحده يفقدها
+            PasswordBox.PasswordChanged += PasswordBox_PasswordChanged;
+        }
+
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is MainViewModel vm) vm.Password = PasswordBox.Password;
         }
 
         private void PasswordBox_KeyDown(object sender, KeyEventArgs e)

@@ -24,6 +24,12 @@ namespace Techtoon.UI.Services
                 if (!Directory.Exists(AppDataDir))
                     Directory.CreateDirectory(AppDataDir);
 
+                // P4: تجاوز صريح للاختبار فقط (TECHTOON_PG_CONNECTION) — يسمح بتشغيل البرنامج
+                // على قاعدة اختبار معزولة دون المساس بالاتصال المخزَّن (DPAPI) الخاص بالمستخدم.
+                var envOverride = Environment.GetEnvironmentVariable("TECHTOON_PG_CONNECTION");
+                if (!string.IsNullOrWhiteSpace(envOverride))
+                    return envOverride;
+
                 // أول تشغيل: يجب توفير connection string عبر إعدادات المشغل
                 // (env var TECHTOON_PG_CONNECTION) أو SaveConnectionString قبل أول تشغيل.
                 if (!File.Exists(EncryptedFilePath))
