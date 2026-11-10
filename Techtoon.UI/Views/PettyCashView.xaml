@@ -16,6 +16,9 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="&#x1F4B5; &#x0627;&#x0644;&#x0639;&#x0647;&#x062F; &#x0648;&#x0627;&#x0644;&#x0645;&#x0635;&#x0631;&#x0648;&#x0641;&#x0627;&#x062A; &#x0627;&#x0644;&#x0646;&#x062B;&#x0631;&#x064A;&#x0629;" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
             <Button Grid.Column="1" Content="&#x1F504; &#x062A;&#x062D;&#x062F;&#x064A;&#x062B;" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding RefreshCommand}"/>
@@ -23,6 +26,9 @@
             <Button Grid.Column="3" Content="&#x270F;&#xFE0F; &#x062A;&#x0639;&#x062F;&#x064A;&#x0644;" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding EditCommand}"/>
             <Button Grid.Column="4" Content="&#x1F5D1;&#xFE0F; &#x062D;&#x0630;&#x0641;" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
             <Button Grid.Column="5" Content="&#x1F4B0; &#x0633;&#x0644;&#x0641;&#x0629; &#x0644;&#x0644;&#x0645;&#x0648;&#x0638;&#x0641;" Background="#7B1FA2" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Click="BtnAdvance_Click"/>
+            <Button Grid.Column="6" Content="&#x1F9FE; &#x0645;&#x0635;&#x0631;&#x0648;&#x0641; &#x0639;&#x0644;&#x0649; &#x0627;&#x0644;&#x0639;&#x0647;&#x062F;&#x0629;" Background="#EF6C00" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding ExpenseCommand}"/>
+            <Button Grid.Column="7" Content="&#x2705; &#x062A;&#x0633;&#x0648;&#x064A;&#x0629;" Background="#2E7D32" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding SettleCommand}"/>
+            <Button Grid.Column="8" Content="&#x2B06;&#xFE0F; &#x0637;&#x0644;&#x0628; &#x0632;&#x064A;&#x0627;&#x062F;&#x0629;" Background="#5E35B1" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding IncreaseCommand}"/>
         </Grid>
         <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
             <StackPanel Orientation="Horizontal">
@@ -36,7 +42,9 @@
                     <DataGridTextColumn Header="&#x0631;&#x0642;&#x0645; &#x0627;&#x0644;&#x0639;&#x0647;&#x062F;&#x0629;" Binding="{Binding CustodyNumber}" Width="150"/>
                     <DataGridTextColumn Header="&#x0627;&#x0644;&#x0645;&#x0648;&#x0638;&#x0641;" Binding="{Binding EmployeeName}" Width="*"/>
                     <DataGridTextColumn Header="&#x0627;&#x0644;&#x0645;&#x0628;&#x0644;&#x063A;" Binding="{Binding Amount, StringFormat=N2}" Width="120"/>
-                    <DataGridTextColumn Header="&#x062A;&#x0627;&#x0631;&#x064A;&#x062E; &#x0627;&#x0644;&#x0635;&#x0631;&#x0641;" Binding="{Binding IssuedDate}" Width="120"/>
+                    <DataGridTextColumn Header="&#x0627;&#x0644;&#x0645;&#x0635;&#x0631;&#x0648;&#x0641;" Binding="{Binding SpentDisplay}" Width="120"/>
+                    <DataGridTextColumn Header="&#x0627;&#x0644;&#x0645;&#x062A;&#x0628;&#x0642;&#x064A;" Binding="{Binding RemainingDisplay}" Width="120"/>
+                    <DataGridTextColumn Header="&#x062A;&#x0627;&#x0631;&#x064A;&#x062E; &#x0627;&#x0644;&#x0635;&#x0631;&#x0641;" Binding="{Binding DateDisplay}" Width="120"/>
                     <DataGridTextColumn Header="&#x0627;&#x0644;&#x062D;&#x0627;&#x0644;&#x0629;" Binding="{Binding StatusDisplay}" Width="120"/>
                 </DataGrid.Columns>
             </DataGrid>
