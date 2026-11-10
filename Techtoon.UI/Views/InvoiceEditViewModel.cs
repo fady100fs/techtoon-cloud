@@ -374,6 +374,16 @@ namespace Techtoon.UI.Views
                 System.Windows.MessageBox.Show("\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u0641\u0638 \u0645\u0633\u0648\u062F\u0629 \u0641\u0627\u0631\u063A\u0629", "\u062A\u062D\u0642\u0642");
                 return;
             }
+
+            // A4: منع الحفظ داخل فترة محاسبية مغلقة (مسودة أو ترحيل).
+            if (Techtoon.UI.Services.AccountingPeriodGuard.IsPostingBlocked(InvoiceDate, out string? blockedPeriodDraft))
+            {
+                string msg = Techtoon.UI.Services.AccountingPeriodGuard.BuildBlockedMessage(blockedPeriodDraft);
+                StatusMessage = msg;
+                System.Windows.MessageBox.Show(msg, "\u062A\u062D\u0642\u064A\u0642", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
             _isSaving = true;
             IsBusy = true;
             try
@@ -541,6 +551,16 @@ public async System.Threading.Tasks.Task SaveAsync()
         {
             if (_isSaving) return;
             if (!Validate()) return;
+
+            // A4: منع الحفظ داخل فترة محاسبية مغلقة.
+            if (Techtoon.UI.Services.AccountingPeriodGuard.IsPostingBlocked(InvoiceDate, out string? blockedPeriod))
+            {
+                string msg = Techtoon.UI.Services.AccountingPeriodGuard.BuildBlockedMessage(blockedPeriod);
+                StatusMessage = msg;
+                System.Windows.MessageBox.Show(msg, "\u062A\u062D\u0642\u064A\u0642", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
             _isSaving = true;
             IsBusy = true; StatusMessage = "Saving...";
             try
