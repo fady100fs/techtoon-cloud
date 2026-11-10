@@ -53,19 +53,36 @@
 
 **تنظيف:** حُذفت كل صفوف الاختبار من `techtoon_test` بعد الاختبار (`TRUNCATE`).
 
-## Fly Production Smoke (v17 — بعد P4)
+## Fly Production Smoke (v18 — بعد P4)
 
-| Endpoint | v16 | v17 |
-|----------|-----|-----|
-| `/health` | 200 | **200** |
-| `POST /api/auth/login` | 200 | **200** |
-| `/api/employees` | **500** | **200** ✅ (الإصلاح الأساسي) |
-| `/api/loans` | 200 | **200** |
-| `/api/salaries` | 200 | **200** |
-| `/api/petty-cash/custodies` | 200 | **200** |
-| `/api/items` / `payments` / `cashboxes` / `parties` / `invoices` | 200 | **200** |
+| Endpoint | v16 | v17 | v18 |
+|----------|-----|-----|-----|
+| `/health` | 200 | 200 | **200** |
+| `POST /api/auth/login` | 200 | 200 | **200** |
+| `/api/employees` | **500** | 200 | **200** ✅ |
+| `/api/loans` | 200 | 200 | **200** |
+| `/api/salaries` | 200 | 200 | **200** |
+| `/api/petty-cash/custodies` | 200 | 200 | **200** |
+| `/api/items` / `payments` / `cashboxes` / `parties` / `invoices` | 200 | 200 | **200** |
+| `POST /api/payments` بلا `cashBoxId` | 500 (NOT NULL) | 500 | **400** ✅ برسالة واضحة |
 
-**سجلات Fly:** آخر خطأ مسجَّل `07:34:50Z` (قبل v17) — `Column 'allowances' is null`. بعد النشر: **صفر أخطاء**؛ آخر سطر `Health check 'servicecheck-00-http-8080' is now passing`.
+**سجلات Fly:** آخر خطأ مسجَّل `07:34:50Z` (قبل كل إصلاحات P4). بعد v17/v18: **صفر أخطاء**؛ آخر سطر `Health check 'servicecheck-00-http-8080' is now passing`.
+
+## اختبار `payments` بقيود الإنتاج (NOT NULL) — قاعدة `techtoon_test`
+
+**النتيجة: 9/9 PASS** (بعد محاكاة قيود `NOT NULL` على `currency_id`/`cash_box_id`/`amount`/`payment_type`/`payment_method`)
+
+| # | السيناريو | النتيجة |
+|---|---|---|
+| A | إنشاء قرض منشأة (بدون خطأ `currency_id`) | PASS |
+| A | تسجيل استلام القرض في الخزينة | PASS |
+| B | صرف سلفة موظف + حركة الخزينة | PASS |
+| C | إدراج دفعة القسط | PASS |
+| C | تحديث `paid_amount` للقسط | PASS |
+| C | حالة القسط = `paid` | PASS |
+| C | `remaining` ينقص بقسط الأصل فقط | PASS |
+| D | لا يوجد `payment` بلا `currency_id` | PASS |
+| D | لا يوجد `payment` بلا `cash_box_id` | PASS |
 
 ## قاعدة الإنتاج (read-only بعد الترحيل)
 

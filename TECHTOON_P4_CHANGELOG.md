@@ -56,6 +56,23 @@
 
 - حذف `LoanEditWindow` (orphan) — استُبدل بـ `EmployeeAdvanceWindow`.
 
+## P4-9 — `payments.currency_id` NOT NULL (خطأ 500 عند إنشاء قرض/سلفة)
+
+- **الخطأ الظاهر:** `null value in column "currency_id" of relation "payments" violates not-null constraint`.
+- **السبب:** في الإنتاج `payments.currency_id` و `payments.cash_box_id` **NOT NULL بلا افتراضي**، وحركات القرض/السلف كانت تُدخل بدون `currency_id`.
+- **الإصلاح (4 طبقات):**
+  1. **قاعدة البيانات:** `ALTER TABLE payments ALTER COLUMN currency_id SET DEFAULT 1` — حماية لكل مسارات الإدخال (بما فيها الكود القديم).
+  2. **الواجهة:** `DbDefaults.GetDefaultCurrencyId(conn)` — العملة تُقرأ من جدول `currencies` (مصدر واحد للحقيقة، لا رقم ثابت).
+  3. **الـ API:** `cashBoxId` إلزامي → `ArgumentException` → **400 برسالة واضحة** بدل 500.
+  4. **الـ API:** العملة من `currencies` بدل `1` الثابت.
+- **اختبار:** 9/9 على قاعدة الاختبار مع قيود NOT NULL مطابقة للإنتاج.
+
+## P4-10 — اكتشاف تعارض في وحدة القروض
+
+- `Techtoon.UI/Services/LoansService.cs` + `LoanDetailsWindow` (قديم) موجودان لكن **لا يفتحهما أي كود** (غير قابل للوصول) ويستخدمان `double` للمبالغ (قبل P0-3).
+- التنفيذ الجديد (`LoanWindows.cs` / `LoanScheduleWindows.cs` / `LoanScheduleCalculator`) مكتمل ومختبر ومُربط فعليًا بالواجهة.
+- **القرار:** الإبقاء على القديم كنسخة احتياطية غير مستخدمة + توثيقه في `INCOMPLETE_FEATURES.md` (قاعدة: لا حذف لوظيفة قائمة دون موافقة).
+
 ---
 
 ## نتائج التحقق
