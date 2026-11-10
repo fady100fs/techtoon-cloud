@@ -106,12 +106,82 @@ namespace Techtoon.UI.Views
                         cb.IsDropDownOpen = true;
                     if (cb.DataContext is InvoiceLineItem line)
                     {
-                        line.SearchText = cb.Text;
-                        cb.ItemsSource = line.FilteredItems;
+                        // P4: الفلترة بنص مستقل (FilterText) — ويبقى قائمة العرض مستقرة أثناء التنقل بالأسهم
+                        if (!_suppressFilter && !IsSelectionDrivenText(cb))
+                        {
+                            line.FilterText = cb.Text;
+                            cb.ItemsSource = line.FilteredItems;
+                        }
                     }
                 }
             }
             catch { }
+        }
+
+        private bool _suppressFilter;
+
+        /// <summary>P4: هل النص الحالي ناتج عن اختيار عنصر (تنقّل بالأسهم) لا عن كتابة المستخدم؟</summary>
+        private static bool IsSelectionDrivenText(ComboBox cb)
+        {
+            try
+            {
+                if (cb.SelectedItem is not ItemSearchResult sel) return false;
+                var text = cb.Text ?? "";
+                return text == sel.SearchDisplay || text == sel.Name;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>P4: عناصر القائمة الظاهرة (من ItemsSource — لأن cb.Items فارغ عند الربط).</summary>
+        private static System.Collections.IList GetVisibleItems(ComboBox cb)
+        {
+            if (cb.ItemsSource is System.Collections.IList list) return list;
+            if (cb.ItemsSource is System.Collections.IEnumerable en)
+            {
+                var arr = new System.Collections.ArrayList();
+                foreach (var x in en) arr.Add(x);
+                return arr;
+            }
+            return cb.Items;
+        }
+
+        private static ItemSearchResult GetSelectedResult(ComboBox cb, System.Collections.IList list)
+        {
+            if (cb.SelectedItem is ItemSearchResult r) return r;
+            if (cb.SelectedIndex >= 0 && cb.SelectedIndex < list.Count) return list[cb.SelectedIndex] as ItemSearchResult;
+            return null;
+        }
+
+        /// <summary>P4: التنقل بالأسهم داخل قائمة الأصناف — يُعترض هنا لأن DataGrid يبتلع الأسهم لتغيير الخلية.</summary>
+        private void LinesGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            try
+            {
+                if (e.Key != Key.Down && e.Key != Key.Up && e.Key != Key.Enter && e.Key != Key.Escape) return;
+                var combo = FindItemSearchCombo(Keyboard.FocusedElement as DependencyObject);
+                if (combo == null) return;
+                if (combo.DataContext is not InvoiceLineItem line) return;
+                NavigateItemCombo(combo, line, e);
+                e.Handled = true;
+            }
+            catch { }
+        }
+
+        /// <summary>يبحث عن صندوق اختيار الصنف (ItemSearchCombo) في سلسلة العناصر الصاعدة.</summary>
+        private static ComboBox? FindItemSearchCombo(DependencyObject? start)
+        {
+            try
+            {
+                var cur = start;
+                for (int i = 0; i < 10 && cur != null; i++)
+                {
+                    if (cur is ComboBox cb && (cb.Name == "ItemSearchCombo" || System.Windows.Automation.AutomationProperties.GetAutomationId(cb) == "ItemSearchCombo"))
+                        return cb;
+                    cur = VisualTreeHelper.GetParent(cur);
+                }
+            }
+            catch { }
+            return null;
         }
 
         private void ItemSearchCombo_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -120,72 +190,97 @@ namespace Techtoon.UI.Views
             {
                 if (sender is not ComboBox cb) return;
                 if (cb.DataContext is not InvoiceLineItem line) return;
-
-                if (!cb.IsDropDownOpen && (e.Key == Key.Down || e.Key == Key.Up || e.Key == Key.Enter))
-                {
-                    cb.IsDropDownOpen = true;
-                    if (cb.Items.Count > 0) cb.SelectedIndex = 0;
-                    e.Handled = true;
-                    return;
-                }
-
-                switch (e.Key)
-                {
-                    case Key.Down:
-                        if (cb.Items.Count > 0)
-                        {
-                            _isArrowNav = true;
-                            if (cb.SelectedIndex < 0) cb.SelectedIndex = 0;
-                            else if (cb.SelectedIndex < cb.Items.Count - 1) cb.SelectedIndex++;
-                            _isArrowNav = false;
-                            e.Handled = true;
-                        }
-                        break;
-                    case Key.Up:
-                        if (cb.Items.Count > 0)
-                        {
-                            _isArrowNav = true;
-                            if (cb.SelectedIndex < 0) cb.SelectedIndex = cb.Items.Count - 1;
-                            else if (cb.SelectedIndex > 0) cb.SelectedIndex--;
-                            _isArrowNav = false;
-                            e.Handled = true;
-                        }
-                        break;
-                    case Key.Enter:
-                        if (cb.IsDropDownOpen && cb.SelectedIndex >= 0 && cb.Items[cb.SelectedIndex] is ItemSearchResult item)
-                        {
-                            line.SelectItem(item);
-                            cb.Text = item.Name;
-                            cb.IsDropDownOpen = false;
-                            Dispatcher.BeginInvoke(new Action(() =>
-                            {
-                                try
-                                {
-                                    LinesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
-                                    LinesGrid.CommitEdit(DataGridEditingUnit.Row, true);
-                                    if (LinesGrid.ItemContainerGenerator.ContainerFromItem(line) is DataGridRow row)
-                                    {
-                                        var tb = FindDescendant<TextBox>(row, x => (x.Tag as string) == "qty");
-                                        tb?.Focus();
-                                        tb?.SelectAll();
-                                    }
-                                }
-                                catch { }
-                            }), System.Windows.Threading.DispatcherPriority.Input);
-                        }
-                        e.Handled = true;
-                        break;
-                    case Key.Escape:
-                        cb.IsDropDownOpen = false;
-                        e.Handled = true;
-                        break;
-                }
+                NavigateItemCombo(cb, line, e);
             }
             catch { }
         }
 
-        private void LinesGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        /// <summary>تنقل قائمة الأصناف: للأعلى/الأسفل/Enter/Escape.</summary>
+        private void NavigateItemCombo(ComboBox cb, InvoiceLineItem line, KeyEventArgs e)
         {
+            // P4: العناصر من ItemsSource (وليس Items — الذي يبقى فارغًا عند الربط)
+            var list = GetVisibleItems(cb);
+            int count = list.Count;
+
+            switch (e.Key)
+            {
+                case Key.Down:
+                case Key.Up:
+                    if (count == 0) return;
+                    if (!cb.IsDropDownOpen)
+                    {
+                        cb.IsDropDownOpen = true;
+                        cb.SelectedIndex = (e.Key == Key.Down) ? 0 : count - 1;
+                        UpdateComboText(cb, line, list);
+                        e.Handled = true;
+                        return;
+                    }
+                    // القائمة مفتوحة: تنقّل يدوي
+                    int idx = cb.SelectedIndex;
+                    int next = (e.Key == Key.Down) ? Math.Min(idx + 1, count - 1) : Math.Max(idx - 1, 0);
+                    if (next != idx)
+                    {
+                        _isArrowNav = true;
+                        cb.SelectedIndex = next;
+                        UpdateComboText(cb, line, list);
+                        _isArrowNav = false;
+                    }
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                {
+                    var item = GetSelectedResult(cb, list);
+                    if (cb.IsDropDownOpen && item != null)
+                    {
+                        line.SelectItem(item);
+                        cb.Text = item.Name;
+                        cb.IsDropDownOpen = false;
+                        Dispatcher.BeginInvoke(new Action(() =>
+                        {
+                            try
+                            {
+                                LinesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+                                LinesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+                                if (LinesGrid.ItemContainerGenerator.ContainerFromItem(line) is DataGridRow row)
+                                {
+                                    var tb = FindDescendant<TextBox>(row, x => (x.Tag as string) == "qty");
+                                    tb?.Focus();
+                                    tb?.SelectAll();
+                                }
+                            }
+                            catch { }
+                        }), System.Windows.Threading.DispatcherPriority.Input);
+                    }
+                    e.Handled = true;
+                    break;
+                }
+                case Key.Escape:
+                    cb.IsDropDownOpen = false;
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>P4: تحديث نص القائمة دون إعادة الفلترة (الفلترة بنص FilterText منفصل).</summary>
+        private void UpdateComboText(ComboBox cb, InvoiceLineItem line, System.Collections.IList list)
+        {
+            try
+            {
+                int i = cb.SelectedIndex;
+                if (i < 0 || i >= list.Count) return;
+                if (list[i] is ItemSearchResult res)
+                {
+                    // نكتب نفس نص العرض (SearchDisplay) حتى يطابق العنصر المختار ويبقى التحديد ثابتًا
+                    var tb = FindDescendant<TextBox>(cb, x => true);
+                    if (tb != null)
+                    {
+                        _suppressFilter = true;
+                        tb.Text = res.SearchDisplay;
+                        _suppressFilter = false;
+                    }
+                }
+            }
+            catch { _suppressFilter = false; }
         }
 
         private void Cell_KeyDown(object sender, KeyEventArgs e)

@@ -26,14 +26,23 @@ namespace Techtoon.UI.Views
         public string SearchText
         {
             get { return _searchText; }
-            set { _searchText = value; OnPropertyChanged("SearchText"); OnPropertyChanged("FilteredItems"); }
+            // P4: نص العرض فقط — لا يُعيد ربط FilteredItems (وإلا صفّر اختيار القائمة أثناء التنقل بالأسهم)
+            set { _searchText = value; OnPropertyChanged("SearchText"); }
+        }
+
+        /// <summary>P4: نص الفلترة منفصل عن نص العرض — حتى لا تُعاد الفلترة أثناء التنقل بالأسهم.</summary>
+        private string _filterText = "";
+        public string FilterText
+        {
+            get { return _filterText; }
+            set { _filterText = value; OnPropertyChanged("FilterText"); OnPropertyChanged("FilteredItems"); }
         }
 
         public List<ItemSearchResult> FilteredItems
         {
             get
             {
-                string q = (_searchText ?? "").Trim().ToLower();
+                string q = (_filterText ?? "").Trim().ToLower();
                 if (q.Length == 0) return _allItems.Take(50).ToList();
                 return _allItems.Where(it => (it.Name ?? "").ToLower().Contains(q) || (it.Barcode ?? "").ToLower().Contains(q)).Take(20).ToList();
             }
@@ -47,7 +56,7 @@ namespace Techtoon.UI.Views
         private decimal _discount = 0; public decimal Discount { get { return _discount; } set { _discount = value; OnPropertyChanged("Discount"); Recalc(); } }
         private decimal _total = 0; public decimal Total { get { return _total; } set { _total = value; OnPropertyChanged("Total"); } }
         public void Recalc() { Total = Math.Round(_quantity * _price - _discount, 2); }
-        public void SelectItem(ItemSearchResult it) { if (it == null) return; ItemId = it.Id; ItemName = it.Name; Barcode = it.Barcode; Price = it.SellPrice; Quantity = 1; SearchText = it.Name; OnPropertyChanged("FilteredItems"); }
+        public void SelectItem(ItemSearchResult it) { if (it == null) return; ItemId = it.Id; ItemName = it.Name; Barcode = it.Barcode; Price = it.SellPrice; Quantity = 1; SearchText = it.Name; FilterText = ""; OnPropertyChanged("FilteredItems"); }
     }
 
     public class InvoicePaymentRow : ViewModelBase
@@ -413,6 +422,9 @@ namespace Techtoon.UI.Views
                                 }
                             }
                             using (var cmd = new NpgsqlCommand("DELETE FROM invoice_lines WHERE invoice_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
+                            // P4: حذف حركات المخزون القديمة للفاتورة (منع التكرار عند التعديل)
+                            using (var cmd = new NpgsqlCommand("DELETE FROM inventory_movements WHERE reference_type='invoice' AND reference_id=@id", conn, tran))
+                            { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
                             foreach (var line in Lines)
                             {
                                 if (line.ItemId <= 0) continue;
@@ -426,6 +438,8 @@ namespace Techtoon.UI.Views
                                     cmd.Parameters.AddWithValue("tot", line.Total);
                                     cmd.ExecuteNonQuery();
                                 }
+                                // P4: حركة المخزون (نفس قاعدة الـ API: signo من النوع، والمقدار موجب)
+                                InsertInventoryMovement(conn, tran, Id, line.ItemId, line.Quantity, InvoiceType, WarehouseId);
                             }
                             tran.Commit();
                             StatusMessage = "\u062A\u0645 \u0627\u0644\u062D\u0641\u0638 \u0643\u0645\u0633\u0648\u062F\u0629 - ID: " + Id;
@@ -443,6 +457,53 @@ namespace Techtoon.UI.Views
             }
             finally { IsBusy = false; _isSaving = false; }
             await System.Threading.Tasks.Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// P4: تسجيل حركة المخزون للفاتورة (نفس قاعدة InvoiceAppService في الـ API):
+        /// النوع in/out يحدّد الإشارة، والمقدار يُخزَّن موجبًا، والمرجع = الفاتورة.
+        /// </summary>
+        private void InsertInventoryMovement(NpgsqlConnection conn, NpgsqlTransaction tran, int invoiceId, int itemId, decimal qty, string invoiceType, int warehouseId)
+        {
+            try
+            {
+                bool isSale = string.Equals(invoiceType, "sales", StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(invoiceType, "sale", StringComparison.OrdinalIgnoreCase);
+                string movType = isSale ? "out" : "in";
+                decimal magnitude = Math.Abs(qty);
+                if (magnitude <= 0) return;
+
+                // نتأكد من وجود الأعمدة الفعلية (تجاوز الآمن لجداول مختلفة)
+                var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (var probe = new NpgsqlCommand("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='inventory_movements'", conn, tran))
+                using (var r = probe.ExecuteReader())
+                    while (r.Read()) cols.Add(r.GetString(0));
+
+                var c = new List<string> { "item_id", "type", "quantity" };
+                var v = new List<string> { "@item", "@mtype", "@qty" };
+                var p = new List<NpgsqlParameter>
+                {
+                    new NpgsqlParameter("item", itemId),
+                    new NpgsqlParameter("mtype", movType),
+                    new NpgsqlParameter("qty", magnitude)
+                };
+                if (cols.Contains("date")) { c.Add("date"); v.Add("NOW()"); }
+                if (cols.Contains("reference_id")) { c.Add("reference_id"); v.Add("@refId"); p.Add(new NpgsqlParameter("refId", invoiceId)); }
+                if (cols.Contains("reference_type")) { c.Add("reference_type"); v.Add("'invoice'"); }
+                if (cols.Contains("warehouse_id") && warehouseId > 0) { c.Add("warehouse_id"); v.Add("@wh"); p.Add(new NpgsqlParameter("wh", warehouseId)); }
+                if (cols.Contains("created_at")) { c.Add("created_at"); v.Add("NOW()"); }
+                if (cols.Contains("status")) { c.Add("status"); v.Add("'posted'"); }
+                if (cols.Contains("created_by")) { c.Add("created_by"); v.Add("1"); }
+
+                using var cmd = new NpgsqlCommand("INSERT INTO inventory_movements (" + string.Join(",", c) + ") VALUES (" + string.Join(",", v) + ")", conn, tran);
+                foreach (var par in p) cmd.Parameters.Add(par);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "تحذير: لم يتم تسجيل حركة المخزون للصنف (" + ex.Message + ")";
+                System.Diagnostics.Debug.WriteLine("inventory movement failed: " + ex.Message);
+            }
         }
 
         public async System.Threading.Tasks.Task CancelInvoiceAsync()
@@ -519,7 +580,24 @@ public async System.Threading.Tasks.Task SaveAsync()
                                     }
                                 }
                                 using (var cmd = new NpgsqlCommand("DELETE FROM invoice_lines WHERE invoice_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
-                                foreach (var line in Lines) { if (line.ItemId <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_lines (invoice_id, item_id, quantity, price, discount, total) VALUES (@inv, @iid, @qty, @prc, @dsc, @tot)", conn, tran)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("iid", line.ItemId); cmd.Parameters.AddWithValue("qty", line.Quantity); cmd.Parameters.AddWithValue("prc", line.Price); cmd.Parameters.AddWithValue("dsc", line.Discount); cmd.Parameters.AddWithValue("tot", line.Total); cmd.ExecuteNonQuery(); } }
+                                // P4: حذف حركات المخزون القديمة ثم إعادة توليدها (منع التكرار)
+                                using (var cmd = new NpgsqlCommand("DELETE FROM inventory_movements WHERE reference_type='invoice' AND reference_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
+                                foreach (var line in Lines)
+                                {
+                                    if (line.ItemId <= 0) continue;
+                                    using (var cmd = new NpgsqlCommand("INSERT INTO invoice_lines (invoice_id, item_id, quantity, price, discount, total) VALUES (@inv, @iid, @qty, @prc, @dsc, @tot)", conn, tran))
+                                    {
+                                        cmd.Parameters.AddWithValue("inv", Id);
+                                        cmd.Parameters.AddWithValue("iid", line.ItemId);
+                                        cmd.Parameters.AddWithValue("qty", line.Quantity);
+                                        cmd.Parameters.AddWithValue("prc", line.Price);
+                                        cmd.Parameters.AddWithValue("dsc", line.Discount);
+                                        cmd.Parameters.AddWithValue("tot", line.Total);
+                                        cmd.ExecuteNonQuery();
+                                    }
+                                    // P4: حركة المخزون (نفس قاعدة الـ API)
+                                    InsertInventoryMovement(conn, tran, Id, line.ItemId, line.Quantity, InvoiceType, WarehouseId);
+                                }
                                 using (var cmd = new NpgsqlCommand("DELETE FROM invoice_payments WHERE invoice_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
                                 foreach (var pay in Payments) { if (pay.Amount <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at) VALUES (@inv, @mth, @amt, @ref, @pdt)", conn, tran)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("mth", pay.Method); cmd.Parameters.AddWithValue("amt", pay.Amount); cmd.Parameters.AddWithValue("ref", (object)pay.Reference ?? DBNull.Value); cmd.Parameters.AddWithValue("pdt", pay.PaymentDate); cmd.ExecuteNonQuery(); } }
                                 tran.Commit();

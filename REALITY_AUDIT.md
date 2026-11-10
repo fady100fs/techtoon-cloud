@@ -65,6 +65,23 @@
 
 ---
 
+## 1.1 جولة لاحقة — الفاتورة (تنقّل الأصناف + حركة المخزون)
+
+| # | الاكتشاف | السبب الجذري | الإصلاح | الدليل | الحالة |
+|---|---------|--------------|---------|--------|--------|
+| 11 | **الأسهم لا تنقل بين أصناف الفاتورة** (شكاوى المالك) | 3 أسباب: (أ) `cb.Items.Count` = 0 لأن العناصر من `ItemsSource` لا `Items` → شرط التنقل لا يتحقق أبدًا؛ (ب) `DataGrid` يبتلع الأسهم (لتنقّل بين الخلايا) قبل وصولها للـ ComboBox، والمعالج `LinesGrid_PreviewKeyDown` كان **فارغًا**؛ (ج) كل تغيير نص يعيد الفلترة فيُقصّ القائمة إلى عنصر واحد | تنقّل يدوي فوق `ItemsSource` + اعتراض الأسهم على مستوى الشبكة + فصل نص الفلترة (`FilterText`) عن نص العرض + تمييز «نص الاختيار» عن «كتابة المستخدم» | `Alpha → Bravo → Alpha` بالأسهم؛ الصف ظهر: `Test Item Charlie \| 1.00 \| 20.00` | **PASS (من الواجهة)** |
+| 12 | **حفظ الفاتورة من الـ Desktop لا ينقص المخزون** | `InvoiceEditViewModel` كان يُدرج الفاتورة والسطور فقط — بلا `inventory_movements` (بعكس الـ API) | `InsertInventoryMovement` بنفس قاعدة الـ API (`out` للبيع / `in` للشراء، مقدار موجب، `reference_type='invoice'`) + حذف الحركات القديمة قبل إعادة التوليد | `inventory_movements: item_id=93 type=out quantity=1 reference_id=2` | **PASS (من الواجهة)** |
+
+**دليل الدورة الكاملة (فاتورة من الواجهة):**
+```
+تنقّل بالأسهم → Enter → الصف: Test Item Charlie | 1.00 | 20.00
+حفظ → invoices: SAL-2026-0002 (party=1, total=20, status=unpaid, currency=1)
+      invoice_lines: item=93, qty=1, price=20, total=20
+      inventory_movements: out, qty=1, reference_type='invoice', reference_id=2  ← المخزون نقص
+```
+
+---
+
 ## 5. قاعدة العزل المستخدمة
 
 ```
