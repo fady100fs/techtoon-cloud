@@ -70,7 +70,7 @@ public partial class BadDebtsEditWindow : Window
                         if (((ComboItem)CmbParty.Items[j]).Id == r.GetInt32(0)) { CmbParty.SelectedIndex = j; break; }
                 if (!r.IsDBNull(1)) TxtAmt.Text = r.GetValue(1).ToString();
                 if (!r.IsDBNull(2)) TxtReason.Text = r.GetValue(2).ToString();
-                if (!r.IsDBNull(3)) DpDate.SelectedDate = r.GetDateTime(3);
+                if (!r.IsDBNull(3)) DpDate.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(3));
                 if (!r.IsDBNull(4) && CmbBdAcc.Items.Count > 0)
                     for (int j = 0; j < CmbBdAcc.Items.Count; j++)
                         if (((ComboItem)CmbBdAcc.Items[j]).Id == r.GetInt32(4)) { CmbBdAcc.SelectedIndex = j; break; }

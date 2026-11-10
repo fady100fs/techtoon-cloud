@@ -51,7 +51,7 @@ public partial class SalariesEditWindow : Window
                 if (!r.IsDBNull(1)) TxtMonth.Text = r.GetValue(1).ToString();
                 if (!r.IsDBNull(2)) TxtYear.Text = r.GetValue(2).ToString();
                 if (!r.IsDBNull(3)) TxtNet.Text = r.GetValue(3).ToString();
-                if (!r.IsDBNull(4)) DpDate.SelectedDate = r.GetDateTime(4);
+                if (!r.IsDBNull(4)) DpDate.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4));
             }
         }
         catch (Exception ex) { LblStatus.Text = "\u062E\u0637\u0623: " + ex.Message; }

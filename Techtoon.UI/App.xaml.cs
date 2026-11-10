@@ -52,6 +52,31 @@ public partial class App : Application
 
         Log("=== Techtoon Accounting starting ===");
 
+        // P5: فحص الترخيص قبل فتح الواجهة (افتراضيًا: فترة تجريبية 10 أيام)
+        try
+        {
+            var license = Techtoon.Core.Licensing.LicenseService.GetStatus();
+            Log($"LICENSE: state={license.State} type={license.LicenseType} daysLeft={license.DaysLeft} machine={license.MachineId} msg={license.Message}");
+            if (!license.IsAllowed)
+            {
+                var msg = license.Message + "\n\n" +
+                           "لتفعيل البرنامج، ضع ملف الترخيص (license.key) بجانب ملف البرنامج، أو انسخ معرّف الجهاز التالي وأرسله لإصدار الرخصة:\n\n" +
+                           "معرّف الجهاز: " + license.MachineId;
+                Log("LICENSE BLOCKED: " + msg);
+                MessageBox.Show(msg, "البرنامج غير مرخّص", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Shutdown(2);
+                return;
+            }
+            if (license.State == Techtoon.Core.Licensing.LicenseState.Trial)
+            {
+                Log("LICENSE: running in trial mode (" + license.DaysLeft + " days left)");
+            }
+        }
+        catch (Exception licEx)
+        {
+            Log("LICENSE check failed: " + licEx.Message);
+        }
+
         try
         {
             Configuration = new ConfigurationBuilder()

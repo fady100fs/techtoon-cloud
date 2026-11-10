@@ -98,6 +98,22 @@ namespace Techtoon.UI.ViewModels
             }
         }
 
+        // ================= P5: تنبيه الاشتراكات المتأخرة =================
+        private int _subscriptionOverdueCount = 0;
+        public int SubscriptionOverdueCount { get { return _subscriptionOverdueCount; } set { _subscriptionOverdueCount = value; OnPropertyChanged("SubscriptionOverdueCount"); OnPropertyChanged("HasSubscriptionAlert"); OnPropertyChanged("SubscriptionAlertMessage"); } }
+        public bool HasSubscriptionAlert { get { return _subscriptionOverdueCount > 0; } }
+        public string SubscriptionAlertMessage
+        {
+            get
+            {
+                if (_subscriptionOverdueCount <= 0) return "";
+                return "\u26A0 \u062A\u0646\u0628\u064A\u0647: " + _subscriptionOverdueCount + " \u0641\u062A\u0631\u0629 \u0627\u0634\u062A\u0631\u0627\u0643 \u0645\u062A\u062E\u0631\u0629 \u062A\u0645 \u0633\u062F\u062F \u2014 \u0627\u0641\u062A\u062D \u0627\u0644\u0641\u0648\u0627\u062A\u0631 \u062A\u0645\u0646 \u0642\u0627\u0628\u0644 \u0627\u0644\u062F\u0641\u0639 (\u0627\u0644\u0627\u0634\u062A\u0631\u0627\u0643\u0627\u062A)."
+                     + (_subscriptionOverdueAmount > 0 ? " \u0627\u0644\u0645\u062A\u0628\u0642\u064A: " + _subscriptionOverdueAmount.ToString("N2") : "");
+            }
+        }
+        private decimal _subscriptionOverdueAmount = 0;
+        public decimal SubscriptionOverdueAmount { get { return _subscriptionOverdueAmount; } set { _subscriptionOverdueAmount = value; OnPropertyChanged("SubscriptionOverdueAmount"); OnPropertyChanged("SubscriptionAlertMessage"); } }
+
         public ICommand RefreshCommand { get; set; }
         private int _loadBusy;
 
@@ -258,6 +274,29 @@ namespace Techtoon.UI.ViewModels
                             }
                     }
                     catch (Exception exOv) { System.Diagnostics.Debug.WriteLine("Overdue: " + exOv.Message); }
+
+                    // P5: تنبيه الاشتراكات المتأخرة (واجهة مغلقة: الفترات غير المسددة والمستحقة)
+                    try
+                    {
+                        using (var cmd = new NpgsqlCommand(@"
+                            SELECT COUNT(*), COALESCE(SUM(sp.amount - sp.paid_amount), 0)
+                            FROM subscription_periods sp
+                            JOIN subscriptions s ON s.id = sp.subscription_id
+                            WHERE sp.status IN ('due','overdue')
+                              AND sp.paid_amount < sp.amount
+                              AND sp.due_date <= CURRENT_DATE
+                              AND COALESCE(s.status,'active') = 'active'", conn))
+                        using (var r = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await r.ReadAsync())
+                            {
+                                SubscriptionOverdueCount = Convert.ToInt32(r.GetValue(0));
+                                SubscriptionOverdueAmount = Convert.ToDecimal(r.GetValue(1));
+                            }
+                        }
+                    }
+                    catch (Exception exSub) { System.Diagnostics.Debug.WriteLine("Subscriptions alert: " + exSub.Message); }
+
                     StatusMessage = "\u062A\u0645 \u0627\u0644\u062A\u062D\u0645\u064A\u0644";
                 }
             }

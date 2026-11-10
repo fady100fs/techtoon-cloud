@@ -236,7 +236,7 @@ namespace Techtoon.UI.Views
                     if (Convert.ToDecimal(r.GetValue(6)) > 0)
                         _lblStatus.Text = "تنبيه: تم استرداد جزء من السلفة — التعديل على المبلغ غير مسموح.";
                     _txtAmount.Text = Convert.ToDecimal(r.GetValue(1)).ToString("0.##");
-                    if (!r.IsDBNull(2)) _dpDate.SelectedDate = (DateTime)r.GetValue(2);
+                    if (!r.IsDBNull(2)) _dpDate.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(2));
                     _txtNotes.Text = r.GetString(5);
                     Pick(_cmbEmp, r.IsDBNull(0) ? 0 : r.GetInt32(0));
                     Pick(_cmbCB, r.GetInt32(3));
@@ -492,7 +492,7 @@ namespace Techtoon.UI.Views
                     _txtRate.Text = Convert.ToDecimal(r.GetValue(4)).ToString("0.##");
                     _cmbFreq.SelectedIndex = (r.IsDBNull(5) ? "" : r.GetString(5)) switch { "quarterly" => 1, "yearly" => 2, _ => 0 };
                     _txtCount.Text = (r.IsDBNull(6) ? 12 : r.GetInt32(6)).ToString();
-                    _dpFirst.SelectedDate = r.IsDBNull(7) ? DateTime.Today.AddMonths(1) : (DateTime)r.GetValue(7);
+                    _dpFirst.SelectedDate = r.IsDBNull(7) ? DateTime.Today.AddMonths(1) : Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(7));
                     _txtGrace.Text = r.GetInt32(8).ToString();
                     _txtFees.Text = Convert.ToDecimal(r.GetValue(9)).ToString("0.##");
                     Pick(_cmbCB, r.GetInt32(10));

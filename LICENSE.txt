@@ -1,0 +1,47 @@
+Techtoon Accounting — Terms of Use / Licensing
+==============================================
+
+1) TRIAL
+   Newly installed copies run in trial mode for 10 days starting from the first
+   launch of this version. After the trial ends the program will not open until
+   a valid license file (license.key) is placed next to the program executable.
+
+2) LICENSE TYPES
+   - lifetime  : permanent license (no expiry)
+   - yearly    : 12 months from issue date
+   - monthly   : 1 month from issue date
+   - trial     : limited period (10 days by default)
+
+3) LICENSE FILE
+   The file "license.key" (JSON, digitally signed) must be placed in the same
+   folder as the program executable. It is validated at every start.
+
+4) MACHINE BINDING
+   A license may be bound to one computer (machine id). To obtain your machine
+   id run:
+       Techtoon.LicenseTool.exe machine-id
+   and send it to the vendor, or leave the machine id empty for an unmetered
+   license.
+
+5) DATA
+   Your data stays on your own PostgreSQL/Neon database; the program does not
+   send data anywhere else.
+
+═══════════════════════════════════════════════════════════════════════════
+ترخيص استخدام برنامج تكتيون أكاونتينج
+═══════════════════════════════════════════════════════════════════════════
+
+1) الفترة التجريبية:
+   تعمل النسخة الجديدة في وضع تجريبي لمدة 10 يوم�� من أول تشغيل لها.
+   بعد انتهاء الفترة لا يعمل البرنامج حتى وضع ملف ترخيص صالح (license.key)
+   بجانب ملف البرنامج.
+
+2) أنواع الرخص: مدى الحياة / سنوي / شهري / تجريبي.
+
+3) ملف الترخيص: بصيغة JSON موقّع رقميًا، يوضع بجانب البرنامج، ويُفحص عند كل تشغيل.
+
+4) الترخيص مرتبط بالجهاز: للحصول على معرّف الجهاز استخدم:
+       Techtoon.LicenseTool.exe machine-id
+   وأرسله للمورّد، أو اتركه فارغًا لترخيص غير مربوط.
+
+5) بياناتك تبقى في قاعدة بياناتك (Neon/PostgreSQL) ولا تُرسل إلى أي جهة أخرى.

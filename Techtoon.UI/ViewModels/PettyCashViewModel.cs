@@ -80,7 +80,7 @@ namespace Techtoon.UI.ViewModels
                         CustodyNumber = r.IsDBNull(1) ? "" : r.GetString(1),
                         EmployeeName = r.IsDBNull(2) ? "" : r.GetString(2),
                         Amount = r.IsDBNull(3) ? 0 : (decimal)r.GetDouble(3),
-                        IssuedDate = r.IsDBNull(4) ? DateTime.MinValue : r.GetDateTime(4),
+                        IssuedDate = r.IsDBNull(4) ? DateTime.MinValue : Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4)),
                         Status = r.IsDBNull(5) ? "" : r.GetString(5)
                     });
                 StatusMessage = "تم تحميل " + Custodies.Count + " عهدة";

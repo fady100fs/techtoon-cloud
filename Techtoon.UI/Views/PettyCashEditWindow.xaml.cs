@@ -75,7 +75,7 @@ public partial class PettyCashEditWindow : Window
                 if (!r.IsDBNull(3) && CmbCustAcc.Items.Count > 0)
                     for (int j = 0; j < CmbCustAcc.Items.Count; j++)
                         if (((ComboItem)CmbCustAcc.Items[j]).Id == r.GetInt32(3)) { CmbCustAcc.SelectedIndex = j; break; }
-                if (!r.IsDBNull(4)) DpDate.SelectedDate = r.GetDateTime(4);
+                if (!r.IsDBNull(4)) DpDate.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4));
                 if (!r.IsDBNull(5)) TxtDesc.Text = r.GetValue(5).ToString();
             }
         }

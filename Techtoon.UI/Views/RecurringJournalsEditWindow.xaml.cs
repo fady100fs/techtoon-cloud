@@ -47,8 +47,8 @@ public partial class RecurringJournalsEditWindow : Window
                     for (int j = 0; j < CmbFreq.Items.Count; j++)
                         if (((ComboBoxItem)CmbFreq.Items[j]).Tag?.ToString() == r.GetString(1)) { CmbFreq.SelectedIndex = j; break; }
                 if (!r.IsDBNull(2)) TxtDay.Text = r.GetValue(2).ToString();
-                if (!r.IsDBNull(3)) DpSD.SelectedDate = r.GetDateTime(3);
-                if (!r.IsDBNull(4)) DpED.SelectedDate = r.GetDateTime(4);
+                if (!r.IsDBNull(3)) DpSD.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(3));
+                if (!r.IsDBNull(4)) DpED.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4));
                 if (!r.IsDBNull(5)) TxtDesc.Text = r.GetValue(5).ToString();
             }
         }

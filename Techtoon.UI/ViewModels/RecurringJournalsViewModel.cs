@@ -80,7 +80,7 @@ namespace Techtoon.UI.ViewModels
                         TemplateNumber = r.IsDBNull(1) ? "" : r.GetString(1),
                         Name = r.IsDBNull(2) ? "" : r.GetString(2),
                         Frequency = r.IsDBNull(3) ? "" : r.GetString(3),
-                        NextRunDate = r.IsDBNull(4) ? DateTime.MinValue : r.GetDateTime(4),
+                        NextRunDate = r.IsDBNull(4) ? DateTime.MinValue : Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4)),
                         IsActive = r.IsDBNull(5) ? false : r.GetBoolean(5)
                     });
                 StatusMessage = "تم تحميل " + Templates.Count + " قالب";

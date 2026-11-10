@@ -80,7 +80,7 @@ namespace Techtoon.UI.ViewModels
                         WriteoffNumber = r.IsDBNull(1) ? "" : r.GetString(1),
                         PartyName = r.IsDBNull(2) ? "" : r.GetString(2),
                         WriteoffAmount = r.IsDBNull(3) ? 0 : (decimal)r.GetDouble(3),
-                        WriteoffDate = r.IsDBNull(4) ? DateTime.MinValue : r.GetDateTime(4),
+                        WriteoffDate = r.IsDBNull(4) ? DateTime.MinValue : Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4)),
                         Status = r.IsDBNull(5) ? "" : r.GetString(5)
                     });
                 StatusMessage = "تم تحميل " + Writeoffs.Count + " شطب";

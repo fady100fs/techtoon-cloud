@@ -48,8 +48,8 @@ public partial class BankReconciliationEditWindow : Window
                 if (!r.IsDBNull(0) && CmbCB.Items.Count > 0)
                     for (int j = 0; j < CmbCB.Items.Count; j++)
                         if (((ComboItem)CmbCB.Items[j]).Id == r.GetInt32(0)) { CmbCB.SelectedIndex = j; break; }
-                if (!r.IsDBNull(1)) DpPS.SelectedDate = r.GetDateTime(1);
-                if (!r.IsDBNull(2)) DpPE.SelectedDate = r.GetDateTime(2);
+                if (!r.IsDBNull(1)) DpPS.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(1));
+                if (!r.IsDBNull(2)) DpPE.SelectedDate = Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(2));
                 if (!r.IsDBNull(3)) TxtOBB.Text = r.GetValue(3).ToString();
                 if (!r.IsDBNull(4)) TxtOBank.Text = r.GetValue(4).ToString();
                 if (!r.IsDBNull(5)) TxtCBB.Text = r.GetValue(5).ToString();

@@ -80,8 +80,8 @@ namespace Techtoon.UI.ViewModels
                         Id = r.GetInt32(0),
                         ReconciliationNumber = r.IsDBNull(1) ? "" : r.GetString(1),
                         CashBoxName = r.IsDBNull(2) ? "" : r.GetString(2),
-                        PeriodStart = r.IsDBNull(3) ? DateTime.MinValue : r.GetDateTime(3),
-                        PeriodEnd = r.IsDBNull(4) ? DateTime.MinValue : r.GetDateTime(4),
+                        PeriodStart = r.IsDBNull(3) ? DateTime.MinValue : Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(3)),
+                        PeriodEnd = r.IsDBNull(4) ? DateTime.MinValue : Techtoon.Core.Data.DbValue.AsDateTime(r.GetValue(4)),
                         Difference = r.IsDBNull(5) ? 0 : (decimal)r.GetDouble(5),
                         Status = r.IsDBNull(6) ? "" : r.GetString(6)
                     });
