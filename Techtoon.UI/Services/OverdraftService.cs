@@ -1,57 +1,63 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using Npgsql;
+using Techtoon.Core.Data;
 
 namespace Techtoon.UI.Services
 {
-    public class OverdraftTransaction
-    {
-        public int Id { get; set; }
-        public int LoanId { get; set; }
-        public DateTime TransactionDate { get; set; }
-        public string TransactionType { get; set; } // withdrawal, repayment, interest, fees
-        public double Amount { get; set; }
-        public double BalanceAfter { get; set; }
-        public double InterestAmount { get; set; }
-        public string Notes { get; set; }
-        public string ReferenceNumber { get; set; }
-        public int? CreatedBy { get; set; }
-        public DateTime CreatedAt { get; set; }
-
-        public string TypeDisplay { get { return TransactionType switch { "withdrawal" => "سحب", "repayment" => "سداد", "interest" => "فائدة", "fees" => "رسوم", _ => TransactionType }; } }
-        public string AmountDisplay { get { return Amount.ToString("N2"); } }
-        public string BalanceDisplay { get { return BalanceAfter.ToString("N2"); } }
-        public string DateDisplay { get { return TransactionDate.ToString("yyyy-MM-dd"); } }
-    }
-
+    /// <summary>
+    /// P5: السحب على البنك (تسهيل ائتماني) — القرض من نوع 'overdraft'.
+    /// سحب: النقد يدخل الخزينة (receipt) + حركة سحب على خط الائتمان.
+    /// سداد: النقد يخرج من الخزينة (payment) + حركة سداد.
+    /// يُتحقق من حد الائتمان (loans.credit_limit) قبل السماح بالسحب.
+    /// </summary>
     public static class OverdraftService
     {
-        private static string GetCS() => SecureConnectionManager.GetConnectionString();
-
-        public static int Withdraw(int loanId, double amount, DateTime date, string notes, int userId)
+        public class OverdraftTransaction
         {
+            public int Id { get; set; }
+            public int LoanId { get; set; }
+            public DateTime Date { get; set; }
+            public string Type { get; set; } = "";
+            public decimal Amount { get; set; }
+            public decimal BalanceAfter { get; set; }
+            public string Notes { get; set; } = "";
+            public string TypeDisplay => Type == "withdrawal" ? "سحب" : Type == "repayment" ? "سداد" : Type;
+            public string DateDisplay => Date.ToString("yyyy-MM-dd");
+            public string AmountDisplay => Amount.ToString("N2");
+            public string BalanceDisplay => BalanceAfter.ToString("N2");
+        }
+
+        public static string GetCS() => SecureConnectionManager.GetConnectionString();
+
+        /// <summary>سحب نقدي من خط الائتمان (يدخل الخزينة).</summary>
+        public static int Withdraw(int loanId, decimal amount, int cashBoxId, DateTime date, string notes, int userId)
+        {
+            if (amount <= 0) throw new InvalidOperationException("المبلغ يجب أن يكون أكبر من صفر.");
             using var conn = new NpgsqlConnection(GetCS());
             conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
-                // 1. Get current balance and credit limit
-                double currentBalance = GetUsedBalance(conn, tx, loanId);
-                double creditLimit = 0;
-                using (var cmd = new NpgsqlCommand("SELECT credit_limit FROM loans WHERE id=@id AND loan_type='overdraft'", conn, tx))
+                decimal currentBalance = GetUsedBalance(conn, tx, loanId);
+                decimal creditLimit = 0;
+                using (var cmd = new NpgsqlCommand("SELECT COALESCE(credit_limit,0) FROM loans WHERE id=@id AND loan_type='overdraft'", conn, tx))
                 {
                     cmd.Parameters.AddWithValue("id", loanId);
                     var result = cmd.ExecuteScalar();
-                    if (result == null) throw new InvalidOperationException("Overdraft facility not found");
-                    creditLimit = Convert.ToDouble(result);
+                    if (result == null || result == DBNull.Value)
+                        throw new InvalidOperationException("هذا القرض ليس خط ائتمان (overdraft).");
+                    creditLimit = Convert.ToDecimal(result);
                 }
-
-                // 2. Check if withdrawal exceeds limit
                 if (currentBalance + amount > creditLimit)
-                    throw new InvalidOperationException($"تجاوز الحد الائتماني! الحد الأقصى: {creditLimit}, الرصيد المستخدم: {currentBalance}, المطلوب سحبه: {amount}");
+                    throw new InvalidOperationException(
+                        "تجاوز الحد الائتماني! الحد الأقصى: " + creditLimit.ToString("N2") +
+                        " — المستخدم حاليًا: " + currentBalance.ToString("N2") +
+                        " — المطلوب: " + amount.ToString("N2"));
 
-                // 3. Record transaction
-                double newBalance = currentBalance + amount;
+                decimal newBalance = currentBalance + amount;
                 int transId;
                 using (var cmd = new NpgsqlCommand(
                     "INSERT INTO overdraft_transactions (loan_id, transaction_date, transaction_type, amount, balance_after, notes, created_by, created_at) " +
@@ -61,43 +67,46 @@ namespace Techtoon.UI.Services
                     cmd.Parameters.AddWithValue("date", date);
                     cmd.Parameters.AddWithValue("amt", amount);
                     cmd.Parameters.AddWithValue("balance", newBalance);
-                    cmd.Parameters.AddWithValue("notes", notes ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("notes", (object?)notes ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("user", userId);
                     transId = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
-                // 4. Log in payments table
+                // النقد يدخل الخزينة (سند قبض حقيقي)
                 using (var cmd2 = new NpgsqlCommand(
-                    "INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, currency_id, account_id) " +
-                    "VALUES (@date, @amt, 'receipt', 'تحويل بنكي', @ref, @notes, 1, (SELECT bank_account_id FROM loans WHERE id=@loanId))", conn, tx))
+                    "INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, currency_id) " +
+                    "VALUES (@date, @amt, 'receipt', 'bank_transfer', @ref, @notes, @cb, @cur)", conn, tx))
                 {
                     cmd2.Parameters.AddWithValue("date", date);
                     cmd2.Parameters.AddWithValue("amt", amount);
                     cmd2.Parameters.AddWithValue("ref", "OD-WD-" + transId);
-                    cmd2.Parameters.AddWithValue("notes", "Overdraft withdrawal");
-                    cmd2.Parameters.AddWithValue("loanId", loanId);
+                    cmd2.Parameters.AddWithValue("notes", "سحب على خط ائتمان (سحب #" + transId + ")");
+                    cmd2.Parameters.AddWithValue("cb", cashBoxId);
+                    cmd2.Parameters.AddWithValue("cur", DbDefaults.GetDefaultCurrencyId(conn));
                     cmd2.ExecuteNonQuery();
                 }
 
-                AuthService.LogAudit("OVERDRAFT_WITHDRAW", "loan", loanId, "Withdrawal: " + amount);
+                AuditService.Log("OVERDRAFT_WITHDRAW", "Loan", loanId, "Withdrawal " + amount.ToString("N2") + " -> cash box " + cashBoxId);
                 tx.Commit();
                 return transId;
             }
-            catch { tx.Rollback(); throw; }
+            catch { try { tx.Rollback(); } catch { } throw; }
         }
 
-        public static int Repay(int loanId, double amount, DateTime date, string notes, int userId)
+        /// <summary>سداد نقدي لخط الائتمان (يخرج من الخزينة).</summary>
+        public static int Repay(int loanId, decimal amount, int cashBoxId, DateTime date, string notes, int userId)
         {
+            if (amount <= 0) throw new InvalidOperationException("المبلغ يجب أن يكون أكبر من صفر.");
             using var conn = new NpgsqlConnection(GetCS());
             conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
-                double currentBalance = GetUsedBalance(conn, tx, loanId);
+                decimal currentBalance = GetUsedBalance(conn, tx, loanId);
                 if (amount > currentBalance)
-                    throw new InvalidOperationException("مبلغ السداد أكبر من الرصيد المستخدم");
+                    throw new InvalidOperationException("مبلغ السداد أكبر من الرصيد المستخدم (" + currentBalance.ToString("N2") + ").");
 
-                double newBalance = currentBalance - amount;
+                decimal newBalance = currentBalance - amount;
                 int transId;
                 using (var cmd = new NpgsqlCommand(
                     "INSERT INTO overdraft_transactions (loan_id, transaction_date, transaction_type, amount, balance_after, notes, created_by, created_at) " +
@@ -107,52 +116,46 @@ namespace Techtoon.UI.Services
                     cmd.Parameters.AddWithValue("date", date);
                     cmd.Parameters.AddWithValue("amt", amount);
                     cmd.Parameters.AddWithValue("balance", newBalance);
-                    cmd.Parameters.AddWithValue("notes", notes ?? (object)DBNull.Value);
+                    cmd.Parameters.AddWithValue("notes", (object?)notes ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("user", userId);
                     transId = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
-                // Log in payments table
                 using (var cmd2 = new NpgsqlCommand(
-                    "INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, currency_id, account_id) " +
-                    "VALUES (@date, @amt, 'payment', 'تحويل بنكي', @ref, @notes, 1, (SELECT bank_account_id FROM loans WHERE id=@loanId))", conn, tx))
+                    "INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, currency_id) " +
+                    "VALUES (@date, @amt, 'payment', 'bank_transfer', @ref, @notes, @cb, @cur)", conn, tx))
                 {
                     cmd2.Parameters.AddWithValue("date", date);
                     cmd2.Parameters.AddWithValue("amt", amount);
-                    cmd2.Parameters.AddWithValue("ref", "OD-REP-" + transId);
-                    cmd2.Parameters.AddWithValue("notes", "Overdraft repayment");
-                    cmd2.Parameters.AddWithValue("loanId", loanId);
+                    cmd2.Parameters.AddWithValue("ref", "OD-RP-" + transId);
+                    cmd2.Parameters.AddWithValue("notes", "سداد خط ائتمان (سداد #" + transId + ")");
+                    cmd2.Parameters.AddWithValue("cb", cashBoxId);
+                    cmd2.Parameters.AddWithValue("cur", DbDefaults.GetDefaultCurrencyId(conn));
                     cmd2.ExecuteNonQuery();
                 }
 
-                AuthService.LogAudit("OVERDRAFT_REPAY", "loan", loanId, "Repayment: " + amount);
+                AuditService.Log("OVERDRAFT_REPAY", "Loan", loanId, "Repayment " + amount.ToString("N2") + " <- cash box " + cashBoxId);
                 tx.Commit();
                 return transId;
             }
-            catch { tx.Rollback(); throw; }
+            catch { try { tx.Rollback(); } catch { } throw; }
         }
 
-        public static double GetUsedBalance(NpgsqlConnection conn, NpgsqlTransaction tx, int loanId)
+        /// <summary>الرصيد المستخدم من خط الائتمان.</summary>
+        public static decimal GetUsedBalance(NpgsqlConnection conn, NpgsqlTransaction tx, int loanId)
         {
             using var cmd = new NpgsqlCommand(
-                "SELECT COALESCE(SUM(CASE WHEN transaction_type IN ('withdrawal', 'interest', 'fees') THEN amount ELSE -amount END), 0) " +
-                "FROM overdraft_transactions WHERE loan_id=@id", conn, tx);
+                "SELECT COALESCE(SUM(CASE WHEN transaction_type='withdrawal' THEN amount ELSE -amount END),0) FROM overdraft_transactions WHERE loan_id=@id",
+                conn, tx);
             cmd.Parameters.AddWithValue("id", loanId);
-            return Convert.ToDouble(cmd.ExecuteScalar());
+            return Convert.ToDecimal(cmd.ExecuteScalar());
         }
 
-        public static double GetAvailableBalance(int loanId)
+        public static decimal GetUsedBalance(int loanId)
         {
             using var conn = new NpgsqlConnection(GetCS());
             conn.Open();
-            double used = GetUsedBalance(conn, null, loanId);
-            double limit = 0;
-            using (var cmd = new NpgsqlCommand("SELECT credit_limit FROM loans WHERE id=@id", conn))
-            {
-                cmd.Parameters.AddWithValue("id", loanId);
-                limit = Convert.ToDouble(cmd.ExecuteScalar());
-            }
-            return limit - used;
+            return GetUsedBalance(conn, null, loanId);
         }
 
         public static List<OverdraftTransaction> GetTransactions(int loanId)
@@ -161,27 +164,21 @@ namespace Techtoon.UI.Services
             using var conn = new NpgsqlConnection(GetCS());
             conn.Open();
             using var cmd = new NpgsqlCommand(
-                "SELECT id, loan_id, transaction_date, transaction_type, amount, balance_after, interest_amount, notes, reference_number, created_by, created_at " +
-                "FROM overdraft_transactions WHERE loan_id=@id ORDER BY transaction_date DESC", conn);
+                "SELECT id, loan_id, transaction_date, transaction_type, amount, balance_after, COALESCE(notes,'') FROM overdraft_transactions WHERE loan_id=@id ORDER BY id DESC",
+                conn);
             cmd.Parameters.AddWithValue("id", loanId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
-            {
                 list.Add(new OverdraftTransaction
                 {
                     Id = r.GetInt32(0),
                     LoanId = r.GetInt32(1),
-                    TransactionDate = r.GetDateTime(2),
-                    TransactionType = r.GetString(3),
-                    Amount = r.GetDouble(4),
-                    BalanceAfter = r.GetDouble(5),
-                    InterestAmount = r.IsDBNull(6) ? 0 : r.GetDouble(6),
-                    Notes = r.IsDBNull(7) ? "" : r.GetString(7),
-                    ReferenceNumber = r.IsDBNull(8) ? "" : r.GetString(8),
-                    CreatedBy = r.IsDBNull(9) ? (int?)null : r.GetInt32(9),
-                    CreatedAt = r.GetDateTime(10)
+                    Date = DbValue.AsDateTime(r.GetValue(2)),
+                    Type = r.GetString(3),
+                    Amount = Convert.ToDecimal(r.GetValue(4)),
+                    BalanceAfter = Convert.ToDecimal(r.GetValue(5)),
+                    Notes = r.GetString(6)
                 });
-            }
             return list;
         }
     }

@@ -52,6 +52,8 @@ namespace Techtoon.UI.Views
         private readonly TextBlock _lblTotals = new() { FontSize = 13, FontWeight = FontWeights.Bold, Margin = new Thickness(4) };
         private readonly TextBlock _lblStatus = new() { Foreground = System.Windows.Media.Brushes.Red, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4, 35, 0, 0) };
         private Button _recalcBtn;
+        private Button _overdraftBtn;
+        private decimal _creditLimit;
         private string _loanNumber = "", _lender = "", _loanType = "", _freq = "";
         private decimal _rate, _principal;
 
@@ -88,6 +90,10 @@ namespace Techtoon.UI.Views
             var payBtn = new Button { Content = "تسديد القسط المحدد", Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(4), Background = System.Windows.Media.Brushes.SeaGreen, Foreground = System.Windows.Media.Brushes.White };
             payBtn.Click += PaySelected_Click;
             btns.Children.Add(payBtn);
+            // P5: السحب على البنك — يظهر فقط لخط الائتمان (overdraft)
+            _overdraftBtn = new Button { Content = "🏦 السحب على البنك", Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(4), Background = System.Windows.Media.Brushes.DodgerBlue, Foreground = System.Windows.Media.Brushes.White, Visibility = Visibility.Collapsed };
+            _overdraftBtn.Click += Overdraft_Click;
+            btns.Children.Add(_overdraftBtn);
             _recalcBtn = new Button { Content = "إعادة حساب الفائدة (أسعار متغيرة)", Padding = new Thickness(16, 6, 16, 6), Margin = new Thickness(4), Background = System.Windows.Media.Brushes.DarkOrange, Foreground = System.Windows.Media.Brushes.White };
             _recalcBtn.Click += RecalcInterest_Click;
             btns.Children.Add(_recalcBtn);
@@ -101,7 +107,17 @@ namespace Techtoon.UI.Views
             Load();
         }
 
+        private async System.Threading.Tasks.Task LoadAsync()
+        {
+            await LoadCoreAsync();
+        }
+
         private void Load()
+        {
+            _ = LoadCoreAsync();
+        }
+
+        private async System.Threading.Tasks.Task LoadCoreAsync()
         {
             try
             {
@@ -127,6 +143,20 @@ namespace Techtoon.UI.Views
                         "   |   مسدد " + paid.ToString("N2") + "   |   متبقٍ " + rem.ToString("N2") + "   |   الحالة " + (status == "closed" ? "مغلق" : "نشط");
                 }
                 _recalcBtn.Visibility = _loanType == "installment_variable" ? Visibility.Visible : Visibility.Collapsed;
+                // P5: إظهار زر السحب على البنك لخط الائتمان فقط
+                if (_loanType == "overdraft")
+                {
+                    _creditLimit = 0;
+                    try
+                    {
+                        using var lim = new NpgsqlCommand("SELECT COALESCE(credit_limit,0) FROM loans WHERE id=@id", conn);
+                        lim.Parameters.AddWithValue("@id", _loanId);
+                        _creditLimit = Convert.ToDecimal(await lim.ExecuteScalarAsync());
+                    }
+                    catch { }
+                    _overdraftBtn.Visibility = Visibility.Visible;
+                }
+                else _overdraftBtn.Visibility = Visibility.Collapsed;
 
                 _view.Clear();
                 using (var cmd = new NpgsqlCommand(@"SELECT id, installment_number, due_date, COALESCE(principal_amount,0),
@@ -177,6 +207,16 @@ namespace Techtoon.UI.Views
                     "تسديد قسط " + sel.Number + " للقرض " + _loanNumber + " (" + _lender + ")");
                 win.ShowDialog();
                 Load();
+            }
+            catch (Exception ex) { _lblStatus.Text = "خطأ: " + ex.Message; }
+        }
+
+        /// <summary>P5: نافذة السحب/السداد على خط الائتمان.</summary>
+        private void Overdraft_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                new OverdraftWindow(_loanId, _loanNumber, _creditLimit).ShowDialog();
             }
             catch (Exception ex) { _lblStatus.Text = "خطأ: " + ex.Message; }
         }

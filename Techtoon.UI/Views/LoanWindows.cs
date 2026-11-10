@@ -346,6 +346,7 @@ namespace Techtoon.UI.Views
         private readonly TextBox _txtCount = new() { Margin = new Thickness(4), Text = "12" };
         private readonly TextBox _txtGrace = new() { Margin = new Thickness(4), Text = "0" };
         private readonly TextBox _txtFees = new() { Margin = new Thickness(4), Text = "0" };
+        private readonly TextBox _txtCreditLimit = new() { Margin = new Thickness(4), Text = "0" };
         private readonly TextBox _txtContract = new() { Margin = new Thickness(4) };
         private readonly DatePicker _dpFirst = new() { Margin = new Thickness(4), SelectedDate = DateTime.Today.AddMonths(1) };
         private readonly TextBox _txtNotes = new() { Margin = new Thickness(4), Height = 45, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap };
@@ -372,12 +373,13 @@ namespace Techtoon.UI.Views
             _cmbType.Items.Add(new ComboItem { Id = 1, Name = "سداد بأقساط - فائدة متغيرة" });
             _cmbType.Items.Add(new ComboItem { Id = 2, Name = "جارٍ مدين - تسديد فائدة فقط" });
             _cmbType.Items.Add(new ComboItem { Id = 3, Name = "بدون فائدة" });
+            _cmbType.Items.Add(new ComboItem { Id = 4, Name = "تسهيل ائتماني (سحب على البنك)" });
             _cmbType.SelectedIndex = 0;
 
             var grid = new Grid { Margin = new Thickness(12) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            for (int i = 0; i < 14; i++) grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
+            for (int i = 0; i < 15; i++) grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Auto) });
             R(grid, 0, "اسم المُقرض/البنك:"); grid.Children.Add(_txtLender); Grid.SetRow(_txtLender, 0); Grid.SetColumn(_txtLender, 1);
             R(grid, 1, "نوع المُقرض:"); grid.Children.Add(_cmbKind); Grid.SetRow(_cmbKind, 1); Grid.SetColumn(_cmbKind, 1);
             R(grid, 2, "نوع القرض:"); grid.Children.Add(_cmbType); Grid.SetRow(_cmbType, 2); Grid.SetColumn(_cmbType, 1);
@@ -388,12 +390,13 @@ namespace Techtoon.UI.Views
             R(grid, 7, "أول قسط تاريخ:"); grid.Children.Add(_dpFirst); Grid.SetRow(_dpFirst, 7); Grid.SetColumn(_dpFirst, 1);
             R(grid, 8, "فترة سماح (شهور):"); grid.Children.Add(_txtGrace); Grid.SetRow(_txtGrace, 8); Grid.SetColumn(_txtGrace, 1);
             R(grid, 9, "رسوم إدارية:"); grid.Children.Add(_txtFees); Grid.SetRow(_txtFees, 9); Grid.SetColumn(_txtFees, 1);
-            R(grid, 10, "رقم العقد:"); grid.Children.Add(_txtContract); Grid.SetRow(_txtContract, 10); Grid.SetColumn(_txtContract, 1);
-            R(grid, 11, "خزينة الاستلام:"); grid.Children.Add(_cmbCB); Grid.SetRow(_cmbCB, 11); Grid.SetColumn(_cmbCB, 1);
+            R(grid, 10, "حد الائتمان (للتسهيل الائتماني):"); grid.Children.Add(_txtCreditLimit); Grid.SetRow(_txtCreditLimit, 10); Grid.SetColumn(_txtCreditLimit, 1);
+            R(grid, 11, "رقم العقد:"); grid.Children.Add(_txtContract); Grid.SetRow(_txtContract, 11); Grid.SetColumn(_txtContract, 1);
+            R(grid, 12, "خزينة الاستلام:"); grid.Children.Add(_cmbCB); Grid.SetRow(_cmbCB, 12); Grid.SetColumn(_cmbCB, 1);
             var accPanel = new StackPanel { Orientation = Orientation.Horizontal };
             accPanel.Children.Add(_cmbLiab); accPanel.Children.Add(_cmbIntExp);
-            R(grid, 12, "حساب الالتزام / مصروف الفائدة:"); grid.Children.Add(accPanel); Grid.SetRow(accPanel, 12); Grid.SetColumn(accPanel, 1);
-            R(grid, 13, "ملاحظات:"); grid.Children.Add(_txtNotes); Grid.SetRow(_txtNotes, 13); Grid.SetColumn(_txtNotes, 1);
+            R(grid, 13, "حساب الالتزام / مصروف الفائدة:"); grid.Children.Add(accPanel); Grid.SetRow(accPanel, 13); Grid.SetColumn(accPanel, 1);
+            R(grid, 14, "ملاحظات:"); grid.Children.Add(_txtNotes); Grid.SetRow(_txtNotes, 14); Grid.SetColumn(_txtNotes, 1);
 
             var outer = new Grid { Margin = new Thickness(6) };
             outer.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -515,7 +518,14 @@ namespace Techtoon.UI.Views
             if (_cantContinue) return;
             var kind = _cmbKind.SelectedItem as ComboItem;
             var kindVal = kind?.Id switch { 1 => "institution", 2 => "other", _ => "bank" };
-            var loanType = (_cmbType.SelectedItem as ComboItem)?.Id switch { 1 => "installment_variable", 2 => "running_interest", 3 => "interest_free", _ => "installment_fixed" };
+            var loanType = (_cmbType.SelectedItem as ComboItem)?.Id switch
+            {
+                1 => "installment_variable",
+                2 => "running_interest",
+                3 => "interest_free",
+                4 => "overdraft",
+                _ => "installment_fixed"
+            };
             var freq = FreqValue(_cmbFreq.SelectedIndex);
             var lender = _txtLender.Text.Trim();
             if (string.IsNullOrWhiteSpace(lender)) { _lblStatus.Text = "اسم المُقرض مطلوب."; return; }
@@ -568,6 +578,15 @@ namespace Techtoon.UI.Views
                         RETURNING id", conn, tx))
                     {
                         LoanDbHelpers.FillLoanParams(ins, lender, kindVal, _txtContract.Text, loanType, principal, rate, freq, count, first, grace, fees, cbId, liabId > 0 ? liabId : (int?)null, iexpId > 0 ? iexpId : (int?)null, _txtNotes.Text);
+                    if (loanType == "overdraft")
+                    {
+                        if (!decimal.TryParse(_txtCreditLimit.Text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.CurrentCulture, out var cl) || cl <= 0)
+                        { _lblStatus.Text = "أدخل حد الائتمان (أكبر من صفر)."; return; }
+                        using var clCmd = new NpgsqlCommand("UPDATE loans SET credit_limit=@cl WHERE id=@id", conn, tx);
+                        clCmd.Parameters.AddWithValue("@cl", cl);
+                        clCmd.Parameters.AddWithValue("@id", loanId);
+                        clCmd.ExecuteNonQuery();
+                    }
                         loanId = Convert.ToInt32(ins.ExecuteScalar());
                     }
                     // حركة استلام القرض (دخل الخزينة = الحلقة 1) — الصافي بعد الرسوم الإدارية

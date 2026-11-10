@@ -45,10 +45,10 @@ namespace Techtoon.UI.Views
                 // Overdraft repayment
                 var amountStr = Microsoft.VisualBasic.Interaction.InputBox("أدخل مبلغ السداد:", "سداد جاري مدين", "", -1, -1);
                 if (string.IsNullOrEmpty(amountStr)) return;
-                if (!double.TryParse(amountStr, out double amount)) { MessageBox.Show("مبلغ غير صحيح"); return; }
+                if (!decimal.TryParse(amountStr, out decimal amount)) { MessageBox.Show("مبلغ غير صحيح"); return; }
                 try
                 {
-                    OverdraftService.Repay(_loanId, amount, DateTime.Now, "Repayment", 1);
+                    OverdraftService.Repay(_loanId, amount, 0, DateTime.Now, "Repayment", 1);
                     MessageBox.Show("تم السداد بنجاح");
                 }
                 catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }

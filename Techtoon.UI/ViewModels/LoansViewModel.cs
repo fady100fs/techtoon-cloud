@@ -53,6 +53,7 @@ namespace Techtoon.UI.ViewModels
             "installment_variable" => "أقساط - فائدة متغيرة",
             "running_interest" => "جارٍ مدين - فائدة فقط",
             "interest_free" => "بدون فائدة",
+            "overdraft" => "تسهيل ائتماني (سحب على البنك)",
             _ => t ?? ""
         };
     }
