@@ -83,6 +83,9 @@
             <DataTemplate DataType="{x:Type vm:RecurringInvoicesViewModel}">
                 <local:RecurringInvoicesView/>
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ReportingSettingsViewModel}">
+                <local:ReportingSettingsView/>
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:BadDebtsViewModel}">
                 <local:BadDebtsView/>
             </DataTemplate>
@@ -238,6 +241,7 @@
                                     <Button Content="  &#x1F4D2; &#x062F;&#x0644;&#x064A;&#x0644; &#x0627;&#x0644;&#x062D;&#x0633;&#x0627;&#x0628;&#x0627;&#x062A;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="Accounts"/>
                                     <Button Content="  &#x1F504; &#x0627;&#x0644;&#x0642;&#x064A;&#x0648;&#x062F; &#x0627;&#x0644;&#x062F;&#x0648;&#x0631;&#x064A;&#x0629;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="RecurringJournals"/>
                                     <Button Content="  &#x1F5D8; &#x0627;&#x0644;&#x0641;&#x0648;&#x0627;&#x062A;&#x064A;&#x0631; &#x0627;&#x0644;&#x0645;&#x062A;&#x0643;&#x0631;&#x0631;&#x0629;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="RecurringInvoices"/>
+                                    <Button Content="  &#x2699;&#xFE0F; &#x0625;&#x0639;&#x062F;&#x0627;&#x062F;&#x0627;&#x062A; &#x0627;&#x0644;&#x062A;&#x0642;&#x0627;&#x0631;&#x064A;&#x0631;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="ReportingSettings"/>
                                     <Button Content="  &#x1F3AF; &#x0645;&#x0631;&#x0627;&#x0643;&#x0632; &#x0627;&#x0644;&#x062A;&#x0643;&#x0644;&#x0641;&#x0629;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="CostCenters"/>
                                     <Button Content="  &#x1F4CA; &#x062A;&#x0648;&#x0632;&#x064A;&#x0639; &#x0627;&#x0644;&#x062A;&#x0643;&#x0627;&#x0644;&#x064A;&#x0641;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="CostAllocations"/>
                                     <Button Content="  &#x1F4C5; &#x0627;&#x0644;&#x0641;&#x062A;&#x0631;&#x0627;&#x062A; &#x0627;&#x0644;&#x0645;&#x062D;&#x0627;&#x0633;&#x0628;&#x064A;&#x0629;" Style="{StaticResource SidebarButton}" Command="{Binding NavigateCommand}" CommandParameter="AccountingPeriods"/>

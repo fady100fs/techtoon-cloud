@@ -109,6 +109,7 @@ public class MainViewModel : ViewModelBase
             "BankReconciliation" => new BankReconciliationViewModel(),
             "RecurringJournals" => new RecurringJournalsViewModel(),
             "RecurringInvoices" => new RecurringInvoicesViewModel(),
+            "ReportingSettings" => new ReportingSettingsViewModel(),
             "BadDebts" => new BadDebtsViewModel(),
             "EarlyPaymentDiscount" => new EarlyPaymentDiscountViewModel(),
             "LatePaymentFees" => new LatePaymentFeesViewModel(),

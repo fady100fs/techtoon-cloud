@@ -1,0 +1,39 @@
+<UserControl x:Class="Techtoon.UI.Views.ReportingSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="&#x2699;&#xFE0F; &#x0625;&#x0639;&#x062F;&#x0627;&#x062F;&#x0627;&#x062A; &#x0627;&#x0644;&#x062A;&#x0642;&#x0627;&#x0631;&#x064A;&#x0631;" FontSize="20" FontWeight="Bold" Foreground="#00695C" Margin="0,0,0,12"/>
+        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x0627;&#x0644;&#x0623;&#x0633;&#x0627;&#x0633; &#x0627;&#x0644;&#x0645;&#x062D;&#x0627;&#x0633;&#x0628;&#x064A;:" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="CmbBasis" Width="200" HorizontalAlignment="Left" SelectedValuePath="Tag">
+                    <ComboBoxItem Content="&#x0627;&#x0633;&#x062A;&#x062D;&#x0642;&#x0627;&#x0642;&#x064A; (Accrual)" Tag="accrual"/>
+                    <ComboBoxItem Content="&#x0646;&#x0642;&#x062F;&#x064A; (Cash)" Tag="cash"/>
+                </ComboBox>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="&#x0645;&#x0642;&#x0627;&#x0631;&#x0646;&#x0629; &#x0627;&#x0644;&#x0641;&#x062A;&#x0631;&#x0627;&#x062A;:" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                <CheckBox Grid.Row="1" Grid.Column="1" x:Name="ChkComparison" Content="&#x0625;&#x0638;&#x0647;&#x0627;&#x0631; &#x0627;&#x0644;&#x0645;&#x0642;&#x0627;&#x0631;&#x0646;&#x0629; &#x0628;&#x064A;&#x0646; &#x0627;&#x0644;&#x0641;&#x062A;&#x0631;&#x0627;&#x062A;" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="&#x0639;&#x062A;&#x0628;&#x0629; &#x062A;&#x0642;&#x062F;&#x064A;&#x0631; &#x0627;&#x0644;&#x0625;&#x064A;&#x0631;&#x0627;&#x062F; (&#x0623;&#x064A;&#x0627;&#x0645;):" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,10,0,0"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="TxtThreshold" Width="120" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+            </Grid>
+        </Border>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button x:Name="BtnSave" Content="&#x1F4BE; &#x062D;&#x0641;&#x0638;" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="20,8" BorderThickness="0" Cursor="Hand"/>
+            <TextBlock x:Name="LblStatus" Text="" Foreground="#00897B" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>
