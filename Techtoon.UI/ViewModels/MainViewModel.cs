@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using System.Windows.Input;
 using Techtoon.UI.Services;
@@ -25,7 +25,6 @@ public class MainViewModel : ViewModelBase
     public string Password { get => _password; set => SetProperty(ref _password, value); }
     public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
 
-    // Visibility properties for navigation buttons (based on permissions)
     public bool CanViewUsers => AuthService.HasPermission("manage_users");
     public bool CanViewInvoices => AuthService.HasPermission("sales");
     public bool CanViewReturns => AuthService.HasPermission("returns");
@@ -56,18 +55,17 @@ public class MainViewModel : ViewModelBase
         var loginResult = AuthService.Login((Username ?? "").Trim(), Password ?? "");
         if (loginResult.Success)
         {
-                // Notify UI to re-evaluate permissions
-                OnPropertyChanged(nameof(CanViewUsers));
-                OnPropertyChanged(nameof(CanViewInvoices));
-                OnPropertyChanged(nameof(CanViewReturns));
-                OnPropertyChanged(nameof(CanViewInventory));
-                OnPropertyChanged(nameof(CanViewDamaged));
-                OnPropertyChanged(nameof(CanViewWriteoff));
-                OnPropertyChanged(nameof(CanViewAccounts));
-                OnPropertyChanged(nameof(CanViewExpenses));
-                OnPropertyChanged(nameof(CanViewReports));
-                OnPropertyChanged(nameof(CanViewSettings));
-                OnPropertyChanged(nameof(CanViewStockLevels));
+            OnPropertyChanged(nameof(CanViewUsers));
+            OnPropertyChanged(nameof(CanViewInvoices));
+            OnPropertyChanged(nameof(CanViewReturns));
+            OnPropertyChanged(nameof(CanViewInventory));
+            OnPropertyChanged(nameof(CanViewDamaged));
+            OnPropertyChanged(nameof(CanViewWriteoff));
+            OnPropertyChanged(nameof(CanViewAccounts));
+            OnPropertyChanged(nameof(CanViewExpenses));
+            OnPropertyChanged(nameof(CanViewReports));
+            OnPropertyChanged(nameof(CanViewSettings));
+            OnPropertyChanged(nameof(CanViewStockLevels));
             if (AuthService.CurrentUser != null) CurrentUserDisplay = loginResult.User.FullName + " (" + loginResult.User.Role + ")";
             IsLoggedIn = true; Navigate("Dashboard");
         }
@@ -97,8 +95,51 @@ public class MainViewModel : ViewModelBase
             "StockAdjustments" => new StockAdjustmentsViewModel(),
             "DamagedItems" => new DamagedItemsViewModel(),
             "WriteoffRequests" => new WriteoffRequestsViewModel(),
+            "Employees" => new EmployeesViewModel { OpenDependencyWindow = OpenDependencyWindowInternal },
+            "Warehouses" => new WarehousesViewModel { OpenDependencyWindow = OpenDependencyWindowInternal },
+            "ExpenseCategories" => new ExpenseCategoriesViewModel { OpenDependencyWindow = OpenDependencyWindowInternal },
+            "CostCenters" => new CostCentersViewModel { OpenDependencyWindow = OpenDependencyWindowInternal },
+            "CostAllocations" => new CostAllocationsViewModel(),
+            "AccountingPeriods" => new AccountingPeriodsViewModel(),
+            "JournalEntries" => new JournalEntriesViewModel(),
+            "Budgets" => new BudgetsViewModel(),
+            "FixedAssets" => new FixedAssetsViewModel(),
+            "WarehouseTransfers" => new WarehouseTransfersViewModel(),
+            "PettyCash" => new PettyCashViewModel(),
+            "BankReconciliation" => new BankReconciliationViewModel(),
+            "RecurringJournals" => new RecurringJournalsViewModel(),
+            "RecurringInvoices" => new RecurringInvoicesViewModel(),
+            "BadDebts" => new BadDebtsViewModel(),
+            "EarlyPaymentDiscount" => new EarlyPaymentDiscountViewModel(),
+            "LatePaymentFees" => new LatePaymentFeesViewModel(),
+            "Salaries" => new SalariesViewModel(),
+            "AuditLog" => new AuditLogViewModel(),
             _ => new ViewModelBase()
         };
+    }
+
+    private void OpenDependencyWindowInternal(string windowName, int id)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(windowName)) return;
+            // تصحيح اسم نافذة الأصناف
+            if (windowName == "ItemsEditWindow") windowName = "ItemEditWindow";
+            var type = Type.GetType($"Techtoon.UI.Views.{windowName}, Techtoon.UI");
+            if (type != null)
+            {
+                var win = (System.Windows.Window)Activator.CreateInstance(type, id);
+                win.ShowDialog();
+            }
+            else
+            {
+                System.Windows.MessageBox.Show($"Window '{windowName}' not found.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show("Error opening record: " + ex.Message, "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
     }
 
     private void Logout()
@@ -107,5 +148,3 @@ public class MainViewModel : ViewModelBase
         IsLoggedIn = false; Username = ""; Password = ""; ErrorMessage = ""; CurrentUserDisplay = "";
     }
 }
-
-
