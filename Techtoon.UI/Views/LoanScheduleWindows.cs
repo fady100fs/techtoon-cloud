@@ -337,8 +337,8 @@ namespace Techtoon.UI.Views
 
                 // 1) حركة الخزينة (الفعلية بالاتجاه الصحيح)
                 int payRowId;
-                using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id)
-                    VALUES (@d, @a, @t, @m, @r, @n, @cb) RETURNING id", conn, tx))
+                using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, currency_id)
+                    VALUES (@d, @a, @t, @m, @r, @n, @cb, @cur) RETURNING id", conn, tx))
                 {
                     pay.Parameters.AddWithValue("@d", date);
                     pay.Parameters.AddWithValue("@a", amount);
@@ -347,6 +347,7 @@ namespace Techtoon.UI.Views
                     pay.Parameters.AddWithValue("@r", string.IsNullOrEmpty(_refPrefix) ? DBNull.Value : (object)_refPrefix);
                     pay.Parameters.AddWithValue("@n", note);
                     pay.Parameters.AddWithValue("@cb", cb.Id);
+                    pay.Parameters.AddWithValue("@cur", Techtoon.UI.Services.DbDefaults.GetDefaultCurrencyId(conn));
                     payRowId = Convert.ToInt32(pay.ExecuteScalar());
                 }
 

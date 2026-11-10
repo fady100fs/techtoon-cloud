@@ -57,3 +57,8 @@ ALTER TABLE loan_payments ADD CONSTRAINT fk_lp_loan FOREIGN KEY (loan_id) REFERE
 
 -- 5) petty cash custodies: default amount
 ALTER TABLE petty_cash_custodies ALTER COLUMN amount SET DEFAULT 0;
+
+-- 6) payments: currency_id إلزامي (NOT NULL) — افتراضي آمن لكل مسارات الإدخال
+--    (BUG: 500 عند إدراج حركة بلا عملة — null value in column "currency_id")
+ALTER TABLE payments ALTER COLUMN currency_id SET DEFAULT 1;
+--    cash_box_id يبقى NOT NULL (يجب تحديد الخزينة) — لكن نعطي رسالة واضحة في الكود بدل 500

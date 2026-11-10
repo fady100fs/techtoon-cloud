@@ -135,11 +135,26 @@ public class PaymentAppService : IPaymentAppService
         InvoiceId = r["invoice_id"] == DBNull.Value ? null : SafeInt(r["invoice_id"])
     };
 
+    /// <summary>P4: العملة الافتراضية من جدول currencies (مصدر واحد للحقيقة بدل رقم ثابت).</summary>
+    private static int DefaultCurrencyId(NpgsqlConnection conn)
+    {
+        try
+        {
+            using var cmd = new NpgsqlCommand("SELECT id FROM currencies ORDER BY id LIMIT 1", conn);
+            var v = cmd.ExecuteScalar();
+            return (v == null || v == DBNull.Value) ? 1 : Convert.ToInt32(v);
+        }
+        catch { return 1; }
+    }
+
     public async Task<PaymentDto> CreatePaymentAsync(PaymentCreateDto dto, int userId)
     {
         if (dto.Amount <= 0) throw new ArgumentException("Amount must be positive");
         if (string.IsNullOrEmpty(dto.PaymentType)) dto.PaymentType = "receipt";
         if (string.IsNullOrEmpty(dto.PaymentMethod)) dto.PaymentMethod = "cash";
+        // P4: payments.cash_box_id و currency_id إلزاميان (NOT NULL) — نتحقق بوضوح بدل 500
+        if (!dto.CashBoxId.HasValue || dto.CashBoxId.Value <= 0)
+            throw new ArgumentException("cashBoxId is required (the payment must affect a cash box / bank account)");
 
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync();
@@ -156,9 +171,9 @@ public class PaymentAppService : IPaymentAppService
             new("method", dto.PaymentMethod),
             new("ref", (object?)dto.VoucherNo ?? DBNull.Value),
             new("notes", (object?)dto.Notes ?? DBNull.Value),
-            new("cb", (object?)dto.CashBoxId ?? DBNull.Value)
+            new("cb", dto.CashBoxId.Value)
         };
-        if (_hasCurrencyId) { cols.Add("currency_id"); vals.Add("1"); }
+        if (_hasCurrencyId) { cols.Add("currency_id"); vals.Add("@cur"); parms.Add(new NpgsqlParameter("cur", DefaultCurrencyId(conn))); }
         if (_hasInvoiceId && dto.InvoiceId.HasValue) { cols.Add("invoice_id"); vals.Add("@iid"); parms.Add(new NpgsqlParameter("iid", dto.InvoiceId.Value)); }
 
         int newId;
@@ -207,6 +222,9 @@ public class PaymentAppService : IPaymentAppService
     public async Task<PaymentDto?> UpdatePaymentAsync(int id, PaymentCreateDto dto, int userId)
     {
         if (dto.Amount <= 0) throw new ArgumentException("Amount must be positive");
+        // P4: cash_box_id إلزامي (NOT NULL) — نتحقق بوضوح بدل خطأ 500
+        if (!dto.CashBoxId.HasValue || dto.CashBoxId.Value <= 0)
+            throw new ArgumentException("cashBoxId is required (the payment must affect a cash box / bank account)");
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync();
         using var tx = await conn.BeginTransactionAsync();
@@ -232,7 +250,7 @@ public class PaymentAppService : IPaymentAppService
             cmd.Parameters.AddWithValue("method", string.IsNullOrEmpty(dto.PaymentMethod) ? "cash" : dto.PaymentMethod);
             cmd.Parameters.AddWithValue("ref", (object?)dto.VoucherNo ?? DBNull.Value);
             cmd.Parameters.AddWithValue("notes", (object?)dto.Notes ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("cb", (object?)dto.CashBoxId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("cb", dto.CashBoxId.Value);
             if (_hasInvoiceId) cmd.Parameters.AddWithValue("iid", (object?)dto.InvoiceId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("id", id);
             await cmd.ExecuteNonQueryAsync();

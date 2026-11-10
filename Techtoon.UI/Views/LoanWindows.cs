@@ -306,14 +306,16 @@ namespace Techtoon.UI.Views
                     }
                     using (var up = new NpgsqlCommand("UPDATE loans SET loan_number=@ln WHERE id=@id", conn, tx))
                     { up.Parameters.AddWithValue("@ln", "ADV-" + newId.ToString("0000")); up.Parameters.AddWithValue("@id", newId); up.ExecuteNonQuery(); }
-                    // الحلقة: الصرف الفعلي من الخزينة (تاريخ + مبلغ + خزينة)
-                    using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id)
-                        VALUES (@d, @a, 'payment', 'cash', 'LOAN-ADV:' || @id, @note, @cb)", conn, tx))
+                    // الحلقة: الصرف الفعلي من الخزينة (تاريخ + مبلغ + خزينة + عملة)
+                    using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, currency_id)
+                        VALUES (@d, @a, 'payment', 'cash', 'LOAN-ADV:' || @id, @note, @cb, @cur)", conn, tx))
                     {
                         pay.Parameters.AddWithValue("@d", date); pay.Parameters.AddWithValue("@a", amount);
                         pay.Parameters.AddWithValue("@id", newId);
                         pay.Parameters.AddWithValue("@note", "صرف سلفة الموظف: " + emp.Name);
-                        pay.Parameters.AddWithValue("@cb", cb.Id); pay.ExecuteNonQuery();
+                        pay.Parameters.AddWithValue("@cb", cb.Id);
+                        pay.Parameters.AddWithValue("@cur", DbDefaults.GetDefaultCurrencyId(conn));
+                        pay.ExecuteNonQuery();
                     }
                     tx.Commit();
                     AuditService.Log("CREATE", "Loan", newId, "Employee advance issued - cash movement posted (closed loop)");
@@ -567,14 +569,15 @@ namespace Techtoon.UI.Views
                         loanId = Convert.ToInt32(ins.ExecuteScalar());
                     }
                     // حركة استلام القرض (دخل الخزينة = الحلقة 1) — الصافي بعد الرسوم الإدارية
-                    using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, account_id)
-                        VALUES (@d, @amt, 'receipt', 'cash', 'LOAN:' || @id2, @note, @cb, @acc)", conn, tx))
+                    using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, currency_id, account_id)
+                        VALUES (@d, @amt, 'receipt', 'cash', 'LOAN:' || @id2, @note, @cb, @cur, @acc)", conn, tx))
                     {
                         pay.Parameters.AddWithValue("@d", DateTime.Today);
                         pay.Parameters.AddWithValue("@amt", principal - fees);
                         pay.Parameters.AddWithValue("@id2", loanId);
                         pay.Parameters.AddWithValue("@note", "استلام قرض من: " + lender + (fees > 0 ? " (صافي بعد رسوم " + fees.ToString("N2") + ")" : ""));
                         pay.Parameters.AddWithValue("@cb", cbId);
+                        pay.Parameters.AddWithValue("@cur", DbDefaults.GetDefaultCurrencyId(conn));
                         pay.Parameters.AddWithValue("@acc", liabId > 0 ? (object)liabId : DBNull.Value);
                         pay.ExecuteNonQuery();
                     }
