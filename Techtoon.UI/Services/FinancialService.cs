@@ -272,14 +272,70 @@ namespace Techtoon.UI.Services
                             // reached when the expected balance was computed successfully.
                             if (difference < 0)
                             {
-                                using (var cmd = new NpgsqlCommand(@"
-                                    INSERT INTO expenses (date, category_id, amount, description, payment_method, cash_box_id, notes)
-                                    VALUES (NOW(), (SELECT id FROM expense_categories WHERE name='\u062A\u0633\u0648\u064A\u0629 \u0639\u062F\u0645/\u0632\u064A\u0627\u062F\u0629' LIMIT 1), @amt, '\u062A\u0633\u0648\u064A\u0629 \u0639\u062F\u0645/\u0632\u064A\u0627\u062F\u0629', 'adjustment', @cbId, @notes)", conn, tran))
+                                // P5: ضمان وجود تصنيف تسوية — بدونه تفشل المعاملة بالكامل
+                                // (category_id NOT NULL) فتفقد عملية الإغلاق.
+                                long categoryId = 0;
+                                using (var findCat = new NpgsqlCommand(
+                                    "SELECT id FROM expense_categories WHERE name = @n LIMIT 1", conn, tran))
                                 {
-                                    cmd.Parameters.AddWithValue("amt", Math.Abs(difference));
-                                    cmd.Parameters.AddWithValue("cbId", cashBoxId);
-                                    cmd.Parameters.AddWithValue("notes", (object)notes ?? DBNull.Value);
-                                    await cmd.ExecuteNonQueryAsync();
+                                    findCat.Parameters.AddWithValue("@n", "تسوية عدم/زيادة");
+                                    var v = await findCat.ExecuteScalarAsync();
+                                    if (v != null && v != DBNull.Value) categoryId = Convert.ToInt64(v);
+                                }
+                                if (categoryId == 0)
+                                {
+                                    // نبحث عن أي تصنيف مصروف موجود (الأفضل) ثم ننشئ واحدًا عند الحاجة
+                                    using (var anyCat = new NpgsqlCommand(
+                                        "SELECT id FROM expense_categories WHERE account_id IS NOT NULL ORDER BY id LIMIT 1", conn, tran))
+                                    {
+                                        var v = await anyCat.ExecuteScalarAsync();
+                                        if (v != null && v != DBNull.Value) categoryId = Convert.ToInt64(v);
+                                    }
+                                }
+                                if (categoryId == 0)
+                                {
+                                    using (var acc = new NpgsqlCommand(
+                                        "SELECT id FROM accounts ORDER BY id LIMIT 1", conn, tran))
+                                    {
+                                        var v = await acc.ExecuteScalarAsync();
+                                        if (v != null && v != DBNull.Value)
+                                        {
+                                            using (var insCat = new NpgsqlCommand(
+                                                "INSERT INTO expense_categories (name, description, account_id, is_active) VALUES (@n, @d, @a, TRUE) RETURNING id", conn, tran))
+                                            {
+                                                insCat.Parameters.AddWithValue("@n", "تسوية عدم/زيادة");
+                                                insCat.Parameters.AddWithValue("@d", "فروقات إغلاق الوردية");
+                                                insCat.Parameters.AddWithValue("@a", Convert.ToInt64(v));
+                                                categoryId = Convert.ToInt64(await insCat.ExecuteScalarAsync());
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (categoryId > 0)
+                                {
+                                    using (var cmd = new NpgsqlCommand(@"
+                                        INSERT INTO expenses (date, category_id, amount, description, payment_method, cash_box_id, notes)
+                                        VALUES (NOW(), @cat, @amt, 'تسوية عدم/زيادة', 'adjustment', @cbId, @notes)", conn, tran))
+                                    {
+                                        cmd.Parameters.AddWithValue("@cat", categoryId);
+                                        cmd.Parameters.AddWithValue("@amt", Math.Abs(difference));
+                                        cmd.Parameters.AddWithValue("@cbId", cashBoxId);
+                                        cmd.Parameters.AddWithValue("@notes", (object)notes ?? DBNull.Value);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
+                                }
+                                else
+                                {
+                                    // لا يوجد تصنيف ولا حسابات: نسجّل الفرق في الإغلاق فقط بلا قيد مصروف
+                                    using (var cmd = new NpgsqlCommand(
+                                        "UPDATE shift_closings SET notes = COALESCE(notes,'') || ' | فرق بلا قيد مصروف: ' || @d WHERE id = (SELECT max(id) FROM shift_closings WHERE cash_box_id=@cbId)",
+                                        conn, tran))
+                                    {
+                                        cmd.Parameters.AddWithValue("@d", Math.Abs(difference));
+                                        cmd.Parameters.AddWithValue("@cbId", cashBoxId);
+                                        await cmd.ExecuteNonQueryAsync();
+                                    }
                                 }
                             }
 

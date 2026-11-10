@@ -1,4 +1,4 @@
-<UserControl x:Class="Techtoon.UI.Views.CashBoxesView"
+﻿<UserControl x:Class="Techtoon.UI.Views.CashBoxesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma"
@@ -14,11 +14,15 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="LblTitle" Grid.Column="0" Text="🏛️ الخزائن والبنوك" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
             <Button x:Name="BtnAdd" Grid.Column="1" Content="➕ إضافة" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding AddCommand}"/>
             <Button x:Name="BtnEdit" Grid.Column="2" Content="✏️ تعديل" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding EditCommand}"/>
             <Button x:Name="BtnDelete" Grid.Column="3" Content="🗑️ حذف" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
+            <Button x:Name="BtnTransfer" Grid.Column="4" Content="🔄 تحويل بين الخزائن" Background="#7B1FA2" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding TransferCommand}"/>
+            <Button x:Name="BtnCloseShift" Grid.Column="5" Content="✅ إغلاق الوردية" Background="#F57F17" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding CloseShiftCommand}"/>
         </Grid>
         <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
             <DataGrid ItemsSource="{Binding CashBoxes}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" Background="White" FontSize="13" AlternatingRowBackground="#FAFAFA">

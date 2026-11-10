@@ -33,6 +33,9 @@ namespace Techtoon.UI.ViewModels
         public ICommand AddCommand { get; set; }
         public ICommand EditCommand { get; set; }
         public ICommand DeleteCommand { get; set; }
+        public ICommand TransferCommand { get; set; }
+        public ICommand CloseShiftCommand { get; set; }
+        public ObservableCollection<string> OperationsLog { get; } = new();
 
         public CashBoxesViewModel()
         {
@@ -41,6 +44,8 @@ namespace Techtoon.UI.ViewModels
             AddCommand = new UiRelayCommand(_ => AddBox());
             EditCommand = new UiRelayCommand(_ => EditBox(), _ => SelectedRow != null);
             DeleteCommand = new UiRelayCommand(_ => DeleteBox(), _ => SelectedRow != null);
+            TransferCommand = new UiRelayCommand(_ => TransferBetweenBoxes());
+            CloseShiftCommand = new UiRelayCommand(_ => CloseShift());
             _ = LoadAsync();
         }
 
@@ -93,6 +98,68 @@ namespace Techtoon.UI.ViewModels
             if (SelectedRow == null) return;
             var dlg = new CashBoxEditor(SelectedRow.Id);
             if (dlg.ShowDialog() == true) _ = LoadAsync();
+        }
+
+        /// <summary>P5: تحويل بين الخزائن — يغلق حلقة cash_transfers (كان بلا واجهة).</summary>
+        private void TransferBetweenBoxes()
+        {
+            try
+            {
+                var win = new CashTransferWindow();
+                if (win.ShowDialog() == true)
+                {
+                    _ = LoadAsync();
+                    _ = LoadOperationsAsync();
+                }
+            }
+            catch (Exception ex) { MessageBox.Show("خطأ: " + ex.Message); }
+        }
+
+        /// <summary>P5: إغلاق الوردية — يغلق حلقة shift_closings (كان بلا واجهة).</summary>
+        private void CloseShift()
+        {
+            try
+            {
+                var win = new CashCloseShiftWindow();
+                if (win.ShowDialog() == true)
+                {
+                    _ = LoadAsync();
+                    _ = LoadOperationsAsync();
+                }
+            }
+            catch (Exception ex) { MessageBox.Show("خطأ: " + ex.Message); }
+        }
+
+        /// <summary>P5: سجل الورديات والتحويلات (يعرض آخر العمليات).</summary>
+        public async Task LoadOperationsAsync()
+        {
+            try
+            {
+                OperationsLog.Clear();
+                using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
+                await conn.OpenAsync();
+                using (var cmd = new NpgsqlCommand(@"
+                    SELECT 'إغلاق وردية — خزينة ' || COALESCE(cb.name, sc.cash_box_id::text) ||
+                           ' | متوقّع ' || sc.expected_closing || ' | فعلي ' || sc.actual_closing ||
+                           ' | فرق ' || sc.difference || ' | ' || to_char(sc.shift_date,'YYYY-MM-DD HH24:MI')
+                    FROM shift_closings sc LEFT JOIN cash_boxes cb ON cb.id = sc.cash_box_id
+                    ORDER BY sc.id DESC LIMIT 5", conn))
+                using (var r = await cmd.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
+                        OperationsLog.Add("• " + r.GetString(0));
+
+                using (var cmd = new NpgsqlCommand(@"
+                    SELECT 'تحويل ' || COALESCE(f.name,'?') || ' ← ' || COALESCE(t.name,'?') ||
+                           ' | مبلغ ' || ct.amount || ' | ' || to_char(ct.date,'YYYY-MM-DD HH24:MI')
+                    FROM cash_transfers ct
+                    LEFT JOIN cash_boxes f ON f.id = ct.from_cash_box_id
+                    LEFT JOIN cash_boxes t ON t.id = ct.to_cash_box_id
+                    ORDER BY ct.id DESC LIMIT 5", conn))
+                using (var r = await cmd.ExecuteReaderAsync())
+                    while (await r.ReadAsync())
+                        OperationsLog.Add("• " + r.GetString(0));
+            }
+            catch (Exception ex) { OperationsLog.Add("خطأ في تحميل السجل: " + ex.Message); }
         }
 
         private void DeleteBox()
