@@ -7,6 +7,8 @@ namespace Techtoon.UI.Views;
 public partial class PartyEditWindow : Window
 {
     private readonly PartyEditViewModel _vm;
+    private readonly PartyPolicyViewModel _policyVm;
+
     public PartyEditWindow(Party? party = null)
     {
         InitializeComponent();
@@ -14,6 +16,11 @@ public partial class PartyEditWindow : Window
         DataContext = _vm;
         _vm.RequestClose += () => { this.DialogResult = _vm.DialogResult; this.Close(); };
         if (party != null) _vm.Id = party.Id;
-        Loaded += async (_, _) => await _vm.LoadAsync();
+
+        // قسم «سياسات العميل»: سياسة الخصم واستثناء رسوم التأخير (B6).
+        _policyVm = new PartyPolicyViewModel { PartyId = party?.Id ?? 0 };
+        PartyPolicyPanel.DataContext = _policyVm;
+
+        Loaded += async (_, _) => { await _vm.LoadAsync(); _policyVm.Load(); };
     }
 }
