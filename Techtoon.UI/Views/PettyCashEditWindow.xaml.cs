@@ -25,12 +25,12 @@ public partial class PettyCashEditWindow : Window
             CmbEmp.Items.Clear();
             using (var conn = new NpgsqlConnection(GetCS())) {
                 conn.Open();
-                using var cmd = new NpgsqlCommand(@"SELECT id, full_name FROM employees WHERE status = 'active' OR status = '1' ORDER BY full_name", conn);
+                using var cmd = new NpgsqlCommand(@"SELECT id, full_name FROM employees WHERE COALESCE(status,'ACTIVE') ILIKE 'active%' ORDER BY full_name", conn);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
                     CmbEmp.Items.Add(new ComboItem { Id = r.GetInt32(0), Name = r.GetString(1) });
             }
-        } catch { }
+        } catch (Exception ex) { MessageBox.Show("تعذر تحميل الموظفين: " + ex.Message); }
         try {
             CmbCB.Items.Clear();
             using (var conn = new NpgsqlConnection(GetCS())) {
@@ -45,12 +45,12 @@ public partial class PettyCashEditWindow : Window
             CmbCustAcc.Items.Clear();
             using (var conn = new NpgsqlConnection(GetCS())) {
                 conn.Open();
-                using var cmd = new NpgsqlCommand(@"SELECT id, name FROM accounts WHERE type = 1 ORDER BY name", conn);
+                using var cmd = new NpgsqlCommand(@"SELECT id, name FROM accounts WHERE UPPER(COALESCE(type,'')) = 'ASSET' ORDER BY name", conn);
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
                     CmbCustAcc.Items.Add(new ComboItem { Id = r.GetInt32(0), Name = r.GetString(1) });
             }
-        } catch { }
+        } catch (Exception ex) { MessageBox.Show("تعذر تحميل حسابات العهدة: " + ex.Message); }
         if (_id > 0) LoadData();
     }
 
@@ -99,9 +99,9 @@ public partial class PettyCashEditWindow : Window
                 using var cmd = new NpgsqlCommand(@"UPDATE petty_cash_custodies SET employee_id=@p0, amount=@p1, cash_box_id=@p2, custody_account_id=@p3, issued_date=@p4, description=@p5 WHERE id=@id", conn);
                 cmd.Parameters.AddWithValue("id", _id);
             cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
-            double _d1;
-            if (!double.TryParse(p1, out _d1)) _d1 = 0;
-            cmd.Parameters.AddWithValue("p1", _d1);
+            decimal _decl1;
+            if (!decimal.TryParse(p1, System.Globalization.CultureInfo.CurrentCulture, out _decl1)) _decl1 = 0;
+            cmd.Parameters.AddWithValue("p1", _decl1);
             cmd.Parameters.AddWithValue("p2", (object)p2 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p3", (object)p3 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
@@ -112,16 +112,16 @@ public partial class PettyCashEditWindow : Window
             {
                 using var cmd = new NpgsqlCommand(@"INSERT INTO petty_cash_custodies (employee_id, amount, cash_box_id, custody_account_id, issued_date, description, status, created_by, created_at) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, 'open', 1, NOW())", conn);
             cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
-            double _d1;
-            if (!double.TryParse(p1, out _d1)) _d1 = 0;
-            cmd.Parameters.AddWithValue("p1", _d1);
+            decimal _decl1;
+            if (!decimal.TryParse(p1, System.Globalization.CultureInfo.CurrentCulture, out _decl1)) _decl1 = 0;
+            cmd.Parameters.AddWithValue("p1", _decl1);
             cmd.Parameters.AddWithValue("p2", (object)p2 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p3", (object)p3 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p5", (object)p5 ?? DBNull.Value);
                 cmd.ExecuteNonQuery();
             }
-            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "PettyCah", _id > 0 ? _id : 0, "Saved from EditWindow");
+            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "PettyCash", _id > 0 ? _id : 0, "Saved from EditWindow");
             DialogResult = true;
             Close();
         }

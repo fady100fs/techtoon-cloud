@@ -99,6 +99,7 @@ namespace Techtoon.UI.ViewModels
         }
 
         public ICommand RefreshCommand { get; set; }
+        private int _loadBusy;
 
         public DashboardViewModel()
         {
@@ -109,7 +110,6 @@ namespace Techtoon.UI.ViewModels
             LowStockItems = new ObservableCollection<TopItemData>();
             OverdueInvoices = new ObservableCollection<OverdueInvoiceData>();
             RefreshCommand = new UiRelayCommand(_ => _ = LoadDashboardAsync());
-            _ = LoadDashboardAsync();
         }
 
         public static string GetCS()
@@ -119,7 +119,14 @@ namespace Techtoon.UI.ViewModels
 
         public async System.Threading.Tasks.Task LoadDashboardAsync()
         {
-            Metrics.Clear();
+            // P4: منع التحميل المتزامن (constructor + Loaded كانا يستدعيان معًا → تكرار البطاقات)
+            if (System.Threading.Interlocked.Exchange(ref _loadBusy, 1) == 1)
+            {
+                // إن كان سبب النداء زر التحديث يدويًا فسنعيد المحاولة عند الاستقرار. هنا نتجاهل باقة منتحلة.
+                return;
+            }
+            try
+            { Metrics.Clear();
             DailySales.Clear();
             MonthlySales.Clear();
             TopItems.Clear();
@@ -255,6 +262,8 @@ namespace Techtoon.UI.ViewModels
                 }
             }
             catch (Exception ex) { StatusMessage = "\u062E\u0637\u0623: " + ex.Message; System.Windows.MessageBox.Show("LOAD DASHBOARD ERROR:\n\n" + ex.ToString(), "Dashboard Error", MessageBoxButton.OK, MessageBoxImage.Error); }
+            }
+            finally { _loadBusy = 0; }
         }
     }
 }

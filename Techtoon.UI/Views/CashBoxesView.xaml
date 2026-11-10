@@ -15,10 +15,10 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="LblTitle" Grid.Column="0" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
-            <Button x:Name="BtnAdd" Grid.Column="1" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding AddCommand}"/>
-            <Button x:Name="BtnEdit" Grid.Column="2" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding EditCommand}"/>
-            <Button x:Name="BtnDelete" Grid.Column="3" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
+            <TextBlock x:Name="LblTitle" Grid.Column="0" Text="🏛️ الخزائن والبنوك" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+            <Button x:Name="BtnAdd" Grid.Column="1" Content="➕ إضافة" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding AddCommand}"/>
+            <Button x:Name="BtnEdit" Grid.Column="2" Content="✏️ تعديل" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0" Command="{Binding EditCommand}"/>
+            <Button x:Name="BtnDelete" Grid.Column="3" Content="🗑️ حذف" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
         </Grid>
         <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
             <DataGrid ItemsSource="{Binding CashBoxes}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" Background="White" FontSize="13" AlternatingRowBackground="#FAFAFA">

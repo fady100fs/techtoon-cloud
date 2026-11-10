@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Techtoon.Api.Controllers;
 
-/// <summary>P2.19: Employees list for mobile generic screen.</summary>
+/// <summary>P2.19 + P4 fix: Employees list — projected in SQL (no full-entity read, immune to NULL money columns).</summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -16,12 +16,14 @@ public class EmployeesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
-        var q = _db.Employees.OrderBy(e => e.FullName);
-        var total = q.Count();
+        var q = _db.Employees
+            .Select(e => new { e.Id, FullName = e.FullName ?? "", JobTitle = e.JobTitle ?? "", Phone = e.Phone })
+            .OrderBy(e => e.FullName);
+        var total = await q.CountAsync();
         var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         return Ok(new
         {
-            items = items.Select(e => new { id = e.Id, fullName = e.FullName, jobTitle = e.JobTitle, phone = e.Phone }),
+            items,
             totalCount = total,
             page,
             pageSize,
@@ -29,4 +31,3 @@ public class EmployeesController : ControllerBase
         });
     }
 }
-
