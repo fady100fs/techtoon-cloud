@@ -161,6 +161,35 @@ echo.
 pause
 "@ | Set-Content -Path $statusBat -Encoding ASCII
 
+# Ø£Ø¯Ø§Ø© Ø¥ØµØ¯Ø§Ø± Ø±Ø®ØµØ© Ù„Ø¹Ù…ÙŠÙ„ (ASCII Ø­ØªÙ‰ Ù„Ø§ ØªØªØ¹Ø·Ù„ Ø¹Ù„Ù‰ Ø£ÙŠ Ù„ØºØ© Ù†Ø¸Ø§Ù…)
+$issueBat = Join-Path $dist "issue_license.bat"
+@"
+@echo off
+chcp 65001 >nul
+title Techtoon - Issue License
+REM Usage: issue_license.bat <lifetime|yearly|monthly|trial> "Customer Name" [outputFile]
+cd /d "%~dp0Tools"
+set "TYPE=%~1"
+set "CUSTOMER=%~2"
+set "OUT=%~3"
+if "%TYPE%"=="" set "TYPE=yearly"
+if "%CUSTOMER%"=="" (
+    echo [ERROR] Usage: issue_license.bat type CustomerName [outFile]
+    pause
+    exit /b 1
+)
+if "%OUT%"=="" set "OUT=customer_license.key"
+echo.
+echo === Issuing license ===
+echo   Type     : %TYPE%
+echo   Customer : %CUSTOMER%
+echo   Output   : %OUT%
+echo.
+Techtoon.LicenseTool.exe generate --type %TYPE% --customer "%CUSTOMER%" --out "%OUT%"
+echo.
+pause
+"@ | Set-Content -Path $issueBat -Encoding ASCII
+
 # ---------- 6) ملخص ----------
 Write-Host "[4/4] verifying output..." -ForegroundColor Green
 $exe = Join-Path $appDir "Techtoon.UI.exe"

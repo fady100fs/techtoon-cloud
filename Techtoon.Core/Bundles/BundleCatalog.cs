@@ -112,6 +112,8 @@ public static class BundleCatalog
     {
         Table = "items",
         KeyColumns = new List<string> { "barcode" },
+        // barcode قد يكون فارغًا — نستخدم name كبديل حتى لا تُنسخ الصفوف في كل استيراد
+        KeyFallbacks = new List<string?> { "name" },
         OrderBy = "name",
         Columns = new List<BundleColumn>
         {
@@ -293,6 +295,7 @@ public static class BundleCatalog
     public static BundleTableSpec Payments() => new()
     {
         Table = "payments",
+        // date قد يكون NULL — المطابقة تستخدم IS NOT DISTINCT FROM فلا تتكرر الصفوف
         KeyColumns = new List<string> { "date", "amount", "payment_type" },
         OrderBy = "date",
         Columns = new List<BundleColumn>

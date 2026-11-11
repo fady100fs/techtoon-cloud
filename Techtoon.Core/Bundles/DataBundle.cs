@@ -72,8 +72,18 @@ public class BundleTableSpec
     /// <summary>الأعمدة المصدَّرة.</summary>
     public List<BundleColumn> Columns { get; set; } = new();
 
-    /// <summary>الأعمدة التي تشكّل المفتاح الطبيعي (يُستخدم للمنعuny/تحديث الصفوف).</summary>
+    /// <summary>
+    /// أعمدة المفتاح الطبيعي (تُستخدم لتحديث/تخطّي الصفوف).
+    /// </summary>
     public List<string> KeyColumns { get; set; } = new();
+
+    /// <summary>
+    /// عمود بديل لكل عمود مفتاح (بالترتيب) — يُستخدم إن كان العمود فارغًا.
+    /// <para><b>لماذا؟</b> <c>NULL = NULL</c> لا يتطابق أبدًا في SQL، فصف المفتاح
+    /// فيه قيمة فارغة (مثل صنف بدون باركود) لن يُطابَق أبدًا ويُنسخ في كل استيراد.
+    /// العمود البديل (مثل <c>name</c>) يُستخدم عندها.</para>
+    /// </summary>
+    public List<string?> KeyFallbacks { get; set; } = new();
 
     /// <summary>المراجع: عمود FK ← الجدول الهدف + عمود المفتاح الطبيعي فيه.</summary>
     public List<BundleRef> References { get; set; } = new();

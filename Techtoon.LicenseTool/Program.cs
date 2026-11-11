@@ -11,7 +11,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
 
 Usage:
   machine-id                        Prints this machine identifier (diagnostics only)
-  status                           Shows the license status of this installation
+  status [dir|file]                 Shows the license status (optionally of a deployed folder)
   generate --type <type> [--days N] [--customer ""name""] [--machine <ID>] [--out <file>]
   verify <file>                    Verifies a license file (signature, type, expiry)
 
@@ -27,7 +27,8 @@ Notes:
 
 Examples:
   Techtoon.LicenseTool generate --type yearly --customer ""Al Amal Co"" --out C:\license.key
-  Techtoon.LicenseTool generate --type trial --days 10 --customer ""Trial""");
+  Techtoon.LicenseTool generate --type trial --days 10 --customer ""Trial""
+  Techtoon.LicenseTool status ""C:\Techtoon\Application""");
     return 0;
 }
 
@@ -45,7 +46,30 @@ if (cmd == "machine-id")
 
 if (cmd == "status")
 {
-    var info = LicenseService.GetStatus();
+    // status [مجلد أو ملف] — للتحقق من ترخيص مُثبَّت في مجلد التوزيع
+    string target = args.Length > 1 ? args[1] : "";
+    LicenseInfo info;
+    string source;
+
+    if (!string.IsNullOrWhiteSpace(target) && Directory.Exists(target))
+    {
+        var candidate = Path.Combine(Path.GetFullPath(target), "license.key");
+        source = candidate;
+        info = File.Exists(candidate)
+            ? LicenseService.ParseLicenseFile(File.ReadAllText(candidate))
+            : new LicenseInfo { State = LicenseState.Invalid, Message = "لا يوجد ملف license.key في: " + candidate };
+    }
+    else if (!string.IsNullOrWhiteSpace(target) && File.Exists(target))
+    {
+        source = Path.GetFullPath(target);
+        info = LicenseService.ParseLicenseFile(File.ReadAllText(source));
+    }
+    else
+    {
+        source = LicenseService.GetLicensePath();
+        info = LicenseService.GetStatus();
+    }
+
     Console.WriteLine("State      : " + info.StateDisplay + " (" + info.State + ")");
     Console.WriteLine("Type       : " + LicenseTypes.Arabic(info.LicenseType));
     Console.WriteLine("Issued to  : " + (string.IsNullOrEmpty(info.IssuedTo) ? "(none)" : info.IssuedTo));
@@ -53,7 +77,7 @@ if (cmd == "status")
     Console.WriteLine("Days left  : " + (info.DaysLeft?.ToString() ?? "-"));
     Console.WriteLine("Bound      : " + (info.IsMachineBound ? "yes (" + info.MachineId + ")" : "no (runs on any PC)"));
     Console.WriteLine("Message    : " + info.Message);
-    Console.WriteLine("License path: " + LicenseService.GetLicensePath());
+    Console.WriteLine("License path: " + source);
     return info.IsAllowed ? 0 : 1;
 }
 

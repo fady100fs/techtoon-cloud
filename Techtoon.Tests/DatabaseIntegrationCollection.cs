@@ -8,6 +8,6 @@ namespace Techtoon.Tests;
 /// فالتوازي يُفسد قياسات رصيد الخزينة.
 /// </summary>
 [CollectionDefinition("DatabaseIntegration", DisableParallelization = true)]
-public class DatabaseIntegrationCollection
+public class DatabaseIntegrationCollection : ICollectionFixture<DatabaseTestCleanupFixture>
 {
 }

@@ -29,9 +29,10 @@ public class ClosedLoopDetailsIntegrationTests
 
         var svc = new ClosedLoopDetailsService(TestDb.ConnectionString!);
 
-        int fromWh = await EnsureWarehouse("مخزن مصدر " + Guid.NewGuid().ToString("N").Substring(0, 6));
-        int toWh = await EnsureWarehouse("مخزن هدف " + Guid.NewGuid().ToString("N").Substring(0, 6));
-        int itemId = await EnsureItem("صنف تحويل " + Guid.NewGuid().ToString("N").Substring(0, 6));
+        var u = Guid.NewGuid().ToString("N").Substring(0, 8);
+        int fromWh = await EnsureWarehouse("مخزن مصدر " + u);
+        int toWh = await EnsureWarehouse("مخزن هدف " + u);
+        int itemId = await EnsureItem("صنف تحويل " + u);
 
         var lines = new List<ClosedLoopDetailsService.TransferLine>
         {
@@ -63,6 +64,7 @@ public class ClosedLoopDetailsIntegrationTests
         TestDb.Execute("DELETE FROM warehouse_transfer_lines WHERE transfer_id=@t", ("@t", transferId));
         TestDb.Execute("DELETE FROM warehouse_transfer_log WHERE transfer_id=@t", ("@t", transferId));
         TestDb.Execute("DELETE FROM warehouse_transfers WHERE id=@t", ("@t", transferId));
+        TestDb.CleanupTestArtifacts(u);
     }
 
     [Fact]
@@ -70,7 +72,8 @@ public class ClosedLoopDetailsIntegrationTests
     {
         if (!TestDb.Available) return;
         var svc = new ClosedLoopDetailsService(TestDb.ConnectionString!);
-        int wh = await EnsureWarehouse("مخزن " + Guid.NewGuid().ToString("N").Substring(0, 6));
+        var u = Guid.NewGuid().ToString("N").Substring(0, 8);
+        int wh = await EnsureWarehouse("مخزن " + u);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             svc.CreateTransferAsync(wh, wh, DateTime.Today,
@@ -89,8 +92,9 @@ public class ClosedLoopDetailsIntegrationTests
         if (!TestDb.Available) return;
         var svc = new ClosedLoopDetailsService(TestDb.ConnectionString!);
 
-        int kitId = await EnsureItem("كيت " + Guid.NewGuid().ToString("N").Substring(0, 6));
-        int compId = await EnsureItem("مكوّن " + Guid.NewGuid().ToString("N").Substring(0, 6));
+        var u = Guid.NewGuid().ToString("N").Substring(0, 8);
+        int kitId = await EnsureItem("كيت " + u);
+        int compId = await EnsureItem("مكوّن " + u);
 
         await svc.RecordKitComponentHistoryAsync(kitId, compId, 3, null, "added", null, 3, null, null, "إضافة");
 
@@ -107,6 +111,7 @@ public class ClosedLoopDetailsIntegrationTests
         Assert.Equal(3m, newQty);
 
         TestDb.Execute("DELETE FROM kit_component_history WHERE kit_item_id=@k", ("@k", kitId));
+        TestDb.CleanupTestArtifacts(u);
     }
 
     // ==================== مرفقات الديون المعدومة ====================
@@ -172,7 +177,8 @@ public class ClosedLoopDetailsIntegrationTests
 
         int debitAcc = await EnsureAccount("مصروف اختبار " + Guid.NewGuid().ToString("N").Substring(0, 6), "EXPENSE");
         int creditAcc = await EnsureAccount("إيراد اختبار " + Guid.NewGuid().ToString("N").Substring(0, 6), "REVENUE");
-        int templateId = await EnsureRecurringTemplate(debitAcc, creditAcc, 100m, 100m);
+        var u = Guid.NewGuid().ToString("N").Substring(0, 8);
+        int templateId = await EnsureRecurringTemplate(debitAcc, creditAcc, 100m, 100m, u);
 
         var res = await svc.ExecuteAsync(templateId, DateTime.Today);
 
@@ -210,6 +216,7 @@ public class ClosedLoopDetailsIntegrationTests
         TestDb.Execute("DELETE FROM journal_entries WHERE id=@e", ("@e", entryId));
         TestDb.Execute("DELETE FROM recurring_journal_lines WHERE template_id=@t", ("@t", templateId));
         TestDb.Execute("DELETE FROM recurring_journal_templates WHERE id=@t", ("@t", templateId));
+        TestDb.CleanupTestArtifacts(u);
     }
 
     [Fact]
@@ -220,7 +227,8 @@ public class ClosedLoopDetailsIntegrationTests
 
         int debitAcc = await EnsureAccount("مدين غير متوازن " + Guid.NewGuid().ToString("N").Substring(0, 6), "EXPENSE");
         int creditAcc = await EnsureAccount("دائن غير متوازن " + Guid.NewGuid().ToString("N").Substring(0, 6), "REVENUE");
-        int templateId = await EnsureRecurringTemplate(debitAcc, creditAcc, 100m, 70m); // غير متوازن
+        var u = Guid.NewGuid().ToString("N").Substring(0, 8);
+        int templateId = await EnsureRecurringTemplate(debitAcc, creditAcc, 100m, 70m, u); // غير متوازن
 
         var res = await svc.ExecuteAsync(templateId, DateTime.Today);
 
@@ -241,6 +249,7 @@ public class ClosedLoopDetailsIntegrationTests
         TestDb.Execute("DELETE FROM recurring_journal_executions WHERE template_id=@t", ("@t", templateId));
         TestDb.Execute("DELETE FROM recurring_journal_lines WHERE template_id=@t", ("@t", templateId));
         TestDb.Execute("DELETE FROM recurring_journal_templates WHERE id=@t", ("@t", templateId));
+        TestDb.CleanupTestArtifacts(u);
     }
 
     // ==================== مساعدات ====================
@@ -322,7 +331,7 @@ public class ClosedLoopDetailsIntegrationTests
         });
     }
 
-    private static async Task<int> EnsureRecurringTemplate(int debitAcc, int creditAcc, decimal debit, decimal credit)
+    private static async Task<int> EnsureRecurringTemplate(int debitAcc, int creditAcc, decimal debit, decimal credit, string u)
     {
         return await Task.Run(() =>
         {
@@ -335,8 +344,8 @@ public class ClosedLoopDetailsIntegrationTests
                 VALUES (@tn, @n, 'اختبار', 'monthly', 1, CURRENT_DATE, TRUE, FALSE, CURRENT_DATE, 1, NOW())
                 RETURNING id", conn, tx))
             {
-                cmd.Parameters.AddWithValue("@tn", "RJ-" + Guid.NewGuid().ToString("N").Substring(0, 8));
-                cmd.Parameters.AddWithValue("@n", "قالب دوري " + Guid.NewGuid().ToString("N").Substring(0, 6));
+                cmd.Parameters.AddWithValue("@tn", "RJ-" + u);
+                cmd.Parameters.AddWithValue("@n", "قالب دوري " + u);
                 templateId = Convert.ToInt32(cmd.ExecuteScalar());
             }
             using (var cmd = new NpgsqlCommand(@"INSERT INTO recurring_journal_lines

@@ -358,6 +358,8 @@ public class MasterDataBundleService
         private readonly BundleImportOptions _options;
         private readonly BundleImportResult _result;
         private readonly Dictionary<string, HashSet<string>> _schema;
+        // جدول ← عمود ← نوع Npgsql (للمطابقة الصحيحة مع NULL)
+        private readonly Dictionary<string, Dictionary<string, NpgsqlTypes.NpgsqlDbType>> _schemaTypes = new(StringComparer.OrdinalIgnoreCase);
         // key: "table|keyvalue" -> id
         private readonly Dictionary<string, int> _idCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -374,7 +376,7 @@ public class MasterDataBundleService
 
             _schema = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             using var cmd = new NpgsqlCommand(
-                "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='public'", conn);
+                "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public'", conn);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -386,8 +388,34 @@ public class MasterDataBundleService
                     _schema[t] = set;
                 }
                 set.Add(c);
+
+                if (!_schemaTypes.TryGetValue(t, out var map))
+                {
+                    map = new Dictionary<string, NpgsqlTypes.NpgsqlDbType>(StringComparer.OrdinalIgnoreCase);
+                    _schemaTypes[t] = map;
+                }
+                map[c] = MapDbType(r.GetString(2));
             }
         }
+
+        /// <summary>يحوّل نوع information_schema إلى نوع Npgsql.</summary>
+        private static NpgsqlTypes.NpgsqlDbType MapDbType(string dataType) => dataType switch
+        {
+            "integer" => NpgsqlTypes.NpgsqlDbType.Integer,
+            "bigint" => NpgsqlTypes.NpgsqlDbType.Bigint,
+            "smallint" => NpgsqlTypes.NpgsqlDbType.Smallint,
+            "numeric" => NpgsqlTypes.NpgsqlDbType.Numeric,
+            "real" => NpgsqlTypes.NpgsqlDbType.Real,
+            "double precision" => NpgsqlTypes.NpgsqlDbType.Double,
+            "boolean" => NpgsqlTypes.NpgsqlDbType.Boolean,
+            "date" => NpgsqlTypes.NpgsqlDbType.Date,
+            "timestamp without time zone" => NpgsqlTypes.NpgsqlDbType.Timestamp,
+            "timestamp with time zone" => NpgsqlTypes.NpgsqlDbType.TimestampTz,
+            "uuid" => NpgsqlTypes.NpgsqlDbType.Uuid,
+            "jsonb" => NpgsqlTypes.NpgsqlDbType.Jsonb,
+            "json" => NpgsqlTypes.NpgsqlDbType.Json,
+            _ => NpgsqlTypes.NpgsqlDbType.Text
+        };
 
         /// <summary>الأعمدة الموجودة فعلًا في المخطط (تُتجاهل غير الموجود).</summary>
         private List<BundleColumn> ColumnsOf(BundleTableSpec spec)
@@ -523,12 +551,14 @@ public class MasterDataBundleService
         private int? FindByNaturalKey(BundleTableSpec spec, string keyString,
             Dictionary<string, string?> row, Dictionary<string, int?> resolved)
         {
-            // نبني شرط WHERE من أعمدة المفتاح
             var where = new List<string>();
-            var args = new List<object>();
+            var args = new List<(string col, object value)>();
+
             for (int i = 0; i < spec.KeyColumns.Count; i++)
             {
                 var kc = spec.KeyColumns[i];
+
+                // القيمة: من المرجع المحسوب أو من الصف
                 string v;
                 if (resolved.TryGetValue(kc, out var rid))
                     v = rid.HasValue ? rid.Value.ToString(CultureInfo.InvariantCulture) : "";
@@ -537,18 +567,90 @@ public class MasterDataBundleService
                     var col = ColumnsOf(spec).FirstOrDefault(c => c.Db == kc);
                     v = col == null ? "" : (GetValue(row, col) ?? "");
                 }
-                if (string.IsNullOrEmpty(v)) return null; // لا يمكن المطابقة — نعتبره جديدًا
-                where.Add($"\"{kc}\" = @k{i}");
-                args.Add(KeyValue(spec.Table, kc, v));
+
+                // عمود بديل إن كانت القيمة فارغة (NULL = NULL لا يتطابق أبدًا)
+                if (string.IsNullOrEmpty(v) && i < spec.KeyFallbacks.Count)
+                {
+                    var fb = spec.KeyFallbacks[i];
+                    if (!string.IsNullOrEmpty(fb))
+                    {
+                        var fbCol = ColumnsOf(spec).FirstOrDefault(c => c.Db == fb);
+                        if (fbCol != null) v = GetValue(row, fbCol) ?? "";
+                        where.Add($"\"{fb}\" IS NOT DISTINCT FROM @k{i}");
+                        args.Add((fb, KeyValue(spec.Table, fb, v)));
+                        continue;
+                    }
+                }
+
+                where.Add($"\"{kc}\" IS NOT DISTINCT FROM @k{i}");
+                args.Add((kc, KeyValue(spec.Table, kc, v)));
             }
+
             if (where.Count == 0) return null;
 
             var sql = $"SELECT id FROM \"{spec.Table}\" WHERE {string.Join(" AND ", where)} LIMIT 1";
             using var cmd = Cmd(sql);
-            for (int i = 0; i < args.Count; i++) cmd.Parameters.AddWithValue("k" + i, args[i]);
+            for (int i = 0; i < args.Count; i++)
+            {
+                // نوع المعامل يجب أن يطابق عمود DB (وإلا فشلت المقارنة مع NULL)
+                var col = args[i].col;
+                var p = cmd.Parameters.Add("k" + i, NpgsqlTypeFor(spec.Table, col));
+                p.Value = args[i].value ?? DBNull.Value;
+            }
             var v2 = cmd.ExecuteScalar();
             if (v2 == null || v2 == DBNull.Value) return null;
             return Convert.ToInt32(v2);
+        }
+
+        /// <summary>نوع المعامل المناسب لعمود (مستنتَج من المخطط الحقيقي).</summary>
+        private NpgsqlTypes.NpgsqlDbType NpgsqlTypeFor(string table, string column)
+        {
+            if (_schemaTypes.TryGetValue(table, out var map) && map.TryGetValue(column, out var t))
+                return t;
+            return NpgsqlTypes.NpgsqlDbType.Text;
+        }
+
+        /// <summary>قيمة عمود المفتاح من الصف (مع مراعاة المراجع المحسولة).</summary>
+        private static string GetKeyColumnValue(BundleTableSpec spec, string column,
+            Dictionary<string, string?> row, Dictionary<string, int?> resolved)
+        {
+            if (resolved.TryGetValue(column, out var rid))
+                return rid.HasValue ? rid.Value.ToString(CultureInfo.InvariantCulture) : "";
+            var col = spec.Columns.FirstOrDefault(c => c.Db == column);
+            if (col == null) return "";
+            var raw = GetValue(row, col);
+            return raw ?? "";
+        }
+
+        /// <summary>يقسّم تعبيرًا على الفواصل في العمود الأول (يتجاهل الأقواس).</summary>
+        private static List<string> SplitTopLevel(string expr)
+        {
+            var result = new List<string>();
+            int depth = 0, start = 0;
+            for (int i = 0; i < expr.Length; i++)
+            {
+                var ch = expr[i];
+                if (ch == '(') depth++;
+                else if (ch == ')') depth--;
+                else if (ch == ',' && depth == 0)
+                {
+                    result.Add(expr.Substring(start, i - start));
+                    start = i + 1;
+                }
+            }
+            if (start < expr.Length) result.Add(expr.Substring(start));
+            return result;
+        }
+
+        /// <summary>يستخرج اسم العمود من تعبير مثل <c>NULLIF("barcode",'')</c>.</summary>
+        private static string? ExtractColumn(string expr)
+        {
+            var s = expr.Trim();
+            int q = s.IndexOf('"');
+            if (q < 0) return null;
+            int q2 = s.IndexOf('"', q + 1);
+            if (q2 < 0) return null;
+            return s.Substring(q + 1, q2 - q - 1);
         }
 
         // ---------- حل المراجع ----------

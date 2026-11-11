@@ -50,6 +50,46 @@ public static class TestDb
         return cmd.ExecuteScalar();
     }
 
+    /// <summary>
+    /// يحذف كل ما أنشأه الاختبار لهذا المعرّف الفريد (بالترتيب لاحترام المفاتيح الأجنبية).
+    /// يمنع تراكم بيانات الاختبار في قاعدة الاختبار.
+    /// </summary>
+    public static void CleanupTestArtifacts(string unique)
+    {
+        var like = "%" + unique;
+        var steps = new[]
+        {
+            "DELETE FROM kit_components WHERE kit_item_id IN (SELECT id FROM items WHERE barcode LIKE @u OR name LIKE @u) OR component_item_id IN (SELECT id FROM items WHERE barcode LIKE @u OR name LIKE @u)",
+            "DELETE FROM stock_levels WHERE item_id IN (SELECT id FROM items WHERE barcode LIKE @u OR name LIKE @u)",
+            "DELETE FROM recurring_invoice_lines WHERE template_id IN (SELECT id FROM recurring_invoice_templates WHERE name LIKE @u)",
+            "DELETE FROM recurring_journal_executions WHERE template_id IN (SELECT id FROM recurring_journal_templates WHERE name LIKE @u)",
+            "DELETE FROM recurring_journal_lines WHERE template_id IN (SELECT id FROM recurring_journal_templates WHERE name LIKE @u)",
+            "DELETE FROM recurring_journal_templates WHERE name LIKE @u",
+            "DELETE FROM recurring_invoice_templates WHERE name LIKE @u",
+            "DELETE FROM journal_lines WHERE entry_id IN (SELECT id FROM journal_entries WHERE description LIKE @u)",
+            "DELETE FROM journal_entries WHERE description LIKE @u",
+            "DELETE FROM cost_center_transactions WHERE cost_center_id IN (SELECT id FROM cost_centers WHERE name LIKE @u)",
+            "DELETE FROM cost_centers WHERE name LIKE @u",
+            "DELETE FROM overdraft_transactions WHERE loan_id IN (SELECT id FROM loans WHERE loan_number LIKE @u)",
+            "DELETE FROM loans WHERE loan_number LIKE @u",
+            "DELETE FROM bad_debt_attachments WHERE writeoff_id IN (SELECT id FROM bad_debt_writeoffs WHERE writeoff_number LIKE @u)",
+            "DELETE FROM bad_debt_writeoffs WHERE writeoff_number LIKE @u",
+            "DELETE FROM inventory_movements WHERE item_id IN (SELECT id FROM items WHERE barcode LIKE @u OR name LIKE @u)",
+            "DELETE FROM invoice_lines WHERE item_id IN (SELECT id FROM items WHERE barcode LIKE @u OR name LIKE @u)",
+            "DELETE FROM items WHERE barcode LIKE @u OR name LIKE @u",
+            "DELETE FROM parties WHERE name LIKE @u",
+            "DELETE FROM warehouses WHERE code LIKE @u OR name LIKE @u",
+            "DELETE FROM accounting_periods WHERE period_name LIKE @u",
+            "DELETE FROM accounts WHERE code LIKE @u OR name LIKE @u",
+        };
+
+        foreach (var sql in steps)
+        {
+            try { Execute(sql, ("@u", like)); }
+            catch { /* جدول غير موجود أو مرجع — نتخطاه */ }
+        }
+    }
+
     /// <summary>ينفّذ أمرًا ويُعيد عدد الصفوف المتأثرة.</summary>
     public static int Execute(string sql, params (string, object)[] parameters)
     {

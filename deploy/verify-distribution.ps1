@@ -39,6 +39,7 @@ Check "Techtoon.UI.exe exists" (Test-Path (Join-Path $dist "Application\Techtoon
 Check "Techtoon.LicenseTool.exe exists" (Test-Path (Join-Path $dist "Tools\Techtoon.LicenseTool.exe"))
 Check "run_techtoon.bat exists" (Test-Path (Join-Path $dist "run_techtoon.bat"))
 Check "check_license.bat exists" (Test-Path (Join-Path $dist "check_license.bat"))
+Check "issue_license.bat exists" (Test-Path (Join-Path $dist "issue_license.bat"))
 Check "README.md exists" (Test-Path (Join-Path $dist "Documentation\README.md"))
 Check "INSTALLATION_GUIDE.md exists" (Test-Path (Join-Path $dist "Documentation\INSTALLATION_GUIDE.md"))
 Check "schema_full.sql exists" (Test-Path (Join-Path $dist "Documentation\schema_full.sql"))
@@ -81,6 +82,22 @@ foreach ($n in @("License_Trial.key","License_Monthly.key","License_Yearly.key",
 }
 
 # ---------- 5) ------ ----- ----------
+# ---------- 4b) Ø§ØµØ¯Ø§Ø± Ø±Ø®ØµØ© Ù„Ø¹Ù…ÙŠÙ„ ----------
+Write-Host "`n[4b] Issue a customer license" -ForegroundColor Yellow
+$issued = Join-Path $env:TEMP ("techtoon_issued_" + [guid]::NewGuid().ToString("N") + ".key")
+$toolExe = Join-Path $dist "Tools\Techtoon.LicenseTool.exe"
+if (Test-Path $toolExe) {
+    $out = & $toolExe generate --type yearly --customer "Verify Customer" --out $issued 2>&1
+    Check "customer license is generated" ($LASTEXITCODE -eq 0 -and (Test-Path $issued)) ($out | Out-String)
+    if (Test-Path $issued) {
+        $v = & $toolExe verify $issued 2>&1
+        Check "issued license verifies" ($LASTEXITCODE -eq 0) ($v | Out-String)
+        $txt = Get-Content $issued -Raw
+        Check "issued license is not machine-bound" ($txt -match '"machine_id": ""') "machine_id must be empty"
+        Check "issued license carries the customer name" ($txt -match "Verify Customer")
+    }
+    Remove-Item $issued -Force -ErrorAction SilentlyContinue
+}
 Write-Host "`n[5] Tamper rejection" -ForegroundColor Yellow
 $tamper = Join-Path $env:TEMP ("techtoon_tamper_" + [guid]::NewGuid().ToString("N") + ".key")
 $orig = Get-Content (Join-Path $dist "Licenses\License_Lifetime.key") -Raw
