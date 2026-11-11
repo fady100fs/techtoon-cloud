@@ -146,7 +146,7 @@ namespace Techtoon.UI.Views
 
         private void BtnReject_Click(object sender, RoutedEventArgs e)
         {
-            var reason = Microsoft.VisualBasic.Interaction.InputBox("سبب الرفض:", "رفض الجلسة", "", -1, -1);
+            var reason = InputDialog.Show(this, "سبب الرفض:", "رفض الجلسة", "");
             if (string.IsNullOrEmpty(reason)) return;
             try
             {

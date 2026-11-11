@@ -88,7 +88,10 @@ namespace Techtoon.UI.ViewModels
         private void ResetPassword()
         {
             if (Selected == null) return;
-            var pwd = Microsoft.VisualBasic.Interaction.InputBox($"أدخل كلمة المرور الجديدة لـ '{Selected.Username}':", "إعادة تعيين كلمة المرور", "", -1, -1);
+            var pwd = Techtoon.UI.Views.InputDialog.Show(
+                System.Windows.Application.Current?.MainWindow,
+                $"أدخل كلمة المرور الجديدة لـ '{Selected.Username}':",
+                "إعادة تعيين كلمة المرور", "", isPassword: true);
             if (string.IsNullOrEmpty(pwd)) return;
             try
             {

@@ -78,7 +78,10 @@ namespace Techtoon.UI.ViewModels
         private void ExecuteFactoryReset()
         {
             string confirmText = "RESET";
-            string input = Microsoft.VisualBasic.Interaction.InputBox($"هذا سيمسح كل بيانات العمل!\nللتأكيد، اكتب: {confirmText}", "إعادة ضبط المصنع", "", -1, -1);
+            string input = Techtoon.UI.Views.InputDialog.Show(
+                System.Windows.Application.Current?.MainWindow,
+                $"هذا سيمسح كل بيانات العمل!\nللتأكيد، اكتب: {confirmText}",
+                "إعادة ضبط المصنع", "");
             
             if (input != confirmText)
             {

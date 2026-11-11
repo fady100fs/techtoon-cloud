@@ -51,6 +51,26 @@
 
 ---
 
+## 🐛 أخطاء انهيار وقت التشغيل — جولة 2026-11-11 (من تقرير المستخدم)
+
+| # | الخطأ | الأثر | الإصلاح + التحقق |
+|---|-------|-------|------------------|
+| 1 | `Microsoft.VisualBasic.Interaction.InputBox` في **5 مواضع** | **يرمي `PlatformNotSupportedException`** (يتطلب WinForms والتطبيق WPF) — يُسقط الزر: إعادة ضبط المصنع، إعادة تعيين كلمة المرور، سداد قسط/جاري مدين، رفض جلسة جرد | نافذة WPF بديلة `InputDialog` (مع دعم كلمة المرور). **مُتحقَّق**: الضغط على «إعادة ضبط المصنع» → تظهر النافذة → كتابة نص خاطئ → «النص غير صحيح. تم الإلغاء.» والسجل نظيف (بلا استثناء) |
+| 2 | `SizeToContent="Auto"` في `InputDialog.xaml` | WPF لا يقبل `Auto` لخاصية `Window.SizeToContent` — `XamlParseException` عند فتح النافذة | `SizeToContent="Height"` (يقبله WPF) |
+| 3 | `INSERT INTO invoice_payments (invoice_id, date, amount, payment_method, reference_number, created_at)` | الأعمدة `date`/`payment_method`/`reference_number` **غير موجودة** (الفعلية: `method`/`reference`/`paid_at`) → فشل حفظ الدفعة | صُحّح + **فحص SQL ثابت** يرصد أي عمود غير موجود |
+| 4 | `inventory_movements.notes` | عمود غير موجود في المخطط | حُذف من الكتالوج |
+
+### حُرّاس جدد يمنعان تكرار هذه الأخطاء (اختبارات)
+
+| الاختبار | ماذا يمنع |
+|----------|-----------|
+| `PlatformCompatibilityTests` | أي استخدام لـ `Interaction.InputBox` أو `System.Windows.Forms` داخل التطبيق WPF |
+| `SqlSchemaAuditTests` | أي `INSERT`/`UPDATE`/`SELECT` يستخدم جدولًا أو عمودًا غير موجود في المخطط الحقيقي |
+
+> الاختبارات: **93/93 ناجحة** (كانت 86).
+
+---
+
 ## 📦 استيراد/تصدير المُجمّعات (Bundles) — جديد (2026-11-11)
 
 ### المشكلة التي حُلّت

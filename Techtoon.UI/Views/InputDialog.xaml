@@ -1,0 +1,23 @@
+<Window x:Class="Techtoon.UI.Views.InputDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="إدخال" Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#F5F7FA" FontFamily="Tahoma" FlowDirection="RightToLeft"
+        ShowInTaskbar="False">
+    <StackPanel Margin="18">
+        <TextBlock x:Name="LblPrompt" FontSize="14" Foreground="#37474F" TextWrapping="Wrap" Margin="0,0,0,12"/>
+        <TextBox x:Name="TxtInput" FontSize="14" Padding="8,6" BorderBrush="#B0BEC5" BorderThickness="1"
+                 VerticalScrollBarVisibility="Auto" MaxHeight="120"/>
+        <PasswordBox x:Name="TxtPassword" FontSize="14" Padding="8,6" BorderBrush="#B0BEC5" BorderThickness="1"
+                     MaxHeight="120" Visibility="Collapsed"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+            <Button x:Name="BtnOk" Content="موافق" Width="110" Padding="0,8" Margin="6,0" FontWeight="SemiBold"
+                    Background="#00897B" Foreground="White" BorderThickness="0" Cursor="Hand" IsDefault="True"
+                    Click="BtnOk_Click"/>
+            <Button x:Name="BtnCancel" Content="إلغاء" Width="110" Padding="0,8" Margin="6,0" FontWeight="SemiBold"
+                    Background="#757575" Foreground="White" BorderThickness="0" Cursor="Hand" IsCancel="True"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

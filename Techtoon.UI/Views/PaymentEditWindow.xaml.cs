@@ -248,10 +248,11 @@ namespace Techtoon.UI.Views
                 // (كان BtnSave لا يكتب invoice_payments ولا يُحدّث paid_amount)
                 if (invoiceId > 0)
                 {
-                    // الدفتر الموحّد (إن فُرض) — payment_method تتوافق مع PaymentAppService
+                    // الدفتر الموحّد (إن فُرض) — أعمدة invoice_payments الفعلية:
+                    // method / reference / paid_at (كانت date/payment_method/reference_number — أعمدة غير موجودة)
                     using (var ipCmd = new NpgsqlCommand(
-                        "INSERT INTO invoice_payments (invoice_id, date, amount, payment_method, reference_number, created_at) " +
-                        "VALUES (@iid, @dt, @amt, @wm, @ref, NOW())", conn, tx))
+                        "INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at, created_at) " +
+                        "VALUES (@iid, @wm, @amt, @ref, @dt, NOW())", conn, tx))
                     {
                         ipCmd.Parameters.AddWithValue("@iid", invoiceId);
                         ipCmd.Parameters.AddWithValue("@dt", date);

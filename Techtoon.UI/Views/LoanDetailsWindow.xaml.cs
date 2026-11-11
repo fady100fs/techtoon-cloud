@@ -43,7 +43,7 @@ namespace Techtoon.UI.Views
             if (_loan.LoanType == "overdraft")
             {
                 // Overdraft repayment
-                var amountStr = Microsoft.VisualBasic.Interaction.InputBox("أدخل مبلغ السداد:", "سداد جاري مدين", "", -1, -1);
+                var amountStr = InputDialog.Show(this, "أدخل مبلغ السداد:", "سداد جاري مدين", "");
                 if (string.IsNullOrEmpty(amountStr)) return;
                 if (!decimal.TryParse(amountStr, out decimal amount)) { MessageBox.Show("مبلغ غير صحيح"); return; }
                 try
@@ -58,7 +58,7 @@ namespace Techtoon.UI.Views
                 // Installment repayment
                 if (dgSchedule.SelectedItem is LoanInstallment inst)
                 {
-                    var amountStr = Microsoft.VisualBasic.Interaction.InputBox($"أدخل مبلغ السداد للقسط {inst.InstallmentNumber} (المتبقي: {inst.TotalAmount - inst.PaidAmount}):", "سداد قسط", "", -1, -1);
+                    var amountStr = InputDialog.Show(this, $"أدخل مبلغ السداد للقسط {inst.InstallmentNumber} (المتبقي: {inst.TotalAmount - inst.PaidAmount}):", "سداد قسط", "");
                     if (string.IsNullOrEmpty(amountStr)) return;
                     if (!double.TryParse(amountStr, out double amount)) { MessageBox.Show("مبلغ غير صحيح"); return; }
                     try
