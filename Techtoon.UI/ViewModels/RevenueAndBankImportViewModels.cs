@@ -1,11 +1,13 @@
+using System.Windows.Controls;
+
 namespace Techtoon.UI.ViewModels
 {
-    /// <summary>P5: الاعتراف بالإيراد المؤجل (صفحة قائمة بذاتها).</summary>
+    /// <summary>P5: نافذة تسوية الخزينة - صفحة مستقلة.</summary>
     public class RevenueRecognitionViewModel : ViewModelBase
     {
     }
 
-    /// <summary>P5: استيراد كشوف البنك (صفحة قائمة بذاتها).</summary>
+    /// <summary>P5: نافذة استيراد كشوف البنك - صفحة مستقلة.</summary>
     public class BankStatementImportViewModel : ViewModelBase
     {
     }

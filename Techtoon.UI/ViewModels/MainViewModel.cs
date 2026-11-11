@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using System.Windows.Input;
 using Techtoon.UI.Services;
@@ -116,7 +116,7 @@ public class MainViewModel : ViewModelBase
             "EarlyPaymentDiscount" => new EarlyPaymentDiscountViewModel(),
             "LatePaymentFees" => new LatePaymentFeesViewModel(),
             "Salaries" => new SalariesViewModel(),
-            "AuditLog" => new AuditLogViewModel(),
+            "LicenseActivation" => new LicenseActivationViewModel(),
             _ => new ViewModelBase()
         };
     }

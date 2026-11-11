@@ -92,6 +92,12 @@
             <DataTemplate DataType="{x:Type vm:BankStatementImportViewModel}">
                 <local:BankStatementImportView/>
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:RevenueRecognitionViewModel}">
+                <local:RevenueRecognitionView/>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:BankStatementImportViewModel}">
+                <local:BankStatementImportView/>
+            </DataTemplate>
             <DataTemplate DataType="{x:Type vm:BadDebtsViewModel}">
                 <local:BadDebtsView/>
             </DataTemplate>
