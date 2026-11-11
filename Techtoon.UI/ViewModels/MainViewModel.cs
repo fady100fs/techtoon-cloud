@@ -96,6 +96,7 @@ public class MainViewModel : ViewModelBase
             "Settings" => new SettingsViewModel(),
             "Loans" => new LoansViewModel(),
             "DataManagement" => new DataManagementViewModel(),
+            "DataExchange" => new DataExchangeViewModel(),
             "Users" => new UsersViewModel(),
             "StockLevels" => new StockLevelsViewModel(),
             "StockCounts" => new StockCountSessionsViewModel(),
