@@ -18,7 +18,7 @@ public enum LicenseState
     Trial,          // يعمل في الفترة التجريبية
     Expired,        // انتهت المدة
     Invalid,        // ملف تالف أو توقيع غير مطابق
-    MachineMismatch // الترخيص لجهاز آخر
+    MachineMismatch // الترخيص مربوط بجهاز آخر (اختياري — التراخيص الافتراضية غير مربوطة)
 }
 
 /// <summary>أنواع الرخص المدعومة.</summary>
@@ -37,6 +37,12 @@ public static class LicenseTypes
         Trial => "فترة تجريبية",
         _ => "غير معروف"
     };
+
+    /// <summary>كل الأنواع المعروفة (للاختبارات والتحقق).</summary>
+    public static readonly string[] All = { Lifetime, Yearly, Monthly, Trial };
+
+    public static bool IsKnown(string type) =>
+        !string.IsNullOrWhiteSpace(type) && All.Contains(type.Trim().ToLowerInvariant());
 }
 
 /// <summary>معلومات الترخيص كما يقرؤها التطبيق.</summary>
@@ -51,6 +57,9 @@ public class LicenseInfo
     public DateTime? ExpiresAt { get; set; }
     public bool IsAllowed => State == LicenseState.Valid || State == LicenseState.Trial;
 
+    /// <summary>الترخيص مربوط بجهاز محدد (اختياري — التراخيص الافتراضية غير مربوطة).</summary>
+    public bool IsMachineBound { get; set; }
+
     public string StateDisplay => State switch
     {
         LicenseState.Valid => "مرخّص",
@@ -60,12 +69,39 @@ public class LicenseInfo
         LicenseState.MachineMismatch => "جهاز آخر",
         _ => ""
     };
+
+    /// <summary>وصف مختصر للعرض في الواجهة (نوع + متبقٍ + مالك).</summary>
+    public string Summary
+    {
+        get
+        {
+            if (!IsAllowed) return Message;
+            var type = LicenseTypes.Arabic(LicenseType);
+            var owner = string.IsNullOrWhiteSpace(IssuedTo) ? "" : $" — {IssuedTo}";
+            if (LicenseType == LicenseTypes.Lifetime) return type + owner;
+            if (LicenseType == LicenseTypes.Trial) return $"{type} — متبقي {DaysLeft ?? 0} يوم" + owner;
+            return $"{type} — متبقي {DaysLeft ?? 0} يوم" + owner;
+        }
+    }
+}
+
+/// <summary>نتيجة محاولة استيراد/تفعيل ترخيص.</summary>
+public class LicenseImportResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = "";
+    public LicenseInfo Info { get; set; } = new();
+    /// <summary>المسار الذي كُتب فيه الترخيص فعليًا (null إذا لم يُكتب شيء).</summary>
+    public string? WrittenTo { get; set; }
 }
 
 /// <summary>
-/// P5: نظام التراخيص — متوافق تمامًا مع أداة Python القائمة (license_manager.py):
+/// نظام التراخيص — متوافق تمامًا مع أداة Python القائمة (license_manager.py):
 /// الملف license.key بصيغة JSON، والتوقيع HMAC-SHA256 بنفس المفتاح.
 /// يدعم: مدى الحياة / سنوي / شهري / تجريبي (10 أيام افتراضيًا).
+///
+/// <para><b>سياسة الترخيص:</b> الترخيص الافتراضي <b>غير مربوط بجهاز</b> (machine_id فارغ)
+/// ويعمل على أي كمبيوتر. الربط بجهاز معيّن اختياري ويُستخدم فقط إن صُرِف machine_id داخل الملف.</para>
 /// </summary>
 public static class LicenseService
 {
@@ -83,9 +119,9 @@ public static class LicenseService
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    // ==================== هوية الجهاز ====================
+    // ==================== هوية الجهاز (تشخيصية فقط — الترخيص لا يعتمد عليها) ====================
 
-    /// <summary>معرّف الجهاز الأساسي (WMI) — نفس ترتيب أداة Python.</summary>
+    /// <summary>معرّف الجهاز الأساسي (WMI) — للتشخيص والدعم فقط.</summary>
     public static string GetMachineId()
     {
         var raw = BuildWmiRaw();
@@ -94,8 +130,8 @@ public static class LicenseService
     }
 
     /// <summary>
-    /// P5: معرّفات مقبولة للتحقق — يسمح بترخيص صادر من أداة Python على جهاز لا يتوفر فيه WMI
-    /// (الذي يستخدم عندها احتياطي NODE|MAC) أو العكس. نضيف كل الصيغ (hex/عشرية/حالة الاسم).
+    /// كل المعرّفات المقبولة لهذا الجهاز — للتشخيص فقط.
+    /// لم يعد_checks التحقق من الترخيص يعتمد على هذه القائمة (الترخيص غير مربوط افتراضيًا).
     /// </summary>
     public static List<string> GetAcceptableMachineIds()
     {
@@ -131,7 +167,7 @@ public static class LicenseService
         return set;
     }
 
-    /// <summary>صيغ MAC الممكنة (hex، hex معكوس، عشري، عشري معكوس) — لتغطية اختلاف ترتيب الأدوات.</summary>
+    /// <summary>صيغ MAC الممكنة (hex، hex معكوس، عشري، عشري معكوس).</summary>
     private static List<string> MacVariants(string hex)
     {
         var list = new List<string> { hex };
@@ -238,24 +274,6 @@ public static class LicenseService
         return "";
     }
 
-    private static string GetMacHex()
-    {
-        try
-        {
-            var nics = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
-            foreach (var nic in nics)
-            {
-                var mac = nic.GetPhysicalAddress();
-                var bytes = mac.GetAddressBytes();
-                if (bytes.Length == 0) continue;
-                var hex = string.Join("", bytes.Select(b => b.ToString("X2")));
-                if (hex.Trim('0').Length > 0) return hex;
-            }
-        }
-        catch { }
-        return "000000000000";
-    }
-
     // ==================== التوقيع ====================
 
     /// <summary>يحسب توقيع HMAC-SHA256 للبيانات (بنفس ترتيب المفاتيح المستخدم في Python).</summary>
@@ -289,7 +307,10 @@ public static class LicenseService
 
     // ==================== إصدار التراخيص ====================
 
-    /// <summary>ينشئ ملف ترخيص موقّع (يستعمله المالك لإصدار الرخص).</summary>
+    /// <summary>
+    /// ينشئ ملف ترخيص موقّع (يستعمله المالك لإصدار الرخص).
+    /// machine_id فارغ = ترخيص غير مربوط يعمل على أي جهاز (الافتراضي).
+    /// </summary>
     public static string CreateLicenseFile(string licenseType, string customer, int days = 0, string machineId = "", DateTime? expiresAt = null)
     {
         var data = new Dictionary<string, object?>
@@ -317,26 +338,37 @@ public static class LicenseService
         };
     }
 
-    // ==================== قراءة الحالة ====================
+    // ==================== مسارات الملفات ====================
 
-    /// <summary>مسار ملف الترخيص المتوقع: بجانب الـ EXE أو في مجلد بيانات المستخدم.</summary>
+    /// <summary>مجلد بيانات المستخدم (قابل للكتابة دائمًا).</summary>
+    public static string UserDataDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TechtoonAccounting");
+
+    /// <summary>مسار الترخيص بجانب الـ EXE (للنسخ المحمولة).</summary>
+    public static string PortableLicensePath => Path.Combine(AppContext.BaseDirectory, LicenseFileName);
+
+    /// <summary>مسار الترخيص في مجلد بيانات المستخدم (المسار الرسمي للتفعيل).</summary>
+    public static string UserLicensePath => Path.Combine(UserDataDirectory, LicenseFileName);
+
+    /// <summary>
+    /// مسار الترخيص المستخدم للقراءة: بيانات المستخدم أولًا (المسار الرسمي)،
+    /// ثم بجانب الـ EXE (النسخة المحمولة).
+    /// </summary>
     public static string GetLicensePath()
     {
-        var beside = Path.Combine(AppContext.BaseDirectory, LicenseFileName);
-        if (File.Exists(beside)) return beside;
-        var userDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TechtoonAccounting");
-        var inUser = Path.Combine(userDir, LicenseFileName);
-        if (File.Exists(inUser)) return inUser;
-        return beside;
+        if (File.Exists(UserLicensePath)) return UserLicensePath;
+        if (File.Exists(PortableLicensePath)) return PortableLicensePath;
+        return UserLicensePath;
     }
 
-    private static string GetTrialFilePath()
-    {
-        // P5: عداد التجربة يتبع النسخة الجديدة فقط (سياسة 10 أيام تبدأ من أول تشغيل لها).
-        // ملف النسخة القديمة (Python) لا يؤثر — كان بسياسة 30 يومًا.
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TechtoonAccounting");
-        return Path.Combine(dir, ".trial_start");
-    }
+    /// <summary>كل المسارات التي قد يوجد فيها ترخيص.</summary>
+    public static string[] GetCandidateLicensePaths() =>
+        new[] { UserLicensePath, PortableLicensePath };
+
+    /// <summary>المسار الذي يُكتب فيه الترخيص عند التفعيل (بيانات المستخدم — قابل للكتابة دائمًا).</summary>
+    public static string GetWritableLicensePath() => UserLicensePath;
+
+    private static string GetTrialFilePath() => Path.Combine(UserDataDirectory, ".trial_start");
 
     private static DateTime GetTrialStart()
     {
@@ -354,46 +386,65 @@ public static class LicenseService
         var now = DateTime.Now;
         try
         {
-            var dir = Path.GetDirectoryName(file);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            Directory.CreateDirectory(UserDataDirectory);
             File.WriteAllText(file, now.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture));
         }
         catch { }
         return now;
     }
 
+    // ==================== قراءة الحالة ====================
+
     /// <summary>يقرأ حالة الترخيص الفعلية من القرص (مع احترام الفترة التجريبية).</summary>
     public static LicenseInfo GetStatus()
     {
         var info = new LicenseInfo { MachineId = GetMachineId() };
-        var path = GetLicensePath();
 
-        if (!File.Exists(path))
+        foreach (var path in GetCandidateLicensePaths())
         {
-            var start = GetTrialStart();
-            var used = (DateTime.Now - start).Days;
-            var left = TrialDays - used;
-            info.MachineId = GetMachineId();
-            if (left <= 0)
-            {
-                info.State = LicenseState.Expired;
-                info.LicenseType = LicenseTypes.Trial;
-                info.Message = $"انتهت الفترة التجريبية ({TrialDays} يوم). ضع ملف الترخيص license.key بجانب البرنامج.";
-            }
-            else
-            {
-                info.State = LicenseState.Trial;
-                info.LicenseType = LicenseTypes.Trial;
-                info.DaysLeft = left;
-                info.ExpiresAt = start.AddDays(TrialDays);
-                info.Message = $"نسخة تجريبية — متبقي {left} يوم من أصل {TrialDays}.";
-            }
+            if (!File.Exists(path)) continue;
+            var parsed = ParseLicenseFile(File.ReadAllText(path, Encoding.UTF8));
+            // ملف تالف/غير موقّع: نتجاهله ونجرّب المسار التالي، فلا نمنع المستخدم من التشغيل.
+            if (parsed.State == LicenseState.Invalid && string.IsNullOrEmpty(parsed.Message)) continue;
+            return parsed;
+        }
+
+        var start = GetTrialStart();
+        var used = (DateTime.Now - start).Days;
+        var left = TrialDays - used;
+        info.LicenseType = LicenseTypes.Trial;
+        if (left <= 0)
+        {
+            info.State = LicenseState.Expired;
+            info.Message = $"انتهت الفترة التجريبية ({TrialDays} يوم). فعّل البرنامج من: الإعدادات ← تبويب «تفعيل البرنامج».";
+        }
+        else
+        {
+            info.State = LicenseState.Trial;
+            info.DaysLeft = left;
+            info.ExpiresAt = start.AddDays(TrialDays);
+            info.Message = $"نسخة تجريبية — متبقي {left} يوم من أصل {TrialDays}.";
+        }
+        return info;
+    }
+
+    /// <summary>
+    /// يحلّل محتوى ملف ترخيص ويتحقق من التوقيع والانتهاء — دون الكتابة على القرص.
+    /// machine_id الفارغ = ترخيص غير مربوط يعمل على أي جهاز.
+    /// </summary>
+    public static LicenseInfo ParseLicenseFile(string content)
+    {
+        var info = new LicenseInfo { MachineId = GetMachineId() };
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            info.State = LicenseState.Invalid;
+            info.Message = "ملف الترخيص فارغ.";
             return info;
         }
 
         try
         {
-            var content = File.ReadAllText(path, Encoding.UTF8).Trim();
             var raw = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(content);
             if (raw == null) throw new Exception("محتوى غير صالح");
 
@@ -402,23 +453,34 @@ public static class LicenseService
             if (!VerifySignature(data, sig))
             {
                 info.State = LicenseState.Invalid;
-                info.Message = "التوقيع الرقمي للترخيص غير صالح.";
+                info.Message = "التوقيع الرقمي للترخيص غير صالح — الملف可能被 التعديل.";
                 return info;
             }
 
-            info.LicenseType = raw.TryGetValue("license_type", out var lt) ? lt.GetString() ?? "" : "";
+            info.LicenseType = (raw.TryGetValue("license_type", out var lt) ? lt.GetString() ?? "" : "").Trim().ToLowerInvariant();
             info.IssuedTo = raw.TryGetValue("issued_to", out var it) ? it.GetString() ?? "" : "";
             var midInFile = raw.TryGetValue("machine_id", out var mid) ? (mid.GetString() ?? "").Trim() : "";
-            if (!string.IsNullOrEmpty(midInFile) && !GetAcceptableMachineIds().Contains(midInFile, StringComparer.OrdinalIgnoreCase))
+            info.IsMachineBound = !string.IsNullOrEmpty(midInFile);
+
+            if (!LicenseTypes.IsKnown(info.LicenseType))
+            {
+                info.State = LicenseState.Invalid;
+                info.Message = "نوع الترخيص غير معروف: '" + info.LicenseType + "'.";
+                return info;
+            }
+
+            // الربط بجهاز اختياري: يُطبَّق فقط إن صُرِف machine_id داخل الملف.
+            if (info.IsMachineBound && !GetAcceptableMachineIds().Contains(midInFile, StringComparer.OrdinalIgnoreCase))
             {
                 info.State = LicenseState.MachineMismatch;
-                info.Message = "هذا الترخيص مخصص لجهاز آخر. معرّف هذا الجهاز: " + info.MachineId;
+                info.Message = "هذا الترخيص مربوط بجهاز آخر. معرّف هذا الجهاز: " + info.MachineId;
                 return info;
             }
 
             if (info.LicenseType == LicenseTypes.Lifetime)
             {
                 info.State = LicenseState.Valid;
+                info.DaysLeft = null;
                 info.Message = "رخصة مدى الحياة — " + (string.IsNullOrEmpty(info.IssuedTo) ? "" : info.IssuedTo);
                 return info;
             }
@@ -437,13 +499,15 @@ public static class LicenseService
                     }
                     info.State = LicenseState.Valid;
                     info.DaysLeft = (int)Math.Ceiling((expDt - DateTime.Now).TotalDays);
+                    // ترخيص تجريبي موقّع يبقى موسومًا كتجريبي لعرضه بوضوح في الواجهة.
+                    if (info.LicenseType == LicenseTypes.Trial) info.State = LicenseState.Trial;
                     info.Message = $"{LicenseTypes.Arabic(info.LicenseType)} — متبقي {info.DaysLeft} يوم.";
                     return info;
                 }
             }
 
             info.State = LicenseState.Invalid;
-            info.Message = "بيانات الرخصة ناقصة (لا يوجد تاريخ انتهاء).";
+            info.Message = "بيانات الرخصة ناقصة (لا يوجد تاريخ انتهاء صالح).";
             return info;
         }
         catch (Exception ex)
@@ -452,6 +516,117 @@ public static class LicenseService
             info.Message = "ملف الترخيص تالف: " + ex.Message;
             return info;
         }
+    }
+
+    /// <summary>
+    /// يستورد ترخيصًا بعد التحقق منه: يكتب فقط إذا كان صالحًا، ولا يستبدل ترخيصًا صالحًا قائمًا
+    /// بملف غير صالح. الكتابة ذرّية (ملف مؤقت ثم استبدال).
+    /// </summary>
+    public static LicenseImportResult ValidateAndImport(string content) =>
+        ValidateAndImportToFile(content, GetWritableLicensePath());
+
+    /// <summary>
+    /// نسخة بمسار هدف صريح — تُستخدم في الاختبارات ولاستيراد ترخيص في مسار مخصص.
+    /// </summary>
+    public static LicenseImportResult ValidateAndImportToFile(string content, string targetPath)
+    {
+        var result = new LicenseImportResult();
+        var info = ParseLicenseFile(content);
+        result.Info = info;
+
+        if (!info.IsAllowed)
+        {
+            result.Success = false;
+            result.Message = "لم يتم التفعيل: " + info.Message;
+            return result;
+        }
+
+        // لا تستبدل ترخيصًا صالحًا قائمًا بملف غير صالح — لكن استبدل المنتهي/غير الموجود.
+        var existing = ReadLicenseInfoAt(targetPath);
+        if (existing != null && existing.IsAllowed && !info.IsAllowed)
+        {
+            result.Success = false;
+            result.Message = "الترخيص الحالي صالح — لم يُستبدل.";
+            result.Info = existing;
+            return result;
+        }
+
+        try
+        {
+            var dir = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
+            var tmp = targetPath + ".tmp";
+            File.WriteAllText(tmp, content.Trim(), new UTF8Encoding(false));
+            if (File.Exists(targetPath)) File.Delete(targetPath);
+            File.Move(tmp, targetPath);
+            result.Success = true;
+            result.WrittenTo = targetPath;
+            result.Info = ParseLicenseFile(content);
+            result.Message = "تم التفعيل بنجاح: " + result.Info.Summary;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message = "تعذّر حفظ ملف الترخيص: " + ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>يستورد ترخيصًا من ملف على القرص (‎*.key / ‎*.lic / ‎*.json).</summary>
+    public static LicenseImportResult ValidateAndImportFile(string filePath) =>
+        ValidateAndImportFileTo(filePath, GetWritableLicensePath());
+
+    /// <summary>نسخة بمسار هدف صريح — تُستخدم في الاختبارات.</summary>
+    public static LicenseImportResult ValidateAndImportFileTo(string filePath, string targetPath)
+    {
+        var result = new LicenseImportResult();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                result.Success = false;
+                result.Message = "ملف الترخيص غير موجود: " + filePath;
+                return result;
+            }
+            var content = File.ReadAllText(filePath, Encoding.UTF8);
+            return ValidateAndImportToFile(content, targetPath);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message = "تعذّر قراءة ملف الترخيص: " + ex.Message;
+            return result;
+        }
+    }
+
+    /// <summary>يقرأ ترخيصًا من مسار محدد (بدون احتساب التجربة).</summary>
+    public static LicenseInfo? ReadLicenseInfoAt(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+        try
+        {
+            var info = ParseLicenseFile(File.ReadAllText(path, Encoding.UTF8));
+            if (info.State != LicenseState.Invalid) return info;
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>يقرأ الترخيص الموجود على القرص إن وُجد (بدون احتساب التجربة).</summary>
+    public static LicenseInfo? ReadExistingLicenseInfo()
+    {
+        foreach (var path in GetCandidateLicensePaths())
+        {
+            if (!File.Exists(path)) continue;
+            try
+            {
+                var info = ParseLicenseFile(File.ReadAllText(path, Encoding.UTF8));
+                if (info.State != LicenseState.Invalid) return info;
+            }
+            catch { }
+        }
+        return null;
     }
 
     private static object? ConvertElement(JsonElement el)

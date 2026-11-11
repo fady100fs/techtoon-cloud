@@ -6,6 +6,9 @@
     <Nullable>disable</Nullable>
     <RootNamespace>Techtoon.LicenseTool</RootNamespace>
     <AssemblyName>Techtoon.LicenseTool</AssemblyName>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Techtoon.Core\Techtoon.Core.csproj" />

@@ -1,12 +1,11 @@
 using System.Windows.Controls;
 
-namespace Techtoon.UI.Views
+namespace Techtoon.UI.Views;
+
+public partial class EmployeesView : UserControl
 {
-    public partial class EmployeesView : UserControl
+    public EmployeesView()
     {
-        public EmployeesView()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

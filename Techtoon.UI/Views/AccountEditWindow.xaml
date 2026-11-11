@@ -11,28 +11,28 @@
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,10,15">
-                        <TextBlock Text="الكود:" Margin="0,0,0,5"/>
+                        <TextBlock Text="&#x0627;&#x0644;&#x0643;&#x0648;&#x062F;:" Margin="0,0,0,5"/>
                         <TextBox Text="{Binding Code, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="10,0,0,15">
-                        <TextBlock Text="النوع:" Margin="0,0,0,5"/>
+                        <TextBlock Text="&#x0627;&#x0644;&#x0646;&#x0648;&#x0639;:" Margin="0,0,0,5"/>
                         <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding TypeOption}" Padding="8,6"/>
                     </StackPanel>
                 </Grid>
                 <StackPanel Margin="0,0,0,15">
-                    <TextBlock Text="الاسم:" Margin="0,0,0,5"/>
+                    <TextBlock Text="&#x0627;&#x0644;&#x0627;&#x0633;&#x0645;:" Margin="0,0,0,5"/>
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Padding="8,6"/>
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="الحساب الأب:" Margin="0,0,0,5"/>
+                    <TextBlock Text="&#x0627;&#x0644;&#x062D;&#x0633;&#x0627;&#x0628; &#x0627;&#x0644;&#x0623;&#x0628;:" Margin="0,0,0,5"/>
                     <ComboBox ItemsSource="{Binding AllAccounts}" DisplayMemberPath="Name" SelectedItem="{Binding Parent}" Padding="8,6"/>
                 </StackPanel>
             </StackPanel>
         </Border>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
             <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,20,0"/>
-            <Button Content="إلغاء" Style="{StaticResource PrimaryButton}" Command="{Binding CancelCommand}" Background="#757575" Margin="0,0,10,0"/>
-            <Button Content="💾 حفظ" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/>
+            <Button Content="&#x0625;&#x0644;&#x063A;&#x0627;&#x0621;" Style="{StaticResource PrimaryButton}" Command="{Binding CancelCommand}" Background="#757575" Margin="0,0,10,0"/>
+            <Button Content="&#x1F4BE; &#x062D;&#x0641;&#x0638;" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/>
         </StackPanel>
     </Grid>
 </Window>

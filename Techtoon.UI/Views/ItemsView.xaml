@@ -20,6 +20,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="LblTitle" Grid.Column="0" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
             <Button x:Name="BtnRefresh" Grid.Column="1" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding RefreshCommand}"/>
@@ -29,6 +30,7 @@
             <Button x:Name="BtnToggleActive" Grid.Column="5" Background="#FB8C00" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding BulkToggleActiveCommand}"/>
             <Button x:Name="BtnExport" Grid.Column="6" Background="#2E7D32" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding ExportExcelCommand}"/>
             <Button x:Name="BtnDelete" Grid.Column="7" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
+            <Button x:Name="BtnRecalcKits" Grid.Column="8" Background="#00838F" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Content="&#x1F504; &#x0627;&#x062D;&#x062A;&#x0633;&#x0627;&#x0628; &#x0627;&#x0644;&#x062A;&#x0643;&#x0627;&#x0644;&#x064A;&#x0641;" Command="{Binding RecalculateAllKitCostsCommand}"/>
         </Grid>
         <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
             <StackPanel Orientation="Horizontal">
@@ -53,9 +55,12 @@
                     <DataGridTextColumn x:Name="ColName" Binding="{Binding Name}" Width="*"/>
                     <DataGridTextColumn x:Name="ColBarcode" Binding="{Binding Barcode}" Width="120"/>
                     <DataGridTextColumn x:Name="ColStock" Binding="{Binding StockDisplay}" Width="80"/>
+                    <DataGridTextColumn x:Name="ColWarehouse" Binding="{Binding WarehouseName}" Width="120"/>
                     <DataGridTextColumn x:Name="ColSell" Binding="{Binding SellPriceDisplay}" Width="100"/>
                     <DataGridTextColumn x:Name="ColCost" Binding="{Binding CostPriceDisplay}" Width="100"/>
                     <DataGridTextColumn x:Name="ColValue" Binding="{Binding StockValueDisplay}" Width="100"/>
+                    <DataGridTextColumn x:Name="ColKitBadge" Binding="{Binding KitBadge}" Width="80"/>
+                    <DataGridTextColumn x:Name="ColKitComponents" Binding="{Binding KitComponentsDisplay}" Width="100"/>
                     <DataGridTextColumn x:Name="ColStatus" Binding="{Binding StatusDisplay}" Width="80"/>
                 </DataGrid.Columns>
             </DataGrid>

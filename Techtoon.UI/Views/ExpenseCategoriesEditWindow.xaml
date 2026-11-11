@@ -1,0 +1,58 @@
+<Window x:Class="Techtoon.UI.Views.ExpenseCategoriesEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="&#x062A;&#x0635;&#x0646;&#x064A;&#x0641;&#x0627;&#x062A; &#x0627;&#x0644;&#x0645;&#x0635;&#x0631;&#x0648;&#x0641;&#x0627;&#x062A;" Height="650" Width="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F7FA" FontFamily="Tahoma"
+        FlowDirection="RightToLeft"
+        Loaded="Window_Loaded">
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="LblTitle" Grid.Row="0" FontSize="20" FontWeight="Bold" Foreground="#00695C" Margin="0,0,0,15"/>
+        <Border Grid.Row="1" Background="White" CornerRadius="6" Padding="15">
+            <StackPanel>
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LblName" Grid.Column="0" Text="&#x0627;&#x0644;&#x0627;&#x0633;&#x0645;:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtName" Grid.Column="1" Padding="6,4" FontSize="14"/>
+                    </Grid>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LblDesc" Grid.Column="0" Text="&#x0627;&#x0644;&#x0648;&#x0635;&#x0641;:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtDesc" Grid.Column="1" Padding="6,4" FontSize="14"/>
+                    </Grid>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="LblAcc" Grid.Column="0" Text="&#x0627;&#x0644;&#x062D;&#x0633;&#x0627;&#x0628;:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="CmbAcc" Grid.Column="1" Padding="6,4" FontSize="14" DisplayMemberPath="Name"/>
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,0">
+            <Button x:Name="BtnSave" Content="&#x1F4BE; &#x062D;&#x0641;&#x0638;" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="20,10" BorderThickness="0" Cursor="Hand" Margin="0,0,15,0" Click="BtnSave_Click"/>
+            <Button x:Name="BtnDelete" Content="&#x1F5D1;&#xFE0F; &#x062D;&#x0630;&#x0641;" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="20,10" BorderThickness="0" Cursor="Hand" Margin="0,0,15,0" Click="BtnDelete_Click"/>
+            <Button x:Name="BtnCancel" Content="&#x2716; &#x0625;&#x0644;&#x063A;&#x0627;&#x0621;" Background="#757575" Foreground="White" FontWeight="SemiBold" Padding="20,10" BorderThickness="0" Cursor="Hand" Click="BtnCancel_Click"/>
+        </StackPanel>
+        <TextBlock x:Name="LblStatus" Grid.Row="3" FontSize="13" Foreground="#E53935" Margin="0,10,0,0" TextWrapping="Wrap"/>
+    </Grid>
+</Window>

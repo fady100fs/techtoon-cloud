@@ -13,6 +13,7 @@ import '../../features/reports/reports_screen.dart';
 import '../../features/inventory/inventory_screen.dart';
 import '../../features/loans/loans_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/generic/generic_list_screen.dart';
 
 class MainShell extends StatefulWidget {
   @override
@@ -29,6 +30,10 @@ class _MainShellState extends State<MainShell> {
       _currentPage = page;
       _currentTitle = title;
     });
+  }
+
+  Widget _genericScreen(String title, String endpoint, List<Map<String, dynamic>> columns) {
+    return GenericListScreen(title: title, endpoint: endpoint, columns: columns);
   }
 
   @override
@@ -51,24 +56,92 @@ class _MainShellState extends State<MainShell> {
                 currentAccountPicture: CircleAvatar(child: Icon(Icons.account_circle, size: 40), backgroundColor: Colors.white),
                 decoration: BoxDecoration(color: Colors.blueGrey),
               ),
+              // === لوحة المعلومات ===
               _drawerItem(Icons.dashboard, 'لوحة المعلومات', () => _navigate(DashboardScreen(), 'لوحة المعلومات')),
-              _drawerItem(Icons.inventory_2, 'الأصناف', () => _navigate(ProductsScreen(), 'الأصناف')),
               Divider(),
+
+              // === المبيعات والمشتريات ===
+              _sectionHeader('المبيعات والمشتريات'),
               _drawerItem(Icons.receipt_long, 'فواتير المبيعات', () => _navigate(InvoicesScreen(type: 'sales'), 'فواتير المبيعات')),
               _drawerItem(Icons.shopping_cart, 'فواتير المشتريات', () => _navigate(InvoicesScreen(type: 'purchase'), 'فواتير المشتريات')),
-              Divider(),
               _drawerItem(Icons.people, 'العملاء', () => _navigate(PartiesScreen(type: 'customer'), 'العملاء')),
               _drawerItem(Icons.local_shipping, 'الموردون', () => _navigate(PartiesScreen(type: 'supplier'), 'الموردون')),
-              Divider(),
               _drawerItem(Icons.south_west, 'سندات القبض', () => _navigate(PaymentsScreen(type: 'receipt'), 'سندات القبض')),
               _drawerItem(Icons.north_east, 'سندات الصرف', () => _navigate(PaymentsScreen(type: 'payment'), 'سندات الصرف')),
-              _drawerItem(Icons.money_off, 'المصروفات', () => _navigate(ExpensesScreen(), 'المصروفات')),
-              _drawerItem(Icons.account_balance_wallet, 'الخزائن', () => _navigate(CashBoxesScreen(), 'الخزائن')),
               Divider(),
-              _drawerItem(Icons.warehouse, 'المخزون', () => _navigate(InventoryScreen(), 'المخزون')),
-              _drawerItem(Icons.credit_card, 'القروض', () => _navigate(LoansScreen(), 'القروض')),
+
+              // === المخزون والأصول ===
+              _sectionHeader('المخزون والأصول'),
+              _drawerItem(Icons.inventory_2, 'الأصناف', () => _navigate(ProductsScreen(), 'الأصناف')),
+              _drawerItem(Icons.warehouse, 'إدارة المخازن', () => _navigate(
+                _genericScreen('إدارة المخازن', 'api/warehouses', [
+                  {'field': 'name', 'label': 'الاسم'},
+                  {'field': 'code', 'label': 'الكود'},
+                  {'field': 'location', 'label': 'الموقع'},
+                ]), 'إدارة المخازن')),
+              _drawerItem(Icons.swap_horiz, 'تحويل بين المخازن', () => _navigate(
+                _genericScreen('تحويل بين المخازن', 'api/warehouse-transfers', [
+                  {'field': 'transferNumber', 'label': 'رقم التحويل'},
+                  {'field': 'date', 'label': 'التاريخ'},
+                  {'field': 'status', 'label': 'الحالة'},
+                ]), 'تحويل بين المخازن')),
+              _drawerItem(Icons.inventory, 'المخزون', () => _navigate(InventoryScreen(), 'المخزون')),
               Divider(),
+
+              // === الموارد البشرية ===
+              _sectionHeader('الموارد البشرية'),
+              _drawerItem(Icons.person, 'إدارة الموظفين', () => _navigate(
+                _genericScreen('إدارة الموظفين', 'api/employees', [
+                  {'field': 'fullName', 'label': 'الاسم'},
+                  {'field': 'jobTitle', 'label': 'الوظيفة'},
+                  {'field': 'phone', 'label': 'الهاتف'},
+                ]), 'إدارة الموظفين')),
+              _drawerItem(Icons.payments, 'سجلات المرتبات', () => _navigate(
+                _genericScreen('سجلات المرتبات', 'api/salaries', [
+                  {'field': 'employeeName', 'label': 'الموظف'},
+                  {'field': 'netSalary', 'label': 'الصافي'},
+                  {'field': 'paymentDate', 'label': 'التاريخ'},
+                ]), 'سجلات المرتبات')),
+              _drawerItem(Icons.credit_card, 'السلف والقروض', () => _navigate(LoansScreen(), 'السلف والقروض')),
+              _drawerItem(Icons.account_balance_wallet, 'العهد والمصروفات', () => _navigate(
+                _genericScreen('العهد والمصروفات', 'api/petty-cash/custodies', [
+                  {'field': 'custodyNumber', 'label': 'رقم العهدة'},
+                  {'field': 'employeeName', 'label': 'الموظف'},
+                  {'field': 'amount', 'label': 'المبلغ'},
+                ]), 'العهد والمصروفات')),
+              Divider(),
+
+              // === المالية والمصرفية ===
+              _sectionHeader('المالية والمصرفية'),
+              _drawerItem(Icons.account_balance, 'الخزائن والبنوك', () => _navigate(CashBoxesScreen(), 'الخزائن والبنوك')),
+              _drawerItem(Icons.receipt, 'التسوية البنكية', () => _navigate(
+                _genericScreen('التسوية البنكية', 'api/bank-reconciliation/statements', [
+                  {'field': 'reconciliationNumber', 'label': 'رقم التسوية'},
+                  {'field': 'cashBoxName', 'label': 'الحساب'},
+                  {'field': 'difference', 'label': 'الفرق'},
+                ]), 'التسوية البنكية')),
+              _drawerItem(Icons.money, 'المصروفات', () => _navigate(ExpensesScreen(), 'المصروفات')),
+              _drawerItem(Icons.delete, 'الديون المعدومة', () => _navigate(
+                _genericScreen('الديون المعدومة', 'api/bad-debts', [
+                  {'field': 'writeoffNumber', 'label': 'رقم الشطب'},
+                  {'field': 'partyName', 'label': 'الطرف'},
+                  {'field': 'writeoffAmount', 'label': 'المبلغ'},
+                ]), 'الديون المعدومة')),
+              Divider(),
+
+              // === المحاسبة والتقارير ===
+              _sectionHeader('المحاسبة والتقارير'),
+              _drawerItem(Icons.replay, 'القيود الدورية', () => _navigate(
+                _genericScreen('القيود الدورية', 'api/recurring-journals', [
+                  {'field': 'name', 'label': 'الاسم'},
+                  {'field': 'frequency', 'label': 'التكرار'},
+                  {'field': 'nextRunDate', 'label': 'التنفيذ القادم'},
+                ]), 'القيود الدورية')),
               _drawerItem(Icons.assessment, 'التقارير', () => _navigate(ReportsScreen(), 'التقارير')),
+              Divider(),
+
+              // === الإعدادات ===
+              _sectionHeader('الإعدادات'),
               _drawerItem(Icons.settings, 'الإعدادات', () => _navigate(SettingsScreen(), 'الإعدادات')),
               Divider(),
               _drawerItem(Icons.logout, 'تسجيل الخروج', () {
@@ -90,6 +163,20 @@ class _MainShellState extends State<MainShell> {
       leading: Icon(icon, color: color ?? Colors.blueGrey),
       title: Text(title, style: TextStyle(color: color)),
       onTap: onTap,
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+        ),
+      ),
     );
   }
 }

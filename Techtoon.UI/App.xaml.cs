@@ -13,6 +13,9 @@ public partial class App : Application
     public static IServiceProvider Services { get; private set; } = null!;
     public static IConfiguration Configuration { get; private set; } = null!;
 
+    /// <summary>صحيح عندما يحتاج المستخدم إلى تفعيل البرنامج (يوجّهه للت-tab داخل الإعدادات بعد الدخول).</summary>
+    public static bool LicenseActivationRequired { get; set; }
+
     private static readonly string LogFile = Path.Combine(AppContext.BaseDirectory, "techtoon.log");
 
     public static void Log(string msg)
@@ -52,24 +55,28 @@ public partial class App : Application
 
         Log("=== Techtoon Accounting starting ===");
 
-        // P5: فحص الترخيص قبل فتح الواجهة (افتراضيًا: فترة تجريبية 10 أيام)
+        // P5: فحص الترخيص قبل فتح الواجهة (افتراضيًا: فترة تجريبية 10 أيام).
+        // لا نُغلق البرنامج هنا — يجب أن يصل المستخدم إلى «الإعدادات ← تفعيل البرنامج» للاستيراد.
+        // في حالة عدم السماح نعرض تحذيرًا غير حاجب ونوجّهه إلى تبويب التفعيل بعد تسجيل الدخول.
         try
         {
             var license = Techtoon.Core.Licensing.LicenseService.GetStatus();
-            Log($"LICENSE: state={license.State} type={license.LicenseType} daysLeft={license.DaysLeft} machine={license.MachineId} msg={license.Message}");
-            if (!license.IsAllowed)
+            Log($"LICENSE: state={license.State} type={license.LicenseType} daysLeft={license.DaysLeft} bound={license.IsMachineBound} msg={license.Message}");
+
+            if (license.IsAllowed)
             {
-                var msg = license.Message + "\n\n" +
-                           "لتفعيل البرنامج، ضع ملف الترخيص (license.key) بجانب ملف البرنامج، أو انسخ معرّف الجهاز التالي وأرسله لإصدار الرخصة:\n\n" +
-                           "معرّف الجهاز: " + license.MachineId;
-                Log("LICENSE BLOCKED: " + msg);
-                MessageBox.Show(msg, "البرنامج غير مرخّص", MessageBoxButton.OK, MessageBoxImage.Warning);
-                Shutdown(2);
-                return;
+                if (license.State == Techtoon.Core.Licensing.LicenseState.Trial)
+                    Log("LICENSE: running in trial mode (" + license.DaysLeft + " days left)");
             }
-            if (license.State == Techtoon.Core.Licensing.LicenseState.Trial)
+            else
             {
-                Log("LICENSE: running in trial mode (" + license.DaysLeft + " days left)");
+                LicenseActivationRequired = true;
+                Log("LICENSE NOT ALLOWED: " + license.Message);
+                var msg = license.Message + "\n\n" +
+                           "يمكنك تفعيل البرنامج الآن من داخل البرنامج:\n" +
+                           "الإعدادات ← تبويب «تفعيل البرنامج» ← استيراد ملف الترخيص.\n\n" +
+                           "البرنامج يعمل حاليًا في وضع محدود حتى يتم التفعيل.";
+                MessageBox.Show(msg, "البرنامج غير مفعّل", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (Exception licEx)
@@ -104,6 +111,22 @@ public partial class App : Application
                 {
                     await AuthService.EnsureDefaultAdminAsync();
                     Log("Default admin ensured");
+
+                    // تعبئة البيانات المرجعية إن كانت قاعدة البيانات جديدة (حسابات/عملات/خزائن).
+                    var seed = await SeedDataService.SeedIfEmptyAsync(connStr);
+                    if (seed.Created) Log("Seed: " + seed.Message);
+
+                    // صيانة المخطط: مزامنة sequences المتأخرة (إصلاح غير مدمّر — setval فقط).
+                    // تُنفَّذ في الخلفية حتى لا تُبطئ ظهور الواجهة.
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var sync = await SchemaMaintenanceService.SyncSequencesAsync(connStr);
+                            if (sync.Fixed > 0) Log("Schema sequences synced: " + sync.Fixed);
+                        }
+                        catch (Exception ex) { App.Log("Schema sync failed: " + ex.Message); }
+                    });
 
                     // نسخ احتياطي تلقائي (خلفية - لا يحجب الواجهة)
                     _ = System.Threading.Tasks.Task.Run(() =>

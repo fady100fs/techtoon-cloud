@@ -1,12 +1,11 @@
 using System.Windows.Controls;
 
-namespace Techtoon.UI.Views
+namespace Techtoon.UI.Views;
+
+public partial class WarehousesView : UserControl
 {
-    public partial class WarehousesView : UserControl
+    public WarehousesView()
     {
-        public WarehousesView()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

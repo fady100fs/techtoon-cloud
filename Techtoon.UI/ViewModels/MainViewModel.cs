@@ -67,7 +67,14 @@ public class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(CanViewSettings));
             OnPropertyChanged(nameof(CanViewStockLevels));
             if (AuthService.CurrentUser != null) CurrentUserDisplay = loginResult.User.FullName + " (" + loginResult.User.Role + ")";
-            IsLoggedIn = true; Navigate("Dashboard");
+            IsLoggedIn = true;
+            // P5: إذا كان البرنامج غير مفعّل نوجّه المستخدم مباشرةً إلى تبويب التفعيل داخل الإعدادات.
+            if (App.LicenseActivationRequired)
+            {
+                Navigate("LicenseActivation");
+                return;
+            }
+            Navigate("Dashboard");
         }
         else ErrorMessage = "\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062F\u062E\u0648\u0644 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629";
     }
@@ -116,7 +123,8 @@ public class MainViewModel : ViewModelBase
             "EarlyPaymentDiscount" => new EarlyPaymentDiscountViewModel(),
             "LatePaymentFees" => new LatePaymentFeesViewModel(),
             "Salaries" => new SalariesViewModel(),
-            "LicenseActivation" => new LicenseActivationViewModel(),
+            // التفعيل داخل الإعدادات — تبويب «تفعيل البرنامج»
+            "LicenseActivation" => new SettingsViewModel(1),
             _ => new ViewModelBase()
         };
     }

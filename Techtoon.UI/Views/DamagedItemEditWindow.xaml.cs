@@ -153,7 +153,8 @@ namespace Techtoon.UI.Views
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
-            if (Saved) DialogResult = true;
+            if (Saved) AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "DamagedItem", _id > 0 ? _id : 0, "Saved from EditWindow");
+            DialogResult = true;
             Close();
         }
     }

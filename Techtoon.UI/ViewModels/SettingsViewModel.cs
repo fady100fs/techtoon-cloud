@@ -10,13 +10,22 @@ namespace Techtoon.UI.ViewModels
         private string _statusMessage = "";
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
+        private int _selectedTabIndex;
+        /// <summary>0 = النسخ الاحتياطي، 1 = تفعيل البرنامج.</summary>
+        public int SelectedTabIndex { get => _selectedTabIndex; set => SetProperty(ref _selectedTabIndex, value); }
+
         public ICommand BackupCommand { get; }
         public ICommand RestoreCommand { get; }
 
-        public SettingsViewModel()
+        /// <summary>تبويب «تفعيل البرنامج» — استيراد ملف الترخيص والتحقق منه.</summary>
+        public LicenseSettingsViewModel License { get; }
+
+        public SettingsViewModel(int initialTabIndex = 0)
         {
             BackupCommand = new RelayCommand(CreateBackup);
             RestoreCommand = new RelayCommand(RestoreBackup);
+            License = new LicenseSettingsViewModel();
+            _selectedTabIndex = initialTabIndex;
         }
 
         private void CreateBackup()
@@ -51,7 +60,7 @@ namespace Techtoon.UI.ViewModels
 
                 if (!BackupService.VerifyBackup(dialog.FileName))
                 {
-                    System.Windows.MessageBox.Show("\u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D", "\u062A\u062D\u0642\u0642", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show("\u0627\u0644\u0645\u0644\u0641 \u063A\u064A\u0631 \u0635\u062D\u064A\u062D\u0629", "\u062A\u062D\u0642\u064A\u0642", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                     return;
                 }
 

@@ -1,0 +1,8 @@
+windows/
+android/
+ios/
+macos/
+linux/
+build/
+.dart_tool/
+.git/

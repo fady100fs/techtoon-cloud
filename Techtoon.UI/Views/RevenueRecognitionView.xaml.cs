@@ -148,44 +148,24 @@ namespace Techtoon.UI.Views
             var date = _dpDate.SelectedDate ?? DateTime.Today;
             try
             {
+                // كل العمليات في معاملة واحدة: سند قبض + قيد نقدية + تحديث الفاتورة + ربط سجل الاعتراف.
                 using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
                 conn.Open();
                 using var tx = conn.BeginTransaction();
-                int paymentId;
-                using (var pay = new NpgsqlCommand(@"INSERT INTO payments (date, amount, payment_type, payment_method, reference_number, notes, cash_box_id, currency_id)
-                    VALUES (@d, @a, 'receipt', @m, @r, @n, @cb, @cur) RETURNING id", conn, tx))
+                try
                 {
-                    pay.Parameters.AddWithValue("@d", date);
-                    pay.Parameters.AddWithValue("@a", amount);
-                    pay.Parameters.AddWithValue("@m", method);
-                    pay.Parameters.AddWithValue("@r", "INV-RECEIPT:" + _invoiceId);
-                    pay.Parameters.AddWithValue("@n", "تحويل فاتورة إلى سند قبض");
-                    pay.Parameters.AddWithValue("@cb", cb.Id);
-                    pay.Parameters.AddWithValue("@cur", DbDefaults.GetDefaultCurrencyId(conn));
-                    paymentId = Convert.ToInt32(pay.ExecuteScalar());
+                    var paymentId = RevenueRecognitionService.CreateReceiptInTransaction(
+                        conn, tx, _invoiceId, amount, cb.Id, date, method, "INV-RECEIPT:" + _invoiceId);
+                    tx.Commit();
+                    AuditService.Log("PAYMENT", "Invoice", _invoiceId, "Invoice converted to receipt: " + amount.ToString("N2") + " (payment " + paymentId + ")");
+                    DialogResult = true;
+                    Close();
                 }
-                using (var ins = new NpgsqlCommand(@"INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at, created_at)
-                    VALUES (@i, @m, @a, @r, @d, NOW())", conn, tx))
+                catch
                 {
-                    ins.Parameters.AddWithValue("@i", _invoiceId);
-                    ins.Parameters.AddWithValue("@m", method);
-                    ins.Parameters.AddWithValue("@a", amount);
-                    ins.Parameters.AddWithValue("@r", "INV-RECEIPT:" + _invoiceId);
-                    ins.Parameters.AddWithValue("@d", date);
-                    ins.ExecuteNonQuery();
+                    try { tx.Rollback(); } catch { }
+                    throw;
                 }
-                using (var up = new NpgsqlCommand("UPDATE invoices SET paid_amount = COALESCE(paid_amount,0) + @a WHERE id=@i", conn, tx))
-                {
-                    up.Parameters.AddWithValue("@a", amount);
-                    up.Parameters.AddWithValue("@i", _invoiceId);
-                    up.ExecuteNonQuery();
-                }
-                // ربط سجل الاعتراف بالسند (تحصيل)
-                RevenueRecognitionService.MarkCollected(_invoiceId, paymentId);
-                tx.Commit();
-                AuditService.Log("PAYMENT", "Invoice", _invoiceId, "Invoice converted to receipt: " + amount.ToString("N2") + " (cash row " + paymentId + ")");
-                DialogResult = true;
-                Close();
             }
             catch (Exception ex) { _lblStatus.Text = "خطأ: " + ex.Message; }
         }

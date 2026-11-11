@@ -32,20 +32,44 @@
 
 ---
 
-## ⚠️ المتبقي (8 فجوات — لم تُنفَّذ بعد، بصراحة)
+## ⚠️ المتبقي (يُغلق في جولة 2026-11-11)
 
-| # | الجدول/الكيان | لماذا لم تُغلق | المطلوب |
-|---|---------------|----------------|---------|
-| B4 | `bank_statements` + `bank_statement_lines` + `bank_statement_import_templates` + `bank_statement_import_logs` | **استيراد كشوف بنك** يحتاج قرارًا: صيغة الملف (CSV/Excel)؟ ربط تلقائي بالشيكات/المدفوعات؟ وما هو مصدر الرصيد الافتتاحي؟ | سياسة الاستيراد + الربط |
-| B7 | `cash_recognition_log` | **تقدير الإيراد المؤجل** يحتاج قاعدة محاسبية (متى يُعترف بالإيراد؟ لكل دفعة؟ لكل فاتورة؟) — لا أخترعها | قاعدة الاعتراف |
-| — | `overdraft_transactions` (متبقي: واجهة السداد فقط مُختبرة) | السحب مُختبَر؛ السداد نفس المسار لكن لم يُختبر منفصلاً | اختبار سداد |
-| — | `bad_debt_attachments` | مرفقات الديون المعدومة (ملف + مسار) — الصفحة الحالية بلا مرفقات | ميزة رفع ملفات |
-| — | `cost_center_transactions` | أُضيفت الواجهة؛ لم تُختبر الإضافة من الواجهة بعد (فقط توافق SQL) | اختبار واجهة |
-| — | `recurring_journal_executions` | سجل تنفيذ القيود الدورية — يُملأ تلقائيًا عند التشغيل | تعبئة تلقائية |
-| — | `warehouse_transfer_lines` + `warehouse_transfer_log` | تفاصيل تحويل المخازن — الصفحة الحالية تُسجّل الإجماليات فقط | تفاصيل الأصناف |
-| — | `kit_component_history` | تاريخ مكوّنات الكيت — سجل تدقيقي | تعبئة عند التعديل |
+| # | الجدول/الكيان | الحالة الآن | الدليل |
+|---|---------------|-----------|--------|
+| B4 | `bank_statements` + `bank_statement_lines` + `bank_statement_import_logs` | ✅ **مُغلق** — محرّك PDF + استيراد + ربط تلقائي | `BankStatementPdfReader` (Core) + `BankStatementImportService` (UI). اختبارات: PDF حقيقي → استيراد → سطور في القاعدة → ربط بسند قبض مطابق. **تصحيح**: `bank_statements` لا يملك عمود `statement_number` (خطأ INSERT سابق) — المرجع في `notes` + `bank_statement_import_logs`. |
+| B7 | `cash_recognition_log` | ✅ **مُغلق** — قاعدة: «يُعترف عند البيع ويبقى معلّقًا حتى سند القبض» | `RevenueRecognitionService.TryRecognizeInTransaction` (يُستدعى من حفظ الفاتورة **داخل نفس المعاملة**) + `CreateReceiptInTransaction` (سند قبض + قيد نقدية + تحديث الفاتورة والمبلغ والحالة + ربط السجل — كله ذرّي). اختبار تكامل: بيع → اعتراف معلّق → سند قبض جزئي → محصّل/partial → سند ثانٍ → paid. **تصحيح**: تحديث الفاتورة عند التعديل كان يترك `status='unpaid'`. |
 
-> ملاحظة: 8 بنود متبقية هي في أغلبها **سجلات/تفاصيل** وليست كيانات ناقصة بواجهة رئيسية.
+### أخطاء حقيقية اكتُشفت وأُصلحت في هذه الجولة
+
+| # | الخطأ | الأثر | الإصلاح |
+|---|-------|-------|---------|
+| 1 | **تكرار `DataTemplate` في `MainWindow.xaml`** (`RevenueRecognitionViewModel` و`BankStatementImportViewModel` مرتين) | **البرنامج لم يكن يفتح إطلاقًا** — `XamlParseException` عند الإقلاع | حذف التكرار — البرنامج يفتح الآن (مُتحقَّق بتشغيل الـ EXE فعليًا) |
+| 2 | **`accounts_id_seq` / `parties_id_seq` متأخرة عن `MAX(id)`** (بيانات مزروعة بمعرّفات صريحة) | أي INSERT جديد في الحسابات/الأطراف يفشل بـ `duplicate key value violates unique constraint` | `SchemaMaintenanceService.SyncSequencesAsync` يعمل تلقائيًا عند الإقلاع + `deploy/migrations/P6_sync_sequences.sql` |
+| 3 | `bank_statements.statement_number` عمود غير موجود | فشل استيراد كشوف البنك دائمًا | حذف العمود من الـ INSERT + توسيع الخدمة + `bank_statement_import_logs` |
+| 4 | `MarkCollected` كان يفتح **اتصالًا منفصلًا** أثناء المعاملة | ربط التحصيل قد لا يُحفظ | نقل الربط داخل نفس المعاملة (`CreateReceiptInTransaction`) |
+| 5 | تحديث الفاتورة عند التعديل لا يضبط `status` | فاتورة مدفوعة تبقى `unpaid` | `ComputeStatus()` في كل حفظ |
+
+---
+
+## 🔐 الترخيص والتوزيع (جولة 2026-11-11)
+
+| البند | الحالة | الدليل |
+|-------|--------|--------|
+| الترخيص **غير مربوط بجهاز** | ✅ | `LicenseService` — `machine_id` فارغ = يعمل على أي جهاز. الربط بجهاز **اختياري** فقط |
+| التفعيل **داخل الإعدادات** | ✅ | تبويب «تفعيل البرنامج» في `SettingsView.xaml` + `LicenseSettingsViewModel` |
+| استيراد ملف `.key`/`.lic` | ✅ | `LicenseService.ValidateAndImportFile` — تحقق من التوقيع + الانتهاء **قبل** الكتابة |
+| استيراد غير صالح لا يمسح ترخيصًا صالحًا | ✅ | اختبار `ValidateAndImport_Invalid_File_Does_Not_Overwrite_Existing_Valid_License` |
+|Types: تجريبي 10 أيام / شهري / سنوي / مدى الحياة | ✅ | 4 أنواع + اختبار `Theory` + `License_Tool` يولّدها |
+| حزمة توزيع مستقلة (بلا .NET مثبّت) | ✅ | `deploy/build-distribution.ps1` — `PublishSingleFile` + `self-contained` (72.6 MB) |
+| رخص موقّعة حقيقية | ✅ | `LicenseTool` يولّدها ويتحقق منها داخل السكربت (لا ملفات وهمية) |
+
+### إختبار الـ EXE فعليًا (لا ادّعاءات)
+
+```
+dist\Application\Techtoon.UI.exe  →  يعمل ويبقى مفتوحًا  ✅
+dist\Tools\Techtoon.LicenseTool.exe status / verify  →  يعمل  ✅
+```
+
 
 ---
 

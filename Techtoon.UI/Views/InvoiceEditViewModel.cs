@@ -109,6 +109,13 @@ namespace Techtoon.UI.Views
         private bool _isBusy = false;
         private bool _isSaving = false; public bool IsBusy { get { return _isBusy; } set { _isBusy = value; OnPropertyChanged("IsBusy"); } }
 
+        /// <summary>معرّف سجل الاعتراف بالإيراد (B7) — يُملأ عند حفظ فاتورة بيع.</summary>
+        public int? RecognitionLogId { get; set; }
+
+        /// <summary>حالة الفاتورة المحسوبة من إجمالي الفاتورة والمدفوع.</summary>
+        private string ComputeStatus() =>
+            TotalPaid >= Total - 0.005m ? "paid" : (TotalPaid > 0 ? "partial" : "unpaid");
+
         public ICommand AddLineCommand { get; set; }
         public ICommand DeleteLineCommand { get; set; }
         public ICommand AddPaymentCommand { get; set; }
@@ -580,11 +587,13 @@ public async System.Threading.Tasks.Task SaveAsync()
                             {
                                 if (Id > 0)
                                 {
-                                    using (var cmd = new NpgsqlCommand("UPDATE invoices SET invoice_number=@sn, date=@dt, type=@tp, party_id=@pid, warehouse_id=@wid, subtotal=@st, discount_amount=@da, total=@tt, paid_amount=@pa, currency_id=1, updated_at=NOW() WHERE id=@id", conn, tran))
+                                    using (var cmd = new NpgsqlCommand("UPDATE invoices SET invoice_number=@sn, date=@dt, type=@tp, party_id=@pid, warehouse_id=@wid, subtotal=@st, discount_amount=@da, total=@tt, paid_amount=@pa, status=@status, currency_id=1, updated_at=NOW() WHERE id=@id", conn, tran))
                                     {
                                         cmd.Parameters.AddWithValue("id", Id); cmd.Parameters.AddWithValue("sn", SerialNumber); cmd.Parameters.AddWithValue("dt", InvoiceDate); cmd.Parameters.AddWithValue("tp", InvoiceType);
                                         cmd.Parameters.AddWithValue("pid", PartyId > 0 ? (object)PartyId : DBNull.Value); cmd.Parameters.AddWithValue("wid", WarehouseId > 0 ? (object)WarehouseId : DBNull.Value);
                                         cmd.Parameters.AddWithValue("st", Subtotal); cmd.Parameters.AddWithValue("da", DiscountAmount); cmd.Parameters.AddWithValue("tt", Total); cmd.Parameters.AddWithValue("pa", TotalPaid);
+                                        // B7: حالة الفاتورة تُحدَّث مع كل حفظ (لماذا تبقى 'unpaid' بعد الدفع).
+                                        cmd.Parameters.AddWithValue("@status", ComputeStatus());
                                         cmd.ExecuteNonQuery();
                                     }
                                 }
@@ -620,6 +629,16 @@ public async System.Threading.Tasks.Task SaveAsync()
                                 }
                                 using (var cmd = new NpgsqlCommand("DELETE FROM invoice_payments WHERE invoice_id=@id", conn, tran)) { cmd.Parameters.AddWithValue("id", Id); cmd.ExecuteNonQuery(); }
                                 foreach (var pay in Payments) { if (pay.Amount <= 0) continue; using (var cmd = new NpgsqlCommand("INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at) VALUES (@inv, @mth, @amt, @ref, @pdt)", conn, tran)) { cmd.Parameters.AddWithValue("inv", Id); cmd.Parameters.AddWithValue("mth", pay.Method); cmd.Parameters.AddWithValue("amt", pay.Amount); cmd.Parameters.AddWithValue("ref", (object)pay.Reference ?? DBNull.Value); cmd.Parameters.AddWithValue("pdt", pay.PaymentDate); cmd.ExecuteNonQuery(); } }
+
+                                // B7: يُعترف بالإيراد عند البيع — داخل نفس المعاملة.
+                                // (مسودات الفواتير لا تُعترف — مسار الحفظDraft منفصل تمامًا.)
+                                if (InvoiceType == "sales")
+                                {
+                                    var logId = Techtoon.UI.Services.RevenueRecognitionService.TryRecognizeInTransaction(conn, tran, Id);
+                                    if (logId.HasValue)
+                                        RecognitionLogId = logId.Value;
+                                }
+
                                 tran.Commit();
                             }
                             catch

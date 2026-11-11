@@ -7,4 +7,9 @@
       <NoWarn>$(NoWarn);CS8618;CS8625;CS8600;CS8601;CS8602;CS8603;CS8604;CS8619;CS8620;CS8621;CS8622;CS8624;CS8626</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.0" />
+    <PackageReference Include="PdfPig" Version="0.1.11" />
+  </ItemGroup>
+
 </Project>
