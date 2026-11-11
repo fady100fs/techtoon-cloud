@@ -81,43 +81,86 @@ public partial class WarehouseTransfersEditWindow : Window
         catch (Exception ex) { LblStatus.Text = "\u062E\u0637\u0623: " + ex.Message; }
     }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
+    private async void BtnSave_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var p0 = ((ComboItem)CmbFromWh.SelectedItem)?.Id ?? 0;
-            var p1 = ((ComboItem)CmbToWh.SelectedItem)?.Id ?? 0;
-            var p2 = ((ComboItem)CmbItem.SelectedItem)?.Id ?? 0;
-            var p3 = TxtQty.Text;
-            var p4 = TxtNotes.Text;
-            using var conn = new NpgsqlConnection(GetCS());
-            conn.Open();
+            var fromId = ((ComboItem)CmbFromWh.SelectedItem)?.Id ?? 0;
+            var toId = ((ComboItem)CmbToWh.SelectedItem)?.Id ?? 0;
+            var itemId = ((ComboItem)CmbItem.SelectedItem)?.Id ?? 0;
+            var notes = TxtNotes.Text;
+
+            if (!decimal.TryParse(TxtQty.Text, System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.CurrentCulture, out var qty) || qty <= 0)
+            {
+                LblStatus.Text = "الكمية غير صحيحة.";
+                return;
+            }
+            if (fromId <= 0 || toId <= 0) { LblStatus.Text = "اختر المخزن المرسل والمستقبل."; return; }
+            if (itemId <= 0) { LblStatus.Text = "اختر الصنف."; return; }
+            if (fromId == toId) { LblStatus.Text = "لا يمكن التحويل إلى نفس المخزن."; return; }
+
+            var svc = ClosedLoopDetailsService.Create();
             if (_id > 0)
             {
-                using var cmd = new NpgsqlCommand(@"UPDATE warehouse_transfers SET from_warehouse_id=@p0, to_warehouse_id=@p1, item_id=@p2, quantity=@p3, notes=@p4 WHERE id=@id", conn);
-                cmd.Parameters.AddWithValue("id", _id);
-            cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p1", (object)p1 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p2", (object)p2 ?? DBNull.Value);
-            double _d3;
-            if (!double.TryParse(p3, out _d3)) _d3 = 0;
-            cmd.Parameters.AddWithValue("p3", _d3);
-            cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
-                cmd.ExecuteNonQuery();
+                // تحديث: نستبدل سطور التحويل ونُسجّل حركة في السجل
+                using var conn = new NpgsqlConnection(GetCS());
+                conn.Open();
+                using var tx = conn.BeginTransaction();
+                try
+                {
+                    using (var upd = new NpgsqlCommand(@"UPDATE warehouse_transfers
+                        SET from_warehouse_id=@fw, to_warehouse_id=@tw, item_id=@item, quantity=@qty, notes=@notes
+                        WHERE id=@id", conn, tx))
+                    {
+                        upd.Parameters.AddWithValue("@fw", fromId);
+                        upd.Parameters.AddWithValue("@tw", toId);
+                        upd.Parameters.AddWithValue("@item", itemId);
+                        upd.Parameters.AddWithValue("@qty", qty);
+                        upd.Parameters.AddWithValue("@notes", (object)notes ?? DBNull.Value);
+                        upd.Parameters.AddWithValue("@id", _id);
+                        upd.ExecuteNonQuery();
+                    }
+                    using (var del = new NpgsqlCommand("DELETE FROM warehouse_transfer_lines WHERE transfer_id=@id", conn, tx))
+                    {
+                        del.Parameters.AddWithValue("@id", _id);
+                        del.ExecuteNonQuery();
+                    }
+                    using (var ins = new NpgsqlCommand(@"INSERT INTO warehouse_transfer_lines
+                        (transfer_id, item_id, requested_quantity, shipped_quantity, received_quantity)
+                        VALUES (@tid, @iid, @rq, @rq, @rq)", conn, tx))
+                    {
+                        ins.Parameters.AddWithValue("@tid", _id);
+                        ins.Parameters.AddWithValue("@iid", itemId);
+                        ins.Parameters.AddWithValue("@rq", qty);
+                        ins.ExecuteNonQuery();
+                    }
+                    await ClosedLoopDetailsService.LogTransferAsync(conn, tx, _id, "update", 1, null, null, "تعديل التحويل");
+                    tx.Commit();
+                }
+                catch
+                {
+                    try { tx.Rollback(); } catch { }
+                    throw;
+                }
             }
             else
             {
-                using var cmd = new NpgsqlCommand(@"INSERT INTO warehouse_transfers (date, from_warehouse_id, to_warehouse_id, item_id, quantity, notes, status, created_by) VALUES (NOW(), @p0, @p1, @p2, @p3, @p4, 'draft', 1)", conn);
-            cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p1", (object)p1 ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("p2", (object)p2 ?? DBNull.Value);
-            double _d3;
-            if (!double.TryParse(p3, out _d3)) _d3 = 0;
-            cmd.Parameters.AddWithValue("p3", _d3);
-            cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
-                cmd.ExecuteNonQuery();
+                // إنشاء: التحويل + سطوره + سجل حركاته — في معاملة واحدة
+                var lines = new System.Collections.Generic.List<ClosedLoopDetailsService.TransferLine>
+                {
+                    new ClosedLoopDetailsService.TransferLine
+                    {
+                        ItemId = itemId,
+                        RequestedQuantity = qty,
+                        ShippedQuantity = qty,
+                        ReceivedQuantity = qty
+                    }
+                };
+                _id = await svc.CreateTransferAsync(fromId, toId, DateTime.Now, lines, notes, "draft");
             }
-            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "WarehoueTranfer", _id > 0 ? _id : 0, "Saved from EditWindow");
+
+            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "WarehouseTransfer", _id, "Saved from EditWindow");
             DialogResult = true;
             Close();
         }

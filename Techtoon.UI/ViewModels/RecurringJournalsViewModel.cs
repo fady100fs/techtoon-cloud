@@ -45,6 +45,10 @@ namespace Techtoon.UI.ViewModels
         public ICommand AddCommand { get; }
         public ICommand EditCommand { get; }
         public ICommand DeleteCommand { get; }
+        /// <summary>تنفيذ القيد الدوري الآن (ينشئ القيد ويسجّل سطر التنفيذ).</summary>
+        public ICommand RunNowCommand { get; }
+        /// <summary>عرض سجل تنفيذ القالب (recurring_journal_executions).</summary>
+        public ICommand ShowExecutionsCommand { get; }
 
         public RecurringJournalsViewModel()
         {
@@ -52,6 +56,8 @@ namespace Techtoon.UI.ViewModels
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
             DeleteCommand = new RelayCommand(DeleteTemplate, () => SelectedItem != null);
+            RunNowCommand = new RelayCommand(async () => await RunNowAsync(), () => SelectedItem != null);
+            ShowExecutionsCommand = new RelayCommand(async () => await ShowExecutionsAsync(), () => SelectedItem != null);
             LoadTemplates();
         }
 
@@ -95,6 +101,50 @@ namespace Techtoon.UI.ViewModels
                 var win = new Views.RecurringJournalsEditWindow(id);
                 win.ShowDialog();
                 LoadTemplates();
+            }
+            catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
+        }
+
+        /// <summary>ينفّذ القيد الدوري الآن — ينشئ القيد ويسجّل سطر التنفيذ.</summary>
+        private async System.Threading.Tasks.Task RunNowAsync()
+        {
+            if (SelectedItem == null) return;
+            var svc = Techtoon.UI.Services.RecurringJournalService.Create();
+            StatusMessage = "جارٍ تنفيذ القيد...";
+            var res = await svc.ExecuteAsync(SelectedItem.Id, DateTime.Today);
+            StatusMessage = res.Message;
+            LoadTemplates();
+        }
+
+        /// <summary>يعرض سجل تنفيذ القالب.</summary>
+        private async System.Threading.Tasks.Task ShowExecutionsAsync()
+        {
+            if (SelectedItem == null) return;
+            try
+            {
+                var svc = Techtoon.UI.Services.RecurringJournalService.Create();
+                var list = await svc.GetExecutionsAsync(SelectedItem.Id);
+                if (list.Count == 0)
+                {
+                    System.Windows.MessageBox.Show("لا يوجد سجل تنفيذ لهذا القالب بعد.", "سجل التنفيذ",
+                        System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    return;
+                }
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine("القالب: " + SelectedItem.Name);
+                sb.AppendLine("--------------------------------------------------");
+                foreach (var row in list)
+                {
+                    var date = row["execution_date"] is DateTime d ? d.ToString("yyyy-MM-dd") : "";
+                    var status = row["status"]?.ToString() ?? "";
+                    var entry = row["journal_entry_id"]?.ToString() ?? "-";
+                    var debit = row["total_debit"] is decimal dec ? dec.ToString("N2") : "";
+                    var err = row["error_message"]?.ToString();
+                    sb.AppendLine($"{date}  [{status}]  قيد: {entry}  مدين: {debit}");
+                    if (!string.IsNullOrEmpty(err)) sb.AppendLine("    خطأ: " + err);
+                }
+                System.Windows.MessageBox.Show(sb.ToString(), "سجل تنفيذ القيد الدوري",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             }
             catch (Exception ex) { StatusMessage = "خطأ: " + ex.Message; }
         }

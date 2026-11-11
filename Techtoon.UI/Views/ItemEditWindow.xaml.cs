@@ -216,6 +216,17 @@ namespace Techtoon.UI.Views
                 }
                 if (isKit)
                 {
+                    // P6: تاريخ مكوّنات الكيت — نلتقط الحالة القديمة قبل الاستبدال
+                    var oldComponents = new System.Collections.Generic.Dictionary<int, decimal>();
+                    using (var oldCmd = new NpgsqlCommand(
+                        "SELECT component_item_id, quantity FROM kit_components WHERE kit_item_id=@kitId", conn))
+                    {
+                        oldCmd.Parameters.AddWithValue("kitId", _id);
+                        using var oldReader = oldCmd.ExecuteReader();
+                        while (oldReader.Read())
+                            oldComponents[oldReader.GetInt32(0)] = oldReader.GetDecimal(1);
+                    }
+
                     using var delCmd = new NpgsqlCommand("DELETE FROM kit_components WHERE kit_item_id=@kitId", conn);
                     delCmd.Parameters.AddWithValue("kitId", _id); delCmd.ExecuteNonQuery();
                     foreach (var comp in _kitComponents)
@@ -223,6 +234,28 @@ namespace Techtoon.UI.Views
                         using var insCmd = new NpgsqlCommand("INSERT INTO kit_components (kit_item_id, component_item_id, quantity) VALUES (@kitId, @compId, @qty)", conn);
                         insCmd.Parameters.AddWithValue("kitId", _id); insCmd.Parameters.AddWithValue("compId", comp.ComponentItemId);
                         insCmd.Parameters.AddWithValue("qty", comp.Quantity); insCmd.ExecuteNonQuery();
+                    }
+
+                    // تسجيل التاريخ (kit_component_history) — لكل مكوّن إضافة/تعديل/إزالة
+                    var history = Techtoon.UI.Services.ClosedLoopDetailsService.Create();
+                    var newComponents = new System.Collections.Generic.Dictionary<int, decimal>();
+                    foreach (var comp in _kitComponents) newComponents[comp.ComponentItemId] = comp.Quantity;
+
+                    foreach (var kv in newComponents)
+                    {
+                        oldComponents.TryGetValue(kv.Key, out var oldQty);
+                        var changeType = oldComponents.ContainsKey(kv.Key)
+                            ? (Math.Abs(oldQty - kv.Value) < 0.0001m ? "unchanged" : "updated")
+                            : "added";
+                        history.RecordKitComponentHistoryAsync(_id, kv.Key, kv.Value, null, changeType,
+                            oldComponents.ContainsKey(kv.Key) ? oldQty : (decimal?)null, kv.Value, null, null,
+                            "حفظ مكوّنات الكيت").GetAwaiter().GetResult();
+                    }
+                    foreach (var kv in oldComponents)
+                    {
+                        if (newComponents.ContainsKey(kv.Key)) continue;
+                        history.RecordKitComponentHistoryAsync(_id, kv.Key, 0, null, "removed",
+                            kv.Value, 0, null, null, "إزالة مكوّن من الكيت").GetAwaiter().GetResult();
                     }
                 }
                 else

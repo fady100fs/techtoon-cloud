@@ -52,6 +52,7 @@ public partial class BadDebtsEditWindow : Window
             }
         } catch { }
         if (_id > 0) LoadData();
+        _ = LoadAttachments();
     }
 
     private void LoadData()
@@ -82,6 +83,84 @@ public partial class BadDebtsEditWindow : Window
         catch (Exception ex) { LblStatus.Text = "\u062E\u0637\u0623: " + ex.Message; }
     }
 
+    // ==================== المرفقات (bad_debt_attachments) ====================
+
+    private System.Collections.Generic.List<ClosedLoopDetailsService.AttachmentInfo> _attachments = new();
+
+    private async System.Threading.Tasks.Task LoadAttachments()
+    {
+        if (_id <= 0) { LstAttachments.Items.Clear(); return; }
+        try
+        {
+            var svc = ClosedLoopDetailsService.Create();
+            _attachments = await svc.GetBadDebtAttachmentsAsync(_id);
+            LstAttachments.Items.Clear();
+            foreach (var a in _attachments)
+                LstAttachments.Items.Add(a);
+        }
+        catch (Exception ex) { LblStatus.Text = "خطأ في تحميل المرفقات: " + ex.Message; }
+    }
+
+    private async void BtnAddAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (_id <= 0)
+        {
+            LblStatus.Text = "احفظ الشطب أولًا ثم أضف المرفقات.";
+            return;
+        }
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "اختر ملف المرفق",
+            Filter = "All files (*.*)|*.*"
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            var svc = ClosedLoopDetailsService.Create();
+            var att = await svc.AddBadDebtAttachmentAsync(_id, dlg.FileName, null);
+            LblStatus.Text = "تم إضافة المرفق: " + att.FileName;
+            await LoadAttachments();
+        }
+        catch (Exception ex) { LblStatus.Text = "خطأ: " + ex.Message; }
+    }
+
+    private void BtnOpenAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (LstAttachments.SelectedItem is not ClosedLoopDetailsService.AttachmentInfo a) return;
+        try
+        {
+            if (!System.IO.File.Exists(a.FilePath))
+            {
+                LblStatus.Text = "الملف غير موجود على القرص: " + a.FilePath;
+                return;
+            }
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = a.FilePath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex) { LblStatus.Text = "خطأ: " + ex.Message; }
+    }
+
+    private async void BtnDeleteAttachment_Click(object sender, RoutedEventArgs e)
+    {
+        if (LstAttachments.SelectedItem is not ClosedLoopDetailsService.AttachmentInfo a) return;
+        if (System.Windows.MessageBox.Show("تأكيد حذف المرفق؟", "تأكيد",
+            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes) return;
+        try
+        {
+            using var conn = new NpgsqlConnection(GetCS());
+            conn.Open();
+            using var cmd = new NpgsqlCommand("DELETE FROM bad_debt_attachments WHERE id=@id", conn);
+            cmd.Parameters.AddWithValue("id", a.Id);
+            cmd.ExecuteNonQuery();
+            AuditService.Log("DELETE", "BadDebtAttachment", a.Id, "Attachment removed: " + a.FileName);
+            await LoadAttachments();
+        }
+        catch (Exception ex) { LblStatus.Text = "خطأ: " + ex.Message; }
+    }
+
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -110,7 +189,7 @@ public partial class BadDebtsEditWindow : Window
             }
             else
             {
-                using var cmd = new NpgsqlCommand(@"INSERT INTO bad_debt_writeoffs (party_id, writeoff_amount, reason, writeoff_date, bad_debt_account_id, ar_account_id, status, requested_by, requested_at, writeoff_type, original_amount, remaining_amount) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, 'pending', 1, NOW(), 'full', @p1, @p1)", conn);
+                using var cmd = new NpgsqlCommand(@"INSERT INTO bad_debt_writeoffs (party_id, writeoff_amount, reason, writeoff_date, bad_debt_account_id, ar_account_id, status, requested_by, requested_at, writeoff_type, original_amount, remaining_amount) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, 'pending', 1, NOW(), 'full', @p1, @p1) RETURNING id", conn);
             cmd.Parameters.AddWithValue("p0", (object)p0 ?? DBNull.Value);
             double _d1;
             if (!double.TryParse(p1, out _d1)) _d1 = 0;
@@ -119,9 +198,10 @@ public partial class BadDebtsEditWindow : Window
             cmd.Parameters.AddWithValue("p3", (object)p3 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p4", (object)p4 ?? DBNull.Value);
             cmd.Parameters.AddWithValue("p5", (object)p5 ?? DBNull.Value);
-                cmd.ExecuteNonQuery();
+                var newId = cmd.ExecuteScalar();
+                if (newId != null && newId != DBNull.Value) _id = Convert.ToInt32(newId);
             }
-            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "BadDebt", _id > 0 ? _id : 0, "Saved from EditWindow");
+            AuditService.Log(_id > 0 ? "UPDATE" : "CREATE", "BadDebt", _id, "Saved from EditWindow");
             DialogResult = true;
             Close();
         }

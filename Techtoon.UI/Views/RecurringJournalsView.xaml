@@ -15,12 +15,16 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="&#x1F504; &#x0627;&#x0644;&#x0642;&#x064A;&#x0648;&#x062F; &#x0627;&#x0644;&#x062F;&#x0648;&#x0631;&#x064A;&#x0629;" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
             <Button Grid.Column="1" Content="&#x1F504; &#x062A;&#x062D;&#x062F;&#x064A;&#x062B;" Background="#26A69A" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding RefreshCommand}"/>
             <Button Grid.Column="2" Content="&#x2795; &#x0625;&#x0636;&#x0627;&#x0641;&#x0629;" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding AddCommand}"/>
             <Button Grid.Column="3" Content="&#x270F;&#xFE0F; &#x062A;&#x0639;&#x062F;&#x064A;&#x0644;" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding EditCommand}"/>
             <Button Grid.Column="4" Content="&#x1F5D1;&#xFE0F; &#x062D;&#x0630;&#x0641;" Background="#E53935" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Command="{Binding DeleteCommand}"/>
+            <Button Grid.Column="5" x:Name="BtnRunNow" Content="&#x25B6; &#x062A;&#x0646;&#x0641;&#x064A;&#x0630; &#x0627;&#x0644;&#x0622;&#x0646;" Background="#F57C00" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding RunNowCommand}"/>
+            <Button Grid.Column="6" x:Name="BtnExecutions" Content="&#x1F4CB; &#x0633;&#x062C;&#x0644; &#x0627;&#x0644;&#x062A;&#x0646;&#x0641;&#x064A;&#x0630;" Background="#5E35B1" Foreground="White" FontWeight="SemiBold" Padding="10,8" BorderThickness="0" Cursor="Hand" Margin="3,0" Command="{Binding ShowExecutionsCommand}"/>
         </Grid>
         <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
             <StackPanel Orientation="Horizontal">

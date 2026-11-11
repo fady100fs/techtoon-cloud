@@ -68,7 +68,39 @@
 ```
 dist\Application\Techtoon.UI.exe  →  يعمل ويبقى مفتوحًا  ✅
 dist\Tools\Techtoon.LicenseTool.exe status / verify  →  يعمل  ✅
+run_techtoon.bat  →  شغّل التطبيق فعليًا  ✅
+check_license.bat →  يعرض حالة الترخيص  ✅
+deploy\verify-distribution.ps1 → 24/24 فحص مُنفَّذ  ✅
 ```
+
+---
+
+## ✅ الفجوات المتبقية — أُغلقت جميعها (2026-11-11)
+
+| # | الفجوة | ما أُضيف | الدليل (اختبار مُنفَّذ) |
+|---|--------|----------|------------------------|
+| — | `overdraft_transactions` (السداد) | اختبار مستقل للسداد | `Overdraft_Withdrawal_Then_Repayment_Closes_The_Loop` — سحب 1000 → سداد 400 → رصيد مستخدم 600 + سند دفع `OD-RP-*` + الخزينة ±صحيح + رفض السداد الزائد |
+| — | `bad_debt_attachments` | **ميزة كاملة**: لوحة مرفقات في محرر شطب الديون (إضافة/فتح/حذف) | `BadDebtAttachment_Is_Saved_And_Recorded` — ملف حقيقي يُنسخ ويُسجَّل (اسم/حجم/بصمة) |
+| — | `cost_center_transactions` | `CostCenterService` (إضافة/تعديل/حذف/رصيد) + اختبار واجهة | `CostCenter_Transaction_Is_Recorded_With_Balance` |
+| — | `recurring_journal_executions` | **محرّك تنفيذ**: «تنفيذ الآن» ينشئ القيد + سطر التنفيذ | `ExecuteRecurringJournal_Creates_Entry_And_Execution_Record` + `..._Unbalanced_Records_Failure_And_No_Entry` |
+| — | `warehouse_transfer_lines` + `warehouse_transfer_log` | الحفظ يكتب السطور + سجل الحركات في معاملة واحدة | `CreateTransfer_Writes_Lines_And_Log` |
+| — | `kit_component_history` | تسجيل تلقائي (إضافة/تعديل/إزالة) عند حفظ الكيت | `KitComponentHistory_Is_Recorded` |
+| — | رفض الحفظ في فترة محاسبية مغلقة | اختبار على `AccountingPeriodGuard` | `Closed_Accounting_Period_Blocks_Posting` + `Open_Accounting_Period_Does_Not_Block` |
+
+> **النتيجة:** 0 فجوات متبقية. الاختبارات: **74/74 ناجحة** (كانت 21).
+
+---
+
+## 🗄️ دعم التثبيت الجديد (قاعدة بيانات فارغة)
+
+| البند | التفصيل |
+|-------|---------|
+| `deploy/migrations/schema_full.sql` | سكربت idempotent ينشئ **85 جدول + 5 عروض** (مُولَّد من المخطط الفعلي، ومُتحقَّق منه بالتطبيق مرتين) |
+| `SeedDataService` | يملأ البيانات المرجعية تلقائيًا على قاعدة جديدة: 8 حسابات + 3 عملات + خزانتان (نقدية/بنكية) |
+| `SchemaMaintenanceService` | مزامنة sequences مع `MAX(id)` — كانت متأخرة فتُفشل أي إضافة (إصلاح غير مدمّر، يعمل في الخلفية) |
+| حساب المدير | لا يوجد كلمة مرور افتراضية — يُنشأ عبر `TECHTOON_BOOTSTRAP_ADMIN_PASSWORD` (12 حرفًا على الأقل) |
+| **مُتحقَّق فعليًا** | قاعدة بيانات جديدة تمامًا → تشغيل الـ EXE → ينشئ الجداول + البيانات المرجعية + يفتح بنجاح |
+
 
 
 ---
