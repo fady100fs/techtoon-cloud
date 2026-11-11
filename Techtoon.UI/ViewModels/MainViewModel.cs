@@ -110,6 +110,8 @@ public class MainViewModel : ViewModelBase
             "RecurringJournals" => new RecurringJournalsViewModel(),
             "RecurringInvoices" => new RecurringInvoicesViewModel(),
             "ReportingSettings" => new ReportingSettingsViewModel(),
+            "RevenueRecognition" => new RevenueRecognitionViewModel(),
+            "BankStatementImport" => new BankStatementImportViewModel(),
             "BadDebts" => new BadDebtsViewModel(),
             "EarlyPaymentDiscount" => new EarlyPaymentDiscountViewModel(),
             "LatePaymentFees" => new LatePaymentFeesViewModel(),

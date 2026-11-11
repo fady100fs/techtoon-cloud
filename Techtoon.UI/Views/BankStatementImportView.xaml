@@ -1,0 +1,67 @@
+<UserControl x:Class="Techtoon.UI.Views.BankStatementImportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft" Background="#F5F7FA" FontFamily="Tahoma">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="&#x1F4C2; &#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F; &#x0643;&#x0634;&#x0648;&#x0641; &#x0627;&#x0644;&#x0628;&#x0646;&#x0643; (PDF)" FontSize="20" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" x:Name="BtnBrowse" Content="&#x1F4C1; &#x062A;&#x062D;&#x0645;&#x064A;&#x0644; &#x0645;&#x0644;&#x0641; PDF" Background="#1565C0" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0"/>
+            <Button Grid.Column="2" x:Name="BtnImport" Content="&#x2B07; &#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F;" Background="#00897B" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0"/>
+            <Button Grid.Column="3" x:Name="BtnMatch" Content="&#x1F517; &#x0631;&#x0628;&#x0637; &#x062A;&#x0644;&#x0642;&#x0627;&#x0626;&#x064A;" Background="#7B1FA2" Foreground="White" FontWeight="SemiBold" Padding="14,8" BorderThickness="0" Cursor="Hand" Margin="4,0"/>
+        </Grid>
+
+        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="120"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x1F4C1; &#x0627;&#x0644;&#x0645;&#x0644;&#x0641;:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="FileLabel" Text="لم يُختر ملف" Foreground="#607D8B"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="&#x1F3E6; &#x0627;&#x0644;&#x062E;&#x0632;&#x064A;&#x0646;&#x0629;:" VerticalAlignment="Center" Margin="10,0,6,0" FontWeight="SemiBold"/>
+                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="CashBoxCombo" DisplayMemberPath="Name"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="&#x1F4B0; &#x0627;&#x0644;&#x0631;&#x0635;&#x064A;&#x062F; &#x0627;&#x0644;&#x0627;&#x0641;&#x062A;&#x062A;&#x0627;&#x062D;&#x064A;:" VerticalAlignment="Center" Margin="0,8,8,0" FontWeight="SemiBold"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OpeningBox" Text="0" Margin="0,8,0,0"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="&#x0627;&#x0644;&#x062E;&#x062A;&#x0627;&#x0645;&#x064A;:" VerticalAlignment="Center" Margin="10,8,6,0" FontWeight="SemiBold"/>
+                <TextBox Grid.Row="1" Grid.Column="3" x:Name="ClosingBox" Text="0" Margin="0,8,0,0"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" x:Name="Status" Text="" Foreground="#00897B" FontWeight="SemiBold" Margin="8,6"/>
+                <DataGrid x:Name="LinesGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="#" Binding="{Binding LineNumber}" Width="50"/>
+                        <DataGridTextColumn Header="&#x0627;&#x0644;&#x062A;&#x0627;&#x0631;&#x064A;&#x062E;" Binding="{Binding DateDisplay}" Width="110"/>
+                        <DataGridTextColumn Header="&#x0627;&#x0644;&#x0648;&#x0635;&#x0641;" Binding="{Binding Description}" Width="*"/>
+                        <DataGridTextColumn Header="&#x0645;&#x062F;&#x064A;&#x0646;" Binding="{Binding DebitDisplay}" Width="110"/>
+                        <DataGridTextColumn Header="&#x062F;&#x0627;&#x0626;&#x0646;" Binding="{Binding CreditDisplay}" Width="110"/>
+                        <DataGridTextColumn Header="&#x0627;&#x0644;&#x0631;&#x0635;&#x064A;&#x062F;" Binding="{Binding BalanceDisplay}" Width="110"/>
+                        <DataGridTextColumn Header="&#x0627;&#x0644;&#x0631;&#x0628;&#x0637;" Binding="{Binding MatchDisplay}" Width="90"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>
