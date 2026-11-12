@@ -33,13 +33,39 @@ public static class TestDb
         if (!IsIsolatedTestDatabase())
             throw new InvalidOperationException("الاتصال لا يشير إلى techtoon_test — حماية من الكتابة على الإنتاج.");
 
+        // حماية حاسمة: لا يُسمح للاختبارات بالكتابة على قاعدة العمل إطلاقًا.
+        // كل الاختبارات يجب أن تعمل على النسخة المنفصلة (techtoon_test_ci).
+        if (!IsolationSucceeded)
+            throw new InvalidOperationException(
+                "قاعدة الاختبار المنفصلة (" + IsolatedDatabaseName + ") غير جاهزة — " +
+                "يُمنع تشغيل الاختبارات على قاعدة العمل لحماية بيانات المستخدم.");
+
         var conn = new NpgsqlConnection(cs);
         conn.Open();
         return conn;
     }
 
     /// <summary>هل يتوفّر الاتصال المعزول؟ (تُتخطّى الاختبارات لو لم يتوفّر).</summary>
-    public static bool Available => IsIsolatedTestDatabase();
+    public static bool Available => IsIsolatedTestDatabase() && IsolationSucceeded;
+
+    /// <summary>هل نجحت قاعدة الاختبار المنفصلة؟ (null = لم تُحاول بعد).</summary>
+    public static bool? IsolationResult => _isolationResult;
+
+    /// <summary>هل نجحت العزل؟</summary>
+    public static bool IsolationSucceeded => _isolationResult == true;
+
+    private static bool? _isolationResult;
+
+    /// <summary>
+    /// يضمن وجود قاعدة اختبار منفصلة — ويشل بوضوح إن تعذّر.
+    /// <para><b>مهم:</b> إن فشل العزل يجب أن تُوقف الاختبارات، لا أن تعمل على قاعدة العمل
+    /// (فقد تمسح بيانات المستخدم).</para>
+    /// </summary>
+    public static void EnsureIsolatedDatabase()
+    {
+        if (_isolationResult != null) return;
+        _isolationResult = SwitchToIsolatedDatabase();
+    }
 
     /// <summary>
     /// اسم قاعدة الاختبار المنفصلة — نسخة من قاعدة العمل تُستخدم لكل الاختبارات.
@@ -68,7 +94,6 @@ public static class TestDb
         {
             var srcDb = System.Text.RegularExpressions.Regex.Match(cs, @"(?i)Database=([^;]+)").Groups[1].Value.Trim();
             if (string.IsNullOrWhiteSpace(srcDb)) return false;
-            if (string.Equals(srcDb, IsolatedDatabaseName, StringComparison.OrdinalIgnoreCase)) return true;   // تحوّل سابق
 
             var adminCs = System.Text.RegularExpressions.Regex.Replace(cs, @"(?i)(Database=)[^;]*", "$1postgres");
             var testCs = System.Text.RegularExpressions.Regex.Replace(cs, @"(?i)(Database=)[^;]*", "$1" + IsolatedDatabaseName);

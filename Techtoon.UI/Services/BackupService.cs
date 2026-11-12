@@ -132,7 +132,7 @@ namespace Techtoon.UI.Services
                             JOIN pg_class c ON c.oid = con.conrelid
                             JOIN pg_namespace n ON n.oid = c.relnamespace
                             WHERE n.nspname = 'public' AND con.contype IN ('p','u','f')
-                            ORDER BY tbl, con.contype DESC, con.conname", conn))
+                            ORDER BY con.contype DESC, tbl, con.conname", conn))
                         using (var r = cmd.ExecuteReader())
                         {
                             while (r.Read())

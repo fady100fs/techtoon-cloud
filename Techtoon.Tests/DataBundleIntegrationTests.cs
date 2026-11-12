@@ -400,7 +400,7 @@ public class DataBundleIntegrationTests
                     ["parties"] = new List<Dictionary<string, string?>>
                     {
                         new() { ["name"] = goodName, ["type"] = "customer", ["account_code"] = accountCode },
-                        new() { ["name"] = "ناقص", ["type"] = "customer" }   // بلا account_code إلزامي
+                        new() { ["name"] = "ناقص" }   // بلا العمود الإلزامي "type" → يفشل الصف
                     }
                 }
             };

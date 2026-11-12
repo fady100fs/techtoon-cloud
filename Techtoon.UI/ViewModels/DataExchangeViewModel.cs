@@ -159,7 +159,7 @@ namespace Techtoon.UI.ViewModels
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "اختر ملف الحزمة (Excel)",
-                Filter = "Excel workbook (*.xlsx)|*.xlsx",
+                Filter = "Excel workbook (*.xlsx)|*.xlsx|Excel 97-2003 (*.xls)|*.xls|All files (*.*)|*.*",
                 DefaultExt = ".xlsx"
             };
             if (dialog.ShowDialog() != true) return;
@@ -185,7 +185,12 @@ namespace Techtoon.UI.ViewModels
                 }
 
                 var svc = MasterDataBundleService.Create();
-                var plan = svc.Analyze(bundle);
+                // المعاينة بنفس خيارات الاستيراد — وإلا خالفت ما سيحدث فعلًا
+                var plan = svc.Analyze(bundle, new BundleImportOptions
+                {
+                    ConflictMode = (BundleConflictMode)ConflictModeIndex,
+                    CreateMissingReferences = CreateMissingReferences
+                });
 
                 PlanRows.Clear();
                 foreach (var t in plan.Tables)
@@ -209,7 +214,11 @@ namespace Techtoon.UI.ViewModels
             }
             catch (Exception ex)
             {
-                StatusMessage = "تعذّر قراءة الحزمة: " + ex.Message;
+                // صيغة .xls القديمة (Excel 97-2003) غير مدعومة — رسالة واضحة بدل خطأ تقني
+                var ext = Path.GetExtension(dialog.FileName).ToLowerInvariant();
+                StatusMessage = (ext == ".xls" || ext == ".xlt" || ext == ".csv")
+                    ? "هذه الصيغة غير مدعومة. افتح الملف في Excel ثم احفظه بصيغة Excel Workbook (.xlsx) ثم أعد المحاولة."
+                    : "تعذّر قراءة الحزمة: " + ex.Message;
                 PlanRows.Clear();
                 HasPlan = false;
                 CanImport = false;

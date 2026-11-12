@@ -116,7 +116,9 @@ public class BundleColumn
     public string ExportName => string.IsNullOrEmpty(Export) ? Db : Export;
 }
 
-/// <summary>مرجع (علاقة) بين جدولين داخل المجمّع — يدعم المفتاح المركّب.</summary>
+/// <summary>
+/// مرجع (علاقة) بين جدولين داخل المجمّع — يدعم المفتاح المركّب.
+/// </summary>
 public class BundleRef
 {
     /// <summary>عمود FK في الجدول المصدر.</summary>
@@ -133,4 +135,51 @@ public class BundleRef
 
     /// <summary>هل المرجع إلزامي؟ (بلا قيمة = لا مرجع).</summary>
     public bool Required { get; set; }
+
+    /// <summary>
+    /// أعمدة المطابقة في قاعدة البيانات أثناء البحث عن المرجع (مؤهَّلة بالـ alias).
+    /// <para>مثال: <c>pj.name</c> — أي اسم العمود من جدول <c>parties</c> الموصول بـ alias <c>pj</c>.
+    /// إن كانت فارغة تُستعمل <see cref="TargetKeys"/> (سلوك الاعتيادي).</para>
+    /// </summary>
+    public List<string> MatchKeys { get; set; } = new();
+
+    /// <summary>
+    /// وصلات إضافية أثناء <b>التصدير</b> لجلب أعمدة من جداول أبعد.
+    /// <para>في شرط الوصلة: <c>s</c> = الجدول المصدر، <c>ref0/ref1/...</c> = جداول المراجع.</para>
+    /// </summary>
+    public List<BundleJoin> CarryJoins { get; set; } = new();
+
+    /// <summary>
+    /// وصلات إضافية أثناء <b>الاستيراد</b> (البحث عن المرجع).
+    /// <para>في شرط الوصلة: <c>t</c> = الجدول الهدف.</para>
+    /// </summary>
+    public List<BundleJoin> TargetJoins { get; set; } = new();
+
+    /// <summary>
+    /// مفتاح بديل يُستخدم عندما يكون عمود الملف فارغًا **والعمود إلزامي في قاعدة البيانات**.
+    /// <para>مثال: حساب الأطراف الافتراضي عندما لا يذكر الملف حسابًا للطرف.</para>
+    /// </summary>
+    public string? DefaultKey { get; set; }
+
+    /// <summary>الاسم المعروض للسجل الافتراضي (إن اختلف عن <see cref="DefaultKey"/>).</summary>
+    public string? DefaultName { get; set; }
+}
+
+/// <summary>وصلة إضافية (LEFT JOIN) تُستعمل أثناء التصدير أو الاستيراد.</summary>
+public class BundleJoin
+{
+    /// <summary>الاسم المستعار للجدول الموصول (يُستعمل في شرط الوصلة).</summary>
+    public string Alias { get; set; } = "";
+
+    /// <summary>الجدول الموصول.</summary>
+    public string Table { get; set; } = "";
+
+    /// <summary>شرط الوصلة (مثال: <c>pj.id = ref0.party_id</c>).</summary>
+    public string On { get; set; } = "";
+
+    /// <summary>العمود المطلوب من الجدول الموصول.</summary>
+    public string Column { get; set; } = "";
+
+    /// <summary>اسم العمود داخل الملف (للتصدير فقط).</summary>
+    public string ExportName { get; set; } = "";
 }

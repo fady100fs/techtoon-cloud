@@ -39,6 +39,11 @@ public class DatabaseTestCleanupFixture : IDisposable
         "DELETE FROM bad_debt_writeoffs WHERE writeoff_number LIKE 'WD-%'",
         // الفترات المحاسبية للاختبار
         "DELETE FROM accounting_periods WHERE period_name LIKE 'فترة اختبار%' OR period_name LIKE 'فترة مفتوحة%'",
+        // الحساب الافتراضي للأطراف (من اختبارات مجمّعات البيانات) — لا مساس ببيانات المستخدم
+        "DELETE FROM subscription_periods WHERE subscription_id IN (SELECT id FROM subscriptions WHERE party_id IN (SELECT id FROM parties WHERE account_id IN (SELECT id FROM accounts WHERE code = 'DEFAULT-PARTY')))",
+        "DELETE FROM subscriptions WHERE party_id IN (SELECT id FROM parties WHERE account_id IN (SELECT id FROM accounts WHERE code = 'DEFAULT-PARTY'))",
+        "DELETE FROM parties WHERE account_id IN (SELECT id FROM accounts WHERE code = 'DEFAULT-PARTY')",
+        "DELETE FROM accounts WHERE code = 'DEFAULT-PARTY'",
         // المخازن والأصناف والأطراف والحسابات
         "DELETE FROM warehouses WHERE name LIKE 'مخزن %'",
         "DELETE FROM items WHERE barcode ~ '^[KC][0-9a-f]{6,14}$' OR name LIKE '%اختبار%'",
@@ -49,7 +54,13 @@ public class DatabaseTestCleanupFixture : IDisposable
     public DatabaseTestCleanupFixture()
     {
         // الأمان أولًا: نُنشئ قاعدة اختبار منفصلة حتى لا تمسّ الاختبارات بيانات المستخدم.
-        TestDb.SwitchToIsolatedDatabase();
+        TestDb.EnsureIsolatedDatabase();
+        if (!TestDb.IsolationSucceeded)
+            throw new InvalidOperationException(
+                "تعذّر إنشاء قاعدة الاختبار المنفصلة (" + TestDb.IsolatedDatabaseName + ") — " +
+                "أُوقفت اختبارات قاعدة البيانات لحماية بيانات العمل. " +
+                "تأكد من صلاحية إنشاء قواعد البيانات في Neon (CREATE DATABASE) ثم أعد التشغيل.");
+
         Cleanup();
     }
 

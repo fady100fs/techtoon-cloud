@@ -103,7 +103,18 @@ public static class BundleCatalog
         },
         References = new List<BundleRef>
         {
-            R("account_id", "accounts", "account_code", "code", required: false),
+            // حساب الطرف إجباري في قاعدة البيانات (NOT NULL) — إن لم يذكره الملف
+            // يُستعمل حساب الأطراف الافتراضي بدل فشل الاستيراد برسالة PostgreSQL خام.
+            new BundleRef
+            {
+                ForeignKey = "account_id",
+                TargetTable = "accounts",
+                TargetKeys = new List<string> { "code" },
+                ExportKeys = new List<string> { "account_code" },
+                Required = false,
+                DefaultKey = "DEFAULT-PARTY",
+                DefaultName = "حساب الأطراف (افتراضي)"
+            },
         }
     };
 
@@ -226,6 +237,23 @@ public static class BundleCatalog
         }
     };
 
+    /// <summary>العملات — المفتاح الطبيعي = code (EGP / USD / SAR).</summary>
+    public static BundleTableSpec Currencies() => new()
+    {
+        Table = "currencies",
+        KeyColumns = new List<string> { "code" },
+        OrderBy = "id",
+        Columns = new List<BundleColumn>
+        {
+            C("code", required: true),
+            C("name", required: true),
+            C("symbol", required: true),
+            C("exchange_rate", "decimal", def: "1"),
+            C("is_default", "bool", def: "false"),
+        }
+    };
+
+    /// <summary>الفواتير — المفتاح = invoice_number.</summary>
     public static BundleTableSpec Invoices(string? where = null) => new()
     {
         Table = "invoices",
@@ -246,11 +274,14 @@ public static class BundleCatalog
             C("paid_amount", "decimal", def: "0"),
             C("status", "text"),
             C("notes", "text"),
+            // currency_id إلزامي في قاعدة البيانات — بلا عمود في الحزمة يفشل الإدراج
+            C("currency_id", "int", def: "1"),
         },
         References = new List<BundleRef>
         {
             R("party_id", "parties", "party_name", "name", required: false),
             R("warehouse_id", "warehouses", "warehouse_code", "code", required: false),
+            R("currency_id", "currencies", "currency_code", "code", required: false),
         }
     };
 
@@ -309,12 +340,15 @@ public static class BundleCatalog
             C("notes", "text"),
             C("cash_box_id", "int"),
             C("account_id", "int"),
+            // currency_id إلزامي في قاعدة البيانات — بلا عمود في الحزمة يفشل الإدراج
+            C("currency_id", "int", def: "1"),
         },
         References = new List<BundleRef>
         {
             R("party_id", "parties", "party_name", "name", required: false),
             R("cash_box_id", "cash_boxes", "cash_box_code", "code"),
             R("account_id", "accounts", "account_code", "code", required: false),
+            R("currency_id", "currencies", "currency_code", "code", required: false),
         }
     };
 
@@ -353,8 +387,7 @@ public static class BundleCatalog
         }
     };
 
-    public static BundleTableSpec RecurringInvoiceTemplates() => new()
-    {
+    public static BundleTableSpec RecurringInvoiceTemplates() => new()    {
         Table = "recurring_invoice_templates",
         KeyColumns = new List<string> { "name" },
         OrderBy = "name",
@@ -393,6 +426,90 @@ public static class BundleCatalog
         {
             R("template_id", "recurring_invoice_templates", "template_name", "name"),
             R("item_id", "items", "item_barcode", "barcode"),
+        }
+    };
+
+    /// <summary>
+    /// الاشتراكات — المفتاح الطبيعي = (الطرف + اسم الخدمة + تاريخ البدء).
+    /// <para>المفتاح في الملف يعتمد على <b>اسم الطرف</b> لا رقمه — لذلك ينتقل بين أي قاعدتين.</para>
+    /// </summary>
+    public static BundleTableSpec Subscriptions() => new()
+    {
+        Table = "subscriptions",
+        KeyColumns = new List<string> { "party_id", "service_name", "start_date" },
+        OrderBy = "id",
+        Columns = new List<BundleColumn>
+        {
+            C("party_id", "int"),
+            C("service_name", required: true),
+            C("description"),
+            C("amount", "decimal", def: "0"),
+            C("frequency", required: true, def: "monthly"),
+            C("start_date", "date", required: true),
+            C("end_date", "date"),
+            C("auto_invoice", "bool", def: "true"),
+            C("status", required: true, def: "active"),
+            C("notes"),
+        },
+        References = new List<BundleRef>
+        {
+            R("party_id", "parties", "party_name", "name", required: true),
+        }
+    };
+
+    /// <summary>
+    /// فترات الاشتراك — المفتاح الطبيعي = (الاشتراك + رقم الفترة).
+    /// <para>الاشتراك يُحدَّد في الملف باسمه وتاريخ بدئه واسم طرفه — لا بالأرقام.</para>
+    /// </summary>
+    public static BundleTableSpec SubscriptionPeriods() => new()
+    {
+        Table = "subscription_periods",
+        KeyColumns = new List<string> { "subscription_id", "period_number" },
+        OrderBy = "id",
+        Columns = new List<BundleColumn>
+        {
+            C("subscription_id", "int"),
+            C("period_number", "int", required: true),
+            C("period_start", "date", required: true),
+            C("period_end", "date", required: true),
+            C("due_date", "date", required: true),
+            C("amount", "decimal", def: "0"),
+            C("paid_amount", "decimal", def: "0"),
+            C("status", required: true, def: "due"),
+            C("notes"),
+        },
+        References = new List<BundleRef>
+        {
+            new BundleRef
+            {
+                ForeignKey = "subscription_id",
+                TargetTable = "subscriptions",
+                // المفتاح الطبيعي للاشتراك: اسم الطرف + اسم الخدمة + تاريخ البدء
+                TargetKeys = new List<string> { "", "service_name", "start_date" },
+                ExportKeys = new List<string> { "subscription_party_name", "subscription_service_name", "subscription_start_date" },
+                MatchKeys = new List<string> { "pj.name", "t.service_name", "t.start_date" },
+                Required = true,
+                CarryJoins = new List<BundleJoin>
+                {
+                    new BundleJoin
+                    {
+                        Alias = "pj",
+                        Table = "parties",
+                        On = "pj.id = ref0.party_id",
+                        Column = "name",
+                        ExportName = "subscription_party_name"
+                    }
+                },
+                TargetJoins = new List<BundleJoin>
+                {
+                    new BundleJoin
+                    {
+                        Alias = "pj",
+                        Table = "parties",
+                        On = "pj.id = t.party_id"
+                    }
+                }
+            },
         }
     };
 
@@ -479,7 +596,7 @@ public static class BundleCatalog
             Title = "فواتير البيع",
             Icon = "🧾",
             Description = "فواتير البيع + سطورها + دفعاتها + الأطراف والأصناف والخزائن المرتبطة.",
-            Tables = new List<BundleTableSpec> { Accounts(), Parties(), Categories(), Warehouses(), Items(), CashBoxes(), Invoices("type = 'sales'"), InvoiceLines(), InvoicePayments(), Payments() }
+            Tables = new List<BundleTableSpec> { Accounts(), Currencies(), Parties(), Categories(), Warehouses(), Items(), CashBoxes(), Invoices("s.type = 'sales'"), InvoiceLines(), InvoicePayments(), Payments() }
         },
         new BundleDefinition
         {
@@ -487,15 +604,20 @@ public static class BundleCatalog
             Title = "فواتير الشراء",
             Icon = "🛒",
             Description = "فواتير الشراء + سطورها + مدفوعاتها + الأطراف والأصناف والخزائن المرتبطة.",
-            Tables = new List<BundleTableSpec> { Accounts(), Parties(), Categories(), Warehouses(), Items(), CashBoxes(), Invoices("type = 'purchase'"), InvoiceLines(), InvoicePayments(), Payments() }
+            Tables = new List<BundleTableSpec> { Accounts(), Currencies(), Parties(), Categories(), Warehouses(), Items(), CashBoxes(), Invoices("s.type = 'purchase'"), InvoiceLines(), InvoicePayments(), Payments() }
         },
         new BundleDefinition
         {
             Id = "subscriptions",
             Title = "الاشتراكات والفواتير المتكررة",
             Icon = "🔄",
-            Description = "قوالب الاشتراكات (الفواتير المتكررة) + خطوطها + الأطراف والأصناف.",
-            Tables = new List<BundleTableSpec> { Accounts(), Parties(), Categories(), Warehouses(), Items(), RecurringInvoiceTemplates(), RecurringInvoiceLines() }
+            Description = "الاشتراكات وفتراتها (الاسم + تاريخ البدء + الطرف) + قوالب الفواتير المتكررة وخطوطها + الأطراف والأصناف. المفتاح بالاسم لا بالأرقام — ينتقل بين أي قاعدتين.",
+            Tables = new List<BundleTableSpec>
+            {
+                Accounts(), Parties(), Categories(), Warehouses(), Items(),
+                Subscriptions(), SubscriptionPeriods(),
+                RecurringInvoiceTemplates(), RecurringInvoiceLines()
+            }
         },
         new BundleDefinition
         {
@@ -511,7 +633,7 @@ public static class BundleCatalog
             Title = "البيانات المالية",
             Icon = "💰",
             Description = "الخزائن + المصروفات + القيود المحاسبية وسطورها + الحسابات والأطراف.",
-            Tables = new List<BundleTableSpec> { Accounts(), Parties(), CashBoxes(), ExpenseCategories(), Expenses(), JournalEntries(), JournalLines(), Payments() }
+            Tables = new List<BundleTableSpec> { Accounts(), Currencies(), Parties(), CashBoxes(), ExpenseCategories(), Expenses(), JournalEntries(), JournalLines(), Payments() }
         },
         new BundleDefinition
         {
@@ -521,7 +643,7 @@ public static class BundleCatalog
             Description = "نسخة كاملة: الحسابات + الأطراف + الأصناف + المخازن + الفواتير + الاشتراكات + المالية + المخزون.",
             Tables = new List<BundleTableSpec>
             {
-                Accounts(), Categories(), Warehouses(), Items(), KitComponents(),
+                Accounts(), Currencies(), Categories(), Warehouses(), Items(), KitComponents(),
                 Parties(), CashBoxes(), ExpenseCategories(),
                 Invoices(), InvoiceLines(), InvoicePayments(),
                 RecurringInvoiceTemplates(), RecurringInvoiceLines(),

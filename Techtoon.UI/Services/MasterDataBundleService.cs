@@ -192,11 +192,29 @@ public class MasterDataBundleService
             if (!targetSpecs.ContainsKey(r.TargetTable)) continue;
             var alias = "ref" + i;
             joins.Add($"LEFT JOIN \"{r.TargetTable}\" {alias} ON {alias}.id = s.\"{r.ForeignKey}\"");
-            for (int k = 0; k < r.TargetKeys.Count && k < r.ExportKeys.Count; k++)
+
+            // وصلات إضافية للمرجع (لجلب عمود من جدول أبعد — مثل اسم الطرف)
+            foreach (var cj in r.CarryJoins)
+                joins.Add($"LEFT JOIN \"{cj.Table}\" {cj.Alias} ON {cj.On}");
+
+            // الأعمدة المحمّلة: TargetKeys[i] ← المصدر، ExportKeys[i] ← اسم العمود في الملف
+            for (int k = 0; k < r.ExportKeys.Count; k++)
             {
+                var exportName = r.ExportKeys[k];
+                var targetKey = k < r.TargetKeys.Count ? r.TargetKeys[k] : "";
+
+                // عمود يأتي من وصلة إضافية
+                if (string.IsNullOrEmpty(targetKey))
+                {
+                    var cj = r.CarryJoins.FirstOrDefault(j => j.ExportName == exportName);
+                    if (cj != null)
+                        selectParts.Add($"{cj.Alias}.\"{cj.Column}\" AS \"{exportName}\"");
+                    continue;
+                }
+
                 // نتحقق أن عمود المفتاح موجود فعلًا في الجدول الهدف
-                if (!schema.TryGetValue(r.TargetTable, out var tcols) || !tcols.Contains(r.TargetKeys[k])) continue;
-                selectParts.Add($"{alias}.\"{r.TargetKeys[k]}\" AS \"{r.ExportKeys[k]}\"");
+                if (!schema.TryGetValue(r.TargetTable, out var tcols) || !tcols.Contains(targetKey)) continue;
+                selectParts.Add($"{alias}.\"{targetKey}\" AS \"{exportName}\"");
             }
         }
 
@@ -236,7 +254,13 @@ public class MasterDataBundleService
     // ==================================================================
 
     /// <summary>يحلّل الحزمة ويُعيد خطة الاستيراد — لا يكتب شيئًا.</summary>
-    public BundleImportPlan Analyze(DataBundle bundle)
+    public BundleImportPlan Analyze(DataBundle bundle) => Analyze(bundle, new BundleImportOptions());
+
+    /// <summary>
+    /// يحلّل الحزمة مع خيارات الاستيراد (مثل إنشاء المراجع المفقودة) — لا يكتب شيئًا.
+    /// <para>المعاينة يجب أن تطابق ما سيحدث فعلًا عند التنفيذ.</para>
+    /// </summary>
+    public BundleImportPlan Analyze(DataBundle bundle, BundleImportOptions options)
     {
         var plan = new BundleImportPlan { BundleId = bundle.BundleId, Title = bundle.Title };
         var def = BundleCatalog.Find(bundle.BundleId);
@@ -249,7 +273,7 @@ public class MasterDataBundleService
         using var conn = new NpgsqlConnection(_cs);
         conn.Open();
 
-        var ctx = new ImportContext(conn, def, bundle, plan);
+        var ctx = new ImportContext(conn, def, bundle, plan, null, options);
         foreach (var spec in def.Tables)
         {
             if (!bundle.Tables.TryGetValue(spec.Table, out var rows)) continue;
@@ -371,6 +395,8 @@ public class MasterDataBundleService
         private readonly Dictionary<string, HashSet<string>> _schema;
         // جدول ← عمود ← نوع Npgsql (للمطابقة الصحيحة مع NULL)
         private readonly Dictionary<string, Dictionary<string, NpgsqlTypes.NpgsqlDbType>> _schemaTypes = new(StringComparer.OrdinalIgnoreCase);
+        // جدول ← عمود ← هل العمود NOT NULL في قاعدة البيانات؟
+        private readonly Dictionary<string, HashSet<string>> _schemaNotNull = new(StringComparer.OrdinalIgnoreCase);
         // key: "table|keyvalue" -> id
         private readonly Dictionary<string, int> _idCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -387,7 +413,7 @@ public class MasterDataBundleService
 
             _schema = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
             using var cmd = new NpgsqlCommand(
-                "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public'", conn);
+                "SELECT table_name, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema='public'", conn);
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -400,6 +426,16 @@ public class MasterDataBundleService
                 }
                 set.Add(c);
 
+                if (r.GetString(3) == "NO")
+                {
+                    if (!_schemaNotNull.TryGetValue(t, out var nn))
+                    {
+                        nn = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        _schemaNotNull[t] = nn;
+                    }
+                    nn.Add(c);
+                }
+
                 if (!_schemaTypes.TryGetValue(t, out var map))
                 {
                     map = new Dictionary<string, NpgsqlTypes.NpgsqlDbType>(StringComparer.OrdinalIgnoreCase);
@@ -407,6 +443,12 @@ public class MasterDataBundleService
                 }
                 map[c] = MapDbType(r.GetString(2));
             }
+        }
+
+        /// <summary>هل العمود إلزامي (NOT NULL) في قاعدة البيانات؟</summary>
+        private bool IsNotNullInDb(string table, string column)
+        {
+            return _schemaNotNull.TryGetValue(table, out var set) && set.Contains(column);
         }
 
         /// <summary>يحوّل نوع information_schema إلى نوع Npgsql.</summary>
@@ -474,6 +516,21 @@ public class MasterDataBundleService
                         $"عمود إلزامي مفقود: '{c.Export}'" + (c.DefaultValue == null ? "" : " (لا يوجد قيمة افتراضية)"));
             }
 
+            // 1b) أعمدة NOT NULL في قاعدة البيانات (قد لا تكون إلزامية في الحزمة)
+            //     يُتجاهل عمود المفتاح الخارجي — يُعالج في خطوة حل المراجع.
+            foreach (var c in specColumns)
+            {
+                if (c.Required) continue;
+                if (!IsNotNullInDb(spec.Table, c.Db)) continue;
+                if (spec.References.Any(x => x.ForeignKey == c.Db)) continue;
+                if (c.DefaultValue != null) continue;   // سيُستعمل الافتراضي عند الإدراج
+                var v = GetValue(row, c);
+                if (string.IsNullOrWhiteSpace(v))
+                    throw new InvalidOperationException(
+                        $"عمود إلزامي في قاعدة البيانات مفقود في الملف: '{c.Export}' (الجدول '{spec.Table}'). " +
+                        "أضف قيمة لهذا العمود في الملف ثم أعد الاستيراد.");
+            }
+
             // 2) حل المراجع (FK)
             var resolved = new Dictionary<string, int?>();
             foreach (var r in spec.References)
@@ -487,6 +544,28 @@ public class MasterDataBundleService
                 {
                     if (r.Required)
                         throw new InvalidOperationException("مرجع إلزامي مفقود: " + string.Join(" + ", r.ExportKeys));
+
+                    // العمود قد يكون NOT NULL في قاعدة البيانات رغم أنه اختياري في الحزمة.
+                    // بدون معالجة هنا يفشل الاستيراد برسالة PostgreSQL خام مثل:
+                    //   null value in column "account_id" ... violates not-null constraint
+                    if (IsNotNullInDb(spec.Table, r.ForeignKey))
+                    {
+                        if (string.IsNullOrWhiteSpace(r.DefaultKey))
+                            throw new InvalidOperationException(
+                                $"العمود '{r.ForeignKey}' في الجدول '{spec.Table}' إلزامي في قاعدة البيانات، " +
+                                $"لكن الملف لا يحتوي على '{string.Join(" + ", r.ExportKeys)}'. " +
+                                "أضف قيمة لهذا العمود في الملف ثم أعد الاستيراد.");
+
+                        var defId = ResolveDefaultReference(r, tablePlan, dryRun);
+                        if (!defId.HasValue)
+                            throw new InvalidOperationException(
+                                $"العمود '{r.ForeignKey}' في الجدول '{spec.Table}' إلزامي في قاعدة البيانات، " +
+                                $"لكن الملف لا يحتوي على '{string.Join(" + ", r.ExportKeys)}'. " +
+                                "فعّل «إنشاء المراجع المفقودة» أو أضف قيمة لهذا العمود في الملف ثم أعد الاستيراد.");
+                        resolved[r.ForeignKey] = defId;
+                        continue;
+                    }
+
                     resolved[r.ForeignKey] = null;
                     continue;
                 }
@@ -674,17 +753,29 @@ public class MasterDataBundleService
             var targetSpec = _def.Tables.FirstOrDefault(t => t.Table == r.TargetTable);
             if (targetSpec == null) return null;
 
+            // أعمدة المطابقة: MatchKeys إن وُجدت، وإلا TargetKeys
+            var matchKeys = r.MatchKeys.Count > 0 ? r.MatchKeys : r.TargetKeys;
+
             var where = new List<string>();
             var args = new List<object>();
-            for (int i = 0; i < r.TargetKeys.Count && i < keyValues.Count; i++)
+            for (int i = 0; i < matchKeys.Count && i < keyValues.Count; i++)
             {
                 if (string.IsNullOrWhiteSpace(keyValues[i])) return null;
-                where.Add($"\"{r.TargetKeys[i]}\" = @k{i}");
-                args.Add(KeyValue(r.TargetTable, r.TargetKeys[i], keyValues[i]));
+                // عمود مؤهَّل (alias.column) أو عمود عادي
+                var col = matchKeys[i];
+                var colRef = col.Contains('.') ? col : $"\"{col}\"";
+                where.Add($"{colRef} = @k{i}");
+                var plain = col.Contains('.') ? col.Substring(col.IndexOf('.') + 1) : col;
+                args.Add(KeyValue(r.TargetTable, plain, keyValues[i]));
             }
             if (where.Count == 0) return null;
 
-            using var cmd = Cmd($"SELECT id FROM \"{r.TargetTable}\" WHERE {string.Join(" AND ", where)} LIMIT 1");
+            // وصلات إضافية للبحث (t = الجدول الهدف)
+            var joinSql = "";
+            foreach (var j in r.TargetJoins)
+                joinSql += $" LEFT JOIN \"{j.Table}\" {j.Alias} ON {j.On}";
+
+            using var cmd = Cmd($"SELECT t.id FROM \"{r.TargetTable}\" t{joinSql} WHERE {string.Join(" AND ", where)} LIMIT 1");
             for (int i = 0; i < args.Count; i++) cmd.Parameters.AddWithValue("k" + i, args[i]);
             var v = cmd.ExecuteScalar();
             if (v == null || v == DBNull.Value) return null;
@@ -692,6 +783,102 @@ public class MasterDataBundleService
             var id = Convert.ToInt32(v);
             _idCache[cacheKey] = id;
             return id;
+        }
+
+        /// <summary>
+        /// يحلّ المرجع الافتراضي (مثل حساب الأطراف الافتراضي) عندما يكون عمود الملف فارغًا
+        /// والعمود إلزامي في قاعدة البيانات.
+        /// <para>يبحث أولًا عن سجل موجود بنفس المفتاح، ثم ينشئه إن كان الخيار مفعّلًا.</para>
+        /// </summary>
+        private int? ResolveDefaultReference(BundleRef r, BundleTablePlan tablePlan, bool dryRun)
+        {
+            var defaultKey = r.DefaultKey!;
+            var cacheKey = r.TargetTable + "|default|" + defaultKey;
+            if (_idCache.TryGetValue(cacheKey, out var cached)) return cached;
+
+            // قفل استشاري: يمنع إنشاء أكثر من نسخة من السجل الافتراضي
+            // عندما يعمل أكثر من استيراد في وقت واحد (معاملة واحدة لكل استيراد).
+            if (!dryRun && _tx != null)
+            {
+                using var lockCmd = Cmd("SELECT pg_advisory_xact_lock(@k)");
+                lockCmd.Parameters.AddWithValue("@k", StableHash(cacheKey));
+                lockCmd.ExecuteScalar();
+            }
+
+            // 1) هل يوجد سجل بنفس المفتاح؟
+            var existing = ResolveReference(r, new List<string> { defaultKey });
+            if (existing.HasValue)
+            {
+                _idCache[cacheKey] = existing.Value;
+                return existing;
+            }
+
+            if (!_options.CreateMissingReferences) return null;
+            var targetSpec = _def.Tables.FirstOrDefault(t => t.Table == r.TargetTable);
+            if (targetSpec == null) return null;
+
+            // 2) إنشاء السجل الافتراضي
+            var values = new Dictionary<string, string?>();
+            foreach (var c in ColumnsOf(targetSpec))
+            {
+                if (c.DefaultValue == null) continue;
+                values[c.Db] = c.DefaultValue;
+            }
+
+            // المفتاح الطبيعي + الاسم
+            var nameCol = targetSpec.Columns.FirstOrDefault(c => c.Db == "name");
+            if (nameCol != null) values["name"] = r.DefaultName ?? defaultKey;
+            if (r.TargetKeys.Count > 0) values[r.TargetKeys[0]] = defaultKey;
+
+            // نتأكد أن كل الأعمدة الإلزامية لها قيمة
+            foreach (var c in ColumnsOf(targetSpec))
+            {
+                if (!c.Required) continue;
+                if (!values.ContainsKey(c.Db) || string.IsNullOrWhiteSpace(values[c.Db])) return null;
+            }
+
+            if (dryRun)
+            {
+                _result.CreatedReferences.Add(r.TargetTable + ": " + defaultKey + " (افتراضي)");
+                return -1;
+            }
+
+            var cols = new List<string>();
+            var names = new List<string>();
+            var args = new List<object>();
+            int idx = 0;
+            foreach (var kv in values)
+            {
+                cols.Add($"\"{kv.Key}\"");
+                names.Add("@p" + idx);
+                args.Add(ConvertValue(kv.Value ?? "", "text"));
+                idx++;
+            }
+
+            using var cmd = Cmd($"INSERT INTO \"{r.TargetTable}\" ({string.Join(", ", cols)}) VALUES ({string.Join(", ", names)}) RETURNING id");
+            for (int i = 0; i < args.Count; i++) cmd.Parameters.AddWithValue("p" + i, args[i]);
+            var id = Convert.ToInt32(cmd.ExecuteScalar());
+
+            _idCache[cacheKey] = id;
+            _result.CreatedReferences.Add(r.TargetTable + ": " + defaultKey + " (افتراضي)");
+            return id;
+        }
+
+        /// <summary>.hash ثابت (FNV-1a) — يُستخدم كأقفال استشارية.</summary>
+        private static long StableHash(string s)
+        {
+            unchecked
+            {
+                const ulong offset = 14695981039346656037;
+                const ulong prime = 1099511628211;
+                ulong hash = offset;
+                foreach (var ch in s)
+                {
+                    hash ^= ch;
+                    hash *= prime;
+                }
+                return (long)(hash & 0x7FFFFFFFFFFFFFFF);
+            }
         }
 
         /// <summary>
@@ -706,7 +893,10 @@ public class MasterDataBundleService
             // القيم: المفتاح الطبيعي من الملفات + القيم الافتراضية
             var values = new Dictionary<string, string?>();
             for (int i = 0; i < r.TargetKeys.Count && i < keyValues.Count; i++)
+            {
+                if (string.IsNullOrEmpty(r.TargetKeys[i])) continue;   // عمود يأتي من وصلة إضافية
                 values[r.TargetKeys[i]] = keyValues[i];
+            }
 
             // الاسم: أول عمود "name" أو أول قيمة مفتاح
             var nameCol = targetSpec.Columns.FirstOrDefault(c => c.Db == "name");
