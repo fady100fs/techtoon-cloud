@@ -1,15 +1,23 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using Techtoon.Core.Permissions;
 using Techtoon.UI.Services;
 
 namespace Techtoon.UI.Views
 {
+    /// <summary>
+    /// نافذة استثناءات صلاحيات مستخدم واحد (فوق دوره).
+    /// تُستخدم من شاشة المستخدمين — أما مصفوفة صلاحيات الأدوار فتوجد في
+    /// صفحة «الأدوار والصلاحيات».
+    /// </summary>
     public partial class UserPermissionsWindow : Window
     {
         private int _userId;
-        private Dictionary<string, bool> _permissions = new Dictionary<string, bool>();
+        private string _username = "";
+        private Dictionary<string, bool> _permissions = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         public UserPermissionsWindow()
         {
@@ -19,87 +27,59 @@ namespace Techtoon.UI.Views
         public void LoadForUser(int userId, string username)
         {
             _userId = userId;
+            _username = username;
             lblUser.Text = "المستخدم: " + username;
             _permissions = AuthService.GetUserPermissions(userId);
             BuildPermissionsUI();
         }
 
-        private string TranslateKey(string key)
-        {
-            var translations = new Dictionary<string, string>
-            {
-                {"sales", "المبيعات"},
-                {"returns", "المرتجعات"},
-                {"discounts", "الخصومات"},
-                {"edit_price", "تعديل الأسعار"},
-                {"cancel_invoice", "إلغاء الفواتير"},
-                {"expenses", "المصروفات"},
-                {"profit_reports", "تقارير الأرباح"},
-                {"backup", "النسخ الاحتياطي"},
-                {"settings", "الإعدادات"},
-                {"manage_users", "إدارة المستخدمين"},
-                {"stock_adjustment", "تسوية المخزون (قديم)"},
-                {"inventory.count.create", "إنشاء جلسة جرد"},
-                {"inventory.count.count", "إدخال نتائج العد"},
-                {"inventory.count.review", "مراجعة فروق الجرد"},
-                {"inventory.count.approve", "اعتماد الجرد"},
-                {"inventory.adjustment.create", "إنشاء تسوية"},
-                {"inventory.adjustment.approve", "اعتماد التسوية"},
-                {"inventory.adjustment.execute", "تنفيذ التسوية"},
-                {"inventory.damaged.create", "تسجيل الأصناف التالفة"},
-                {"inventory.damaged.inspect", "فحص التالف"},
-                {"inventory.writeoff.approve", "اعتماد الشطب"},
-                {"inventory.writeoff.execute", "تنفيذ الشطب"},
-                {"inventory.reports.view", "تقارير المخزون"},
-                {"inventory.audit.view", "سجل تدقيق المخزون"}
-            };
-            return translations.ContainsKey(key) ? translations[key] : key;
-        }
-
         private void BuildPermissionsUI()
         {
             pnlPermissions.Children.Clear();
-            var allKeys = AuthService.GetAllPermissionKeys();
-            var grouped = new Dictionary<string, List<string>>
-            {
-                { "المبيعات والمشتريات", new List<string>() },
-                { "المالية", new List<string>() },
-                { "المستخدمين", new List<string>() },
-                { "المخزون - جرد", new List<string>() },
-                { "المخزون - تسويات", new List<string>() },
-                { "المخزون - تالف", new List<string>() },
-                { "المخزون - شطب", new List<string>() },
-                { "التقارير", new List<string>() }
-            };
 
-            foreach (var key in allKeys)
+            // الصلاحيات الفعلية من الدور (الأساس الذي نتجاوزه)
+            var rolePerms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
             {
-                if (key.StartsWith("inventory.count.")) grouped["المخزون - جرد"].Add(key);
-                else if (key.StartsWith("inventory.adjustment.")) grouped["المخزون - تسويات"].Add(key);
-                else if (key.StartsWith("inventory.damaged.")) grouped["المخزون - تالف"].Add(key);
-                else if (key.StartsWith("inventory.writeoff.")) grouped["المخزون - شطب"].Add(key);
-                else if (key.StartsWith("inventory.")) grouped["التقارير"].Add(key);
-                else if (new[] { "sales", "returns", "discounts", "edit_price", "cancel_invoice" }.Contains(key)) grouped["المبيعات والمشتريات"].Add(key);
-                else if (new[] { "expenses", "profit_reports", "backup", "settings" }.Contains(key)) grouped["المالية"].Add(key);
-                else if (key == "manage_users") grouped["المستخدمين"].Add(key);
-                else grouped["المالية"].Add(key);
+                var users = AuthService.GetAllUsers();
+                var u = users.Find(x => x.Id == _userId);
+                if (u?.RoleId != null) rolePerms = RoleService.GetRolePermissions(u.RoleId.Value);
+                else if (!string.IsNullOrEmpty(u?.Role)) { var r = RoleService.FindByName(u.Role); if (r != null) rolePerms = RoleService.GetRolePermissions(r.Id); }
             }
+            catch { /* نكمل بالاستثناءات فقط */ }
 
-            foreach (var group in grouped)
+            foreach (var group in PermissionCatalog.ByModule)
             {
-                if (group.Value.Count == 0) continue;
-                var header = new TextBlock { Text = group.Key, FontSize = 14, FontWeight = FontWeights.Bold, Foreground = System.Windows.Media.Brushes.DarkSlateGray, Margin = new Thickness(0, 10, 0, 5) };
+                var header = new TextBlock
+                {
+                    Text = PermissionCatalog.ModuleLabelOf(group.Key),
+                    FontSize = 14,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = System.Windows.Media.Brushes.DarkSlateGray,
+                    Margin = new Thickness(0, 10, 0, 5)
+                };
                 pnlPermissions.Children.Add(header);
 
-                foreach (var key in group.Value)
+                foreach (var p in group)
                 {
+                    bool? state;
+                    if (_permissions.TryGetValue(p.Key, out var granted))
+                        state = granted;                       // استثناء صريح: منح أو منع
+                    else
+                        state = null;                          // يرث من الدور
+
                     var cb = new CheckBox
                     {
-                        Content = TranslateKey(key),
-                        IsChecked = _permissions.ContainsKey(key) && _permissions[key],
+                        Content = p.Label,
+                        IsThreeState = true,
+                        IsChecked = state,
                         Margin = new Thickness(20, 3, 0, 3),
-                        Tag = key
+                        Tag = p.Key
                     };
+                    System.Windows.Controls.ToolTipService.SetToolTip(cb,
+                        (state == null
+                            ? "موروث من الدور (" + (rolePerms.Contains(p.Key) ? "ممنوح" : "غير ممنوح") + ") — انقر لتغييره"
+                            : (state == true ? "استثناء: ممنوح فوق الدور" : "استثناء: ممنوع رغم الدور")));
                     pnlPermissions.Children.Add(cb);
                 }
             }
@@ -107,18 +87,20 @@ namespace Techtoon.UI.Views
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            var newPerms = new Dictionary<string, bool>();
+            var newPerms = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             foreach (var child in pnlPermissions.Children)
             {
                 if (child is CheckBox cb && cb.Tag is string key)
                 {
-                    newPerms[key] = cb.IsChecked ?? false;
+                    // null = يرث من الدور (لا استثناء) | true = منح | false = منع
+                    if (cb.IsChecked.HasValue) newPerms[key] = cb.IsChecked.Value;
                 }
             }
             try
             {
                 AuthService.SetUserPermissions(_userId, newPerms);
-                MessageBox.Show("تم حفظ الصلاحيات");
+                if (AuthService.CurrentUser?.Id == _userId) AuthService.ReloadPermissions();
+                MessageBox.Show("تم حفظ استثناءات الصلاحيات (" + newPerms.Count + " استثناء)");
                 DialogResult = true;
                 Close();
             }

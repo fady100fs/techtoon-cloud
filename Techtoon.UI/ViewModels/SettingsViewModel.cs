@@ -72,10 +72,32 @@ namespace Techtoon.UI.ViewModels
 
                 if (result != System.Windows.MessageBoxResult.Yes) return;
 
-                bool success = BackupService.RestoreBackup(dialog.FileName, "techtoon_test");
+                // الاستعادة إلى القاعدة المتصلة بها الآن (لا اسم ثابت).
+                // الاسم الثابت "techtoon_test" كان خطيرًا: أي نسخة على أي جهاز
+                // تُستعاد في القاعدة الخطأ.
+                string targetDb = CurrentDatabaseName();
+                if (string.IsNullOrWhiteSpace(targetDb))
+                {
+                    System.Windows.MessageBox.Show("\u0644\u0645 \u064A\u0645\u0643\u0646 \u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u062A\u0635\u0644 \u0628\u0647.", "\u062A\u062D\u0630\u064A\u0642", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    return;
+                }
+
+                bool success = BackupService.RestoreBackup(dialog.FileName, targetDb);
                 StatusMessage = success ? "\u062A\u0645 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629" : "\u0641\u0634\u0644 \u0627\u0644\u0627\u0633\u062A\u0639\u0627\u062F\u0629";
             }
             catch (Exception ex) { StatusMessage = "\u062E\u0637\u0623: " + ex.Message; }
+        }
+
+        /// <summary>اسم قاعدة البيانات المتصلة بها الآن (من سلسلة الاتصال).</summary>
+        private static string CurrentDatabaseName()
+        {
+            try
+            {
+                var cs = SecureConnectionManager.GetConnectionString();
+                var m = System.Text.RegularExpressions.Regex.Match(cs ?? "", @"(?i)Database=([^;]+)");
+                return m.Success ? m.Groups[1].Value.Trim() : "";
+            }
+            catch { return ""; }
         }
     }
 }

@@ -42,10 +42,18 @@ namespace Techtoon.UI.Services
                         // (وإلا فشلت الاستعادة بمخالفة المفتاح الأجنبي)
                         tables = SortByDependencies(conn, tables);
 
+                        // 0) الـ sequences — يجب أن توجد قبل الجداول التي تشير إليها
+                        //    (عمود serial يكتب DEFAULT nextval('xxx_id_seq'))، وإلا فشلت الاستعادة.
+                        using (var cmd = new NpgsqlCommand(
+                            "SELECT sequencename FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename", conn))
+                        using (var r = cmd.ExecuteReader())
+                            while (r.Read())
+                                writer.WriteLine($"CREATE SEQUENCE IF NOT EXISTS \"{r.GetString(0)}\";");
+
                         foreach (var table in tables)
                         {
                             writer.WriteLine($"\n-- Table: {table}");
-                            
+
                             // 1) CREATE TABLE
                             writer.WriteLine($"CREATE TABLE IF NOT EXISTS \"{table}\" (");
                             var columns = new System.Collections.Generic.List<(string name, string type)>();
@@ -66,12 +74,14 @@ namespace Techtoon.UI.Services
                                         columnDefs.Add($"  \"{colName}\" {dataType} {nullable} {def}");
                                     }
                             }
-                            foreach (var def in columnDefs) writer.WriteLine(def + ",");
-                            if (columnDefs.Count > 0)
+                            // نكتب كل الأعمدة مفصولة بفاصلة، وآخر عمود بلا فاصلة.
+                            // (الخطأ السابق: كانت كل الأعمدة تُكتب بفاصلة INCLUDING الأخيرة،
+                            //  ثم تُكتب الأخيرة مرة أخرى — فتصبح مكررة وتفشل الاستعادة بـ
+                            //  "column X specified more than once" لأي جدول جديد不在 schema_full.sql)
+                            for (int i = 0; i < columnDefs.Count; i++)
                             {
-                                // إزالة الفاصلة من آخر عمود
-                                var last = columnDefs.Count - 1;
-                                writer.WriteLine(columnDefs[last]);
+                                var def = columnDefs[i];
+                                writer.WriteLine(i == columnDefs.Count - 1 ? def : def + ",");
                             }
                             writer.WriteLine(");");
 
@@ -109,6 +119,30 @@ namespace Techtoon.UI.Services
                                 }
                             }
                             writer.WriteLine($"-- {table}: data exported");
+                        }
+
+                        // 4) القيود (مفتاح أساسي / فريد / أجنبي)
+                        //    بدونها تصبح القاعدة المستعادة بلا مفاتيح — والبيانات تُدرَج بترتيب خاطئ.
+                        //    تُضاف بعد البيانات حتى لا تعترض الإدراج.
+                        using (var cmd = new NpgsqlCommand(@"
+                            SELECT format('%I.%I', n.nspname, c.relname) AS tbl,
+                                   con.conname,
+                                   pg_get_constraintdef(con.oid) AS def
+                            FROM pg_constraint con
+                            JOIN pg_class c ON c.oid = con.conrelid
+                            JOIN pg_namespace n ON n.oid = c.relnamespace
+                            WHERE n.nspname = 'public' AND con.contype IN ('p','u','f')
+                            ORDER BY tbl, con.contype DESC, con.conname", conn))
+                        using (var r = cmd.ExecuteReader())
+                        {
+                            while (r.Read())
+                            {
+                                var tbl = r.GetString(0);
+                                var name = r.GetString(1);
+                                var def = r.GetString(2);
+                                writer.WriteLine($"DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '{name}') " +
+                                                 $"THEN ALTER TABLE {tbl} ADD CONSTRAINT \"{name}\" {def}; END IF; END $$;");
+                            }
                         }
                     }
                 }
@@ -230,10 +264,22 @@ namespace Techtoon.UI.Services
                 using (var conn = new NpgsqlConnection(targetCS))
                 {
                     conn.Open();
-                    using (var cmd = new NpgsqlCommand(sqlContent, conn))
+                    // معاملة صريحة: إما أن تُستعاد النسخة كاملة أو لا يتغيّر شيء.
+                    // (حمايةً من فقدان البيانات لو فشل جزء من النسخة)
+                    using var tx = conn.BeginTransaction();
+                    try
                     {
-                        cmd.CommandTimeout = 300; // 5 دقائق
-                        cmd.ExecuteNonQuery();
+                        using (var cmd = new NpgsqlCommand(sqlContent, conn, tx))
+                        {
+                            cmd.CommandTimeout = 300; // 5 دقائق
+                            cmd.ExecuteNonQuery();
+                        }
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
                     }
 
                     // بعد الاستعادة يجب أن تُضبط الـ sequences على أعلى id،

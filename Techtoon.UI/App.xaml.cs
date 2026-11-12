@@ -109,6 +109,15 @@ public partial class App : Application
                 Log("CanConnect: " + canConnect);
                 if (canConnect)
                 {
+                    // نظام الصلاحيات: ضمان وجود جدول role_permissions والأدوار النظامية
+                    // وربط المستخدمين بها. آمن للتكرار.
+                    try
+                    {
+                        RoleService.EnsureSchema();
+                        Log("Roles and permissions ready");
+                    }
+                    catch (Exception roleEx) { Log("Role schema failed: " + roleEx.Message); }
+
                     await AuthService.EnsureDefaultAdminAsync();
                     Log("Default admin ensured");
 

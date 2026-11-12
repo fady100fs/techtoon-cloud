@@ -48,6 +48,8 @@ public class DatabaseTestCleanupFixture : IDisposable
 
     public DatabaseTestCleanupFixture()
     {
+        // الأمان أولًا: نُنشئ قاعدة اختبار منفصلة حتى لا تمسّ الاختبارات بيانات المستخدم.
+        TestDb.SwitchToIsolatedDatabase();
         Cleanup();
     }
 

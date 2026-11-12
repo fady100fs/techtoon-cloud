@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Npgsql;
 using BCrypt.Net;
@@ -12,6 +13,10 @@ namespace Techtoon.UI.Services
         public string Username { get; set; }
         public string FullName { get; set; }
         public string Role { get; set; }
+        /// <summary>معرّف الدور (nullable) — مصدر الصلاحيات الفعّالة.</summary>
+        public int? RoleId { get; set; }
+        /// <summary>الاسم المعروض للدور.</summary>
+        public string RoleDisplayName { get; set; }
         public bool IsActive { get; set; }
     }
 
@@ -47,7 +52,12 @@ namespace Techtoon.UI.Services
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
                     conn.Open();
-                    using (var cmd = new NpgsqlCommand("SELECT id, username, COALESCE(password_hash,''), COALESCE(full_name,''), COALESCE(role,'SALESPERSON'), COALESCE(is_active, FALSE) FROM users WHERE username=@u", conn))
+                    using (var cmd = new NpgsqlCommand(
+                        "SELECT u.id, u.username, COALESCE(u.password_hash,''), COALESCE(u.full_name,''), " +
+                        "       COALESCE(NULLIF(u.role,''), r.name, 'VIEWER'), COALESCE(u.is_active, FALSE), " +
+                        "       u.role_id, COALESCE(r.display_name,'') " +
+                        "FROM users u LEFT JOIN roles r ON u.role_id = r.id " +
+                        "WHERE u.username=@u", conn))
                     {
                         cmd.Parameters.AddWithValue("u", username);
                         using (var r = cmd.ExecuteReader())
@@ -76,6 +86,8 @@ namespace Techtoon.UI.Services
                                 Username = r.GetString(1),
                                 FullName = r.GetString(3),
                                 Role = r.GetString(4),
+                                RoleId = r.IsDBNull(6) ? (int?)null : r.GetInt32(6),
+                                RoleDisplayName = r.GetString(7),
                                 IsActive = true
                             };
                         }
@@ -111,16 +123,9 @@ namespace Techtoon.UI.Services
             if (CurrentUser == null) return;
             try
             {
-                using (var conn = new NpgsqlConnection(GetCS()))
-                {
-                    conn.Open();
-                    using (var cmd = new NpgsqlCommand("SELECT permission_key FROM user_permissions WHERE user_id=@id AND is_granted=TRUE", conn))
-                    {
-                        cmd.Parameters.AddWithValue("id", CurrentUser.Id);
-                        using (var r = cmd.ExecuteReader())
-                            while (r.Read()) _permissions.Add(r.GetString(0));
-                    }
-                }
+                // الصلاحيات الفعلية = صلاحيات الدور + استثناءات المستخدم (منح/منع).
+                _permissions = RoleService.ResolveEffectivePermissions(
+                    CurrentUser.Id, CurrentUser.RoleId, CurrentUser.Role);
             }
             catch (Exception ex)
             {
@@ -129,11 +134,51 @@ namespace Techtoon.UI.Services
             }
         }
 
+        /// <summary>
+        /// هل يملك المستخدم صلاحية معيّنة؟
+        /// يدعم المفاتيح القديمة (ما قبل نظام الأدوار) عبر <see cref="PermissionCatalog.LegacyAliases"/>.
+        /// </summary>
         public static bool HasPermission(string key)
         {
             if (!IsLoggedIn) return false;
-            if (CurrentUser.Role == "ADMIN") return true;
-            return _permissions.Contains(key);
+            if (string.IsNullOrWhiteSpace(key)) return false;
+
+            // دور ADMIN يملك كل شيء
+            if (string.Equals(CurrentUser.Role, "ADMIN", StringComparison.OrdinalIgnoreCase)) return true;
+
+            if (_permissions.Contains(key)) return true;
+
+            // مفتاح قديم ← الصلاحيات الحديثة المقابلة
+            if (Techtoon.Core.Permissions.PermissionCatalog.LegacyAliases.TryGetValue(key, out var modern))
+                foreach (var m in modern)
+                    if (_permissions.Contains(m)) return true;
+
+            // صلاحية حديثة ← المفتاح القديم الممنوح (توافق مع الصلاحيات القديمة المخزّنة)
+            if (Techtoon.Core.Permissions.PermissionCatalog.ReverseAliases.TryGetValue(key, out var legacy))
+                foreach (var l in legacy)
+                    if (_permissions.Contains(l)) return true;
+
+            return false;
+        }
+
+        /// <summary>الصلاحيات الفعلية للمستخدم الحالي (بعد الدور والاستثناءات).</summary>
+        public static IReadOnlyCollection<string> GetEffectivePermissions() => _permissions.ToList();
+
+        /// <summary>يعيد تحميل صلاحيات المستخدم الحالي (بعد تغيير دوره أو استثناءاته).</summary>
+        public static void ReloadPermissions() => LoadPermissions();
+
+        /// <summary>اسم دور المستخدم الحالي.</summary>
+        public static string CurrentRoleName => CurrentUser?.Role ?? "";
+
+        /// <summary>اسم دور المستخدم الحالي (للعرض).</summary>
+        public static string CurrentRoleDisplayName
+        {
+            get
+            {
+                if (CurrentUser == null) return "";
+                if (!string.IsNullOrWhiteSpace(CurrentUser.RoleDisplayName)) return CurrentUser.RoleDisplayName;
+                return CurrentUser.Role ?? "";
+            }
         }
 
         public static void LogAudit(string action, string entityType, int entityId, string details)
@@ -184,7 +229,9 @@ namespace Techtoon.UI.Services
                     }
 
                     string hash = BCrypt.Net.BCrypt.HashPassword(bootstrapPassword, workFactor: 12);
-                    using (var c2 = new NpgsqlCommand("INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) VALUES ('admin', @h, 'Administrator', 'ADMIN', TRUE, NOW())", conn))
+                    using (var c2 = new NpgsqlCommand(
+                        "INSERT INTO users (username, password_hash, full_name, role, role_id, is_active, created_at) " +
+                        "VALUES ('admin', @h, 'Administrator', 'ADMIN', (SELECT id FROM roles WHERE name='ADMIN'), TRUE, NOW())", conn))
                     {
                         c2.Parameters.AddWithValue("h", hash);
                         c2.ExecuteNonQuery();
@@ -208,7 +255,7 @@ namespace Techtoon.UI.Services
                 using (var conn = new NpgsqlConnection(GetCS()))
                 {
                     conn.Open();
-                    using (var cmd = new NpgsqlCommand("INSERT INTO users (username, password_hash, full_name, role, is_active, created_at) VALUES (@u, @h, @fn, @r, TRUE, NOW())", conn))
+                    using (var cmd = new NpgsqlCommand("INSERT INTO users (username, password_hash, full_name, role, role_id, is_active, created_at) VALUES (@u, @h, @fn, @r, (SELECT id FROM roles WHERE name=@r), TRUE, NOW())", conn))
                     {
                         cmd.Parameters.AddWithValue("u", username);
                         cmd.Parameters.AddWithValue("h", hash);
@@ -491,75 +538,21 @@ namespace Techtoon.UI.Services
 
         public static System.Collections.Generic.Dictionary<string, bool> GetUserPermissions(int userId)
         {
-            var perms = new System.Collections.Generic.Dictionary<string, bool>();
-            using var conn = new NpgsqlConnection(GetCS());
-            conn.Open();
-            using var cmd = new NpgsqlCommand("SELECT permission_key, is_granted FROM user_permissions WHERE user_id = @uid", conn);
-            cmd.Parameters.AddWithValue("uid", userId);
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                perms[r.GetString(0)] = r.IsDBNull(1) ? true : r.GetBoolean(1);
-            }
-            return perms;
+            return RoleService.GetUserOverrides(userId);
         }
 
         public static void SetUserPermissions(int userId, System.Collections.Generic.Dictionary<string, bool> permissions)
         {
-            using var conn = new NpgsqlConnection(GetCS());
-            conn.Open();
-            using var tx = conn.BeginTransaction();
-            try
-            {
-                // حذف الصلاحيات القديمة
-                using (var cmd = new NpgsqlCommand("DELETE FROM user_permissions WHERE user_id = @uid", conn, tx))
-                {
-                    cmd.Parameters.AddWithValue("uid", userId);
-                    cmd.ExecuteNonQuery();
-                }
-                // إدراج الصلاحيات الجديدة
-                foreach (var kvp in permissions)
-                {
-                    using var cmd = new NpgsqlCommand(
-                        "INSERT INTO user_permissions (user_id, permission_key, is_granted, created_at) " +
-                        "VALUES (@uid, @key, @granted, NOW())", conn, tx);
-                    cmd.Parameters.AddWithValue("uid", userId);
-                    cmd.Parameters.AddWithValue("key", kvp.Key);
-                    cmd.Parameters.AddWithValue("granted", kvp.Value);
-                    cmd.ExecuteNonQuery();
-                }
-
-                LogAudit("SET_PERMISSIONS", "user", userId, "Permissions updated: " + permissions.Count + " keys");
-                tx.Commit();
-            }
-            catch { tx.Rollback(); throw; }
+            RoleService.SetUserOverrides(userId, permissions);
+            LogAudit("SET_PERMISSIONS", "user", userId, "Permission overrides updated: " + (permissions?.Count ?? 0));
+        }
+        /// <summary>كل مفاتيح الصلاحيات المتاحة في النظام (من الكتالوج المركزي).</summary>
+        public static System.Collections.Generic.List<string> GetAllPermissionKeys()
+        {
+            return new System.Collections.Generic.List<string>(Techtoon.Core.Permissions.PermissionCatalog.AllKeys);
         }
 
         // كل مفاتيح الصلاحيات المتاحة في النظام
-        public static System.Collections.Generic.List<string> GetAllPermissionKeys()
-        {
-            return new System.Collections.Generic.List<string>
-            {
-                // المبيعات والمشتريات
-                "sales", "returns", "discounts", "edit_price", "cancel_invoice",
-                // المالية
-                "expenses", "profit_reports", "backup", "settings",
-                // المستخدمين
-                "manage_users",
-                // المخزون القديم
-                "stock_adjustment",
-                // المخزون الجديد - الجرد
-                "inventory.count.create", "inventory.count.count", "inventory.count.review", "inventory.count.approve",
-                // المخزون الجديد - التسويات
-                "inventory.adjustment.create", "inventory.adjustment.approve", "inventory.adjustment.execute",
-                // المخزون الجديد - التالف
-                "inventory.damaged.create", "inventory.damaged.inspect",
-                // المخزون الجديد - الشطب
-                "inventory.writeoff.approve", "inventory.writeoff.execute",
-                // التقارير
-                "inventory.reports.view", "inventory.audit.view"
-            };
-        }
 
         public static void CheckUserActiveStatus(int userId)
         {

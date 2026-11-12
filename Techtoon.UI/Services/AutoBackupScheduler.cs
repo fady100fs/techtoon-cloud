@@ -75,62 +75,38 @@ namespace Techtoon.UI.Services
 
         public static void CreateBackup(string connectionString)
         {
-            var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-            var backupFile = Path.Combine(BackupDir, "backup_" + timestamp + ".sql");
+            // نستخدم نفس مُنشئ النسخة الموثوق (BackupService) الذي يكتب:
+            //  - CREATE TABLE صحيح (بلا عمود مكرر وبلا فاصلة زائدة)
+            //  - تواريخ بصيغة ISO (القاعدة تقرأ 11/10/2026 كقسمة أعداد في تفشل)
+            //  - بلا عبارات DELETE (الاستعادة تُعيد البيانات كاملة أو لا شيء)
+            // النسخة القديمة (بصيغة M/d/yyyy مع علامة AM/PM) كانت غير قابلة للاستعادة إطلاقًا.
+            var backupDir = Path.GetDirectoryName(BackupDir);
+            if (string.IsNullOrEmpty(backupDir)) backupDir = BackupDir;
 
-            using var conn = new NpgsqlConnection(connectionString);
-            conn.Open();
+            // نحتفظ باسم الملف المتوقع للنسخ التلقائية: backup_yyyy-MM-dd_HH-mm-ss.sql
+            string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            string backupFile = Path.Combine(BackupDir, "backup_" + timestamp + ".sql");
 
-            using var writer = new StreamWriter(backupFile, false, System.Text.Encoding.UTF8);
-            writer.WriteLine("-- Techtoon Accounting Backup");
-            writer.WriteLine("-- Created: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            writer.WriteLine("-- Database: " + conn.Database);
-            writer.WriteLine();
-
-            // 1) استعلم كل الجداول
-            var tables = new System.Collections.Generic.List<string>();
-            using (var cmd = new NpgsqlCommand(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name", conn))
-            using (var r = cmd.ExecuteReader())
-                while (r.Read()) tables.Add(r.GetString(0));
-
-            // 2) لكل جدول: صدّر CREATE TABLE + INSERT
-            foreach (var table in tables)
+            try
             {
-                writer.WriteLine("-- Table: " + table);
-                writer.WriteLine("DELETE FROM " + table + ";");
+                if (!Directory.Exists(BackupDir)) Directory.CreateDirectory(BackupDir);
 
-                using var cmd = new NpgsqlCommand("SELECT * FROM " + table, conn);
-                using var reader = cmd.ExecuteReader();
-                var columns = new System.Collections.Generic.List<string>();
-                for (int i = 0; i < reader.FieldCount; i++)
-                    columns.Add(reader.GetName(i));
-
-                while (reader.Read())
+                var created = BackupService.CreateBackup(BackupDir);
+                if (!string.IsNullOrEmpty(created) && File.Exists(created))
                 {
-                    var values = new System.Collections.Generic.List<string>();
-                    for (int i = 0; i < reader.FieldCount; i++)
+                    // نُعيد تسمية الملف بالشكل الذي يتوقّعه تنظيف النسخ التلقائي
+                    try
                     {
-                        var val = reader.IsDBNull(i) ? "NULL" : FormatValue(reader.GetValue(i));
-                        values.Add(val);
+                        if (File.Exists(backupFile)) File.Delete(backupFile);
+                        File.Move(created, backupFile);
                     }
-                    writer.WriteLine("INSERT INTO " + table + " (" + string.Join(", ", columns) + ") VALUES (" + string.Join(", ", values) + ");");
+                    catch { /* نترك الاسم الأصلي إن فشل النقل */ }
                 }
-                writer.WriteLine();
             }
-
-            writer.WriteLine("-- End of backup");
-        }
-
-        private static string FormatValue(object value)
-        {
-            if (value == null) return "NULL";
-            var type = value.GetType();
-            if (type == typeof(string) || type == typeof(DateTime))
-                return "'" + value.ToString().Replace("'", "''") + "'";
-            if (type == typeof(bool))
-                return (bool)value ? "TRUE" : "FALSE";
-            return value.ToString().Replace("'", "''");
+            catch (Exception ex)
+            {
+                App.Log("Auto-backup failed: " + ex.Message);
+            }
         }
 
         private static void CleanOldBackups()

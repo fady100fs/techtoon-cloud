@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using Npgsql;
 using Xunit;
 
@@ -39,6 +40,81 @@ public static class TestDb
 
     /// <summary>هل يتوفّر الاتصال المعزول؟ (تُتخطّى الاختبارات لو لم يتوفّر).</summary>
     public static bool Available => IsIsolatedTestDatabase();
+
+    /// <summary>
+    /// اسم قاعدة الاختبار المنفصلة — نسخة من قاعدة العمل تُستخدم لكل الاختبارات.
+    /// </summary>
+    public const string IsolatedDatabaseName = "techtoon_test_ci";
+
+    /// <summary>
+    /// ينشئ قاعدة اختبار منفصلة (نسخة من قاعدة العمل) ويعيد توجيه الاختبارات إليها.
+    ///
+    /// <para><b>لماذا؟</b> الاختبارات تكتب وتحذف في قاعدة البيانات. لو اشتركت مع
+    /// قاعدة العمل <c>techtoon_test</c> لأمكن لاختبار فاشل أن يمسح بيانات المستخدم.
+    /// لذلك تعمل كل الاختبارات على نسخة مستقلة، وتبقى بيانات المستخدم كما هي.</para>
+    ///
+    /// <para><b>الطريقة:</b> لا يمكن استخدام <c>CREATE DATABASE ... TEMPLATE</c>
+    /// عبر pgbouncer (المُجمِّع يبقي اتصالًا دائمًا) — لذا نأخذ نسخة SQL من قاعدة
+    /// العمل (نفس مُنشئ النسخ الاحتياطي) ونستعيدها في القاعدة الجديدة.</para>
+    /// </summary>
+    /// <returns>true إذا نجح التحويل (وإلا تبقى الاختبارات على القاعدة الأصلية).</returns>
+    public static bool SwitchToIsolatedDatabase()
+    {
+        var cs = ConnectionString;
+        if (string.IsNullOrWhiteSpace(cs)) return false;
+
+        string dumpDir = null;
+        try
+        {
+            var srcDb = System.Text.RegularExpressions.Regex.Match(cs, @"(?i)Database=([^;]+)").Groups[1].Value.Trim();
+            if (string.IsNullOrWhiteSpace(srcDb)) return false;
+            if (string.Equals(srcDb, IsolatedDatabaseName, StringComparison.OrdinalIgnoreCase)) return true;   // تحوّل سابق
+
+            var adminCs = System.Text.RegularExpressions.Regex.Replace(cs, @"(?i)(Database=)[^;]*", "$1postgres");
+            var testCs = System.Text.RegularExpressions.Regex.Replace(cs, @"(?i)(Database=)[^;]*", "$1" + IsolatedDatabaseName);
+
+            // 1) نسخة SQL من قاعدة العمل
+            dumpDir = Path.Combine(Path.GetTempPath(), "techtoon_seed_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dumpDir);
+            var dumpFile = Techtoon.UI.Services.BackupService.CreateBackup(dumpDir);
+            if (string.IsNullOrEmpty(dumpFile) || !File.Exists(dumpFile))
+                throw new InvalidOperationException("لم يُنشئ مُنشئ النسخة ملفًا.");
+
+            // 2) القاعدة الجديدة
+            using (var admin = new NpgsqlConnection(adminCs))
+            {
+                admin.Open();
+                using (var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{IsolatedDatabaseName}\" WITH (FORCE)", admin))
+                    drop.ExecuteNonQuery();
+                using (var create = new NpgsqlCommand($"CREATE DATABASE \"{IsolatedDatabaseName}\"", admin))
+                    create.ExecuteNonQuery();
+            }
+
+            // 3) نستعيد النسخة في القاعدة الجديدة
+            var dumpText = File.ReadAllText(dumpFile, Encoding.UTF8);
+            using (var conn = new NpgsqlConnection(testCs))
+            {
+                conn.Open();
+                using var cmd = new NpgsqlCommand(dumpText, conn);
+                cmd.CommandTimeout = 300;
+                cmd.ExecuteNonQuery();
+            }
+
+            // 4) نُعيد توجيه الاختبارات داخل هذه العملية فقط
+            Environment.SetEnvironmentVariable("TECHTOON_PG_CONNECTION", testCs);
+            Console.WriteLine("[TestDb] الاختبارات تعمل الآن على قاعدة منفصلة: " + IsolatedDatabaseName);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[TestDb] تعذّر إنشاء قاعدة الاختبار المنفصلة: " + ex.Message);
+            return false;
+        }
+        finally
+        {
+            try { if (dumpDir != null && Directory.Exists(dumpDir)) Directory.Delete(dumpDir, true); } catch { }
+        }
+    }
 
     /// <summary>ينفّذ استعلامًا ويُعيد أول قيمة.</summary>
     public static object? Scalar(string sql, params (string, object)[] parameters)
