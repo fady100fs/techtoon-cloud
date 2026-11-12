@@ -27,6 +27,9 @@ WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 ArchitecturesAllowed=x64compatible
 PrivilegesRequired=admin
+; يسمح بالتثبيت للمستخدم الحالي بلا صلاحيات مدير:
+;   TechtoonSetup.exe /CURRENTUSER /DIR="C:\Path\To\Techtoon"
+PrivilegesRequiredOverridesAllowed=commandline
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
 SetupIconFile=..\..\logo.ico
