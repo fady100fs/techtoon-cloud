@@ -453,7 +453,7 @@ public static class LicenseService
             if (!VerifySignature(data, sig))
             {
                 info.State = LicenseState.Invalid;
-                info.Message = "التوقيع الرقمي للترخيص غير صالح — الملف可能被 التعديل.";
+                info.Message = "التوقيع الرقمي للترخيص غير صالح — الملف ربما حُدِّل.";
                 return info;
             }
 

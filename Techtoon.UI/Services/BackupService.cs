@@ -77,7 +77,7 @@ namespace Techtoon.UI.Services
                             // نكتب كل الأعمدة مفصولة بفاصلة، وآخر عمود بلا فاصلة.
                             // (الخطأ السابق: كانت كل الأعمدة تُكتب بفاصلة INCLUDING الأخيرة،
                             //  ثم تُكتب الأخيرة مرة أخرى — فتصبح مكررة وتفشل الاستعادة بـ
-                            //  "column X specified more than once" لأي جدول جديد不在 schema_full.sql)
+                            //  "column X specified more than once" لأي جدول جديدغير موجدة في schema_full.sql)
                             for (int i = 0; i < columnDefs.Count; i++)
                             {
                                 var def = columnDefs[i];

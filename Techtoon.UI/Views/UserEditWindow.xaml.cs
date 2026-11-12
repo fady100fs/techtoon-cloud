@@ -61,7 +61,7 @@ namespace Techtoon.UI.Views
                     foreach (var r in Roles) if (r.Id == roleId) { roleName = r.Name; break; }
 
                     bool success = AuthService.CreateUser(txtUsername.Text.Trim(), txtPassword.Text, txtFullName.Text.Trim(), roleName);
-                    if (!success) { MessageBox.Show("فشل الإنشاء - اسم المستخدم可能 مكرر"); return; }
+                    if (!success) { MessageBox.Show("فشل الإنشاء - اسم المستخدم محتمل التكرار"); return; }
                     
                     // ربط role_id
                     var newUsers = AuthService.GetAllUsers();

@@ -15,7 +15,7 @@
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
             <Button x:Name="btnSave" Content="&#x62D;&#x641;&#x638; &#x627;&#x644;&#x635;&#x644;&#x627;&#x62D;&#x64A;&#x627;&#x62A;" Width="140" Height="38" Margin="0,0,8,0" Click="BtnSave_Click" Background="#FF00897B" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
-            <Button Content="&#x625;&#x644;&#x63BA;&#x627;&#x621;" Width="100" Height="38" Click="BtnCancel_Click" Background="#FFECEFF1" Foreground="#FF37474F" FontWeight="Bold" BorderThickness="0"/>
+            <Button Content="&#x625;&#x644;&#x063A;&#x627;&#x621;" Width="100" Height="38" Click="BtnCancel_Click" Background="#FFECEFF1" Foreground="#FF37474F" FontWeight="Bold" BorderThickness="0"/>
         </StackPanel>
 
         <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="4">

@@ -14,7 +14,7 @@ public class LoanScheduleCalculatorTests
         Assert.Equal(12, rows.Count);
         // مجموع أقساط الأصل = رأس المال بالضبط
         Assert.Equal(120000m, Math.Round(Sum(rows.Select(r => r.Principal)), 2));
-        // الفائدة موجبة、总 الإجمالي = أصل + فائدة
+        // الفائدة موجبة، والإجمالي = أصل + فائدة
         Assert.True(Sum(rows.Select(r => r.Interest)) > 0);
         Assert.Equal(
             Math.Round(Sum(rows.Select(r => r.Total)), 2),

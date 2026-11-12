@@ -35,7 +35,7 @@
                       HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" FontSize="12"
                       MouseDoubleClick="Dg_MouseDoubleClick">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="&#x631;&#x642;&#x645; &#x627;&#x644;&#x645;&#x633;&#x62A;&#x646;&#x62AF;" Binding="{Binding DocumentNumber}" Width="150"/>
+                    <DataGridTextColumn Header="&#x631;&#x642;&#x645; &#x627;&#x644;&#x645;&#x633;&#x62A;&#x646;&#x062D;" Binding="{Binding DocumentNumber}" Width="150"/>
                     <DataGridTextColumn Header="&#x627;&#x644;&#x62A;&#x627;&#x631;&#x64A;&#x62E;" Binding="{Binding AdjustmentDate, StringFormat=yyyy-MM-dd}" Width="110"/>
                     <DataGridTextColumn Header="&#x627;&#x644;&#x635;&#x646;&#x641;" Binding="{Binding ItemName}" Width="*"/>
                     <DataGridTextColumn Header="&#x627;&#x644;&#x631;&#x635;&#x64A;&#x62F; &#x642;&#x628;&#x644;" Binding="{Binding OldQuantityDisplay}" Width="100"/>

@@ -125,10 +125,10 @@ public class BundleRef
     /// <summary>الجدول الهدف.</summary>
     public string TargetTable { get; set; } = "";
 
-    /// <summary>أعمدة المفتاح الطبيعي في الجدول الهدف (مطابقة позиقيًا لـ ExportKeys).</summary>
+    /// <summary>أعمدة المفتاح الطبيعي في الجدول الهدف (مطابقة موضعياً لـ ExportKeys).</summary>
     public List<string> TargetKeys { get; set; } = new();
 
-    /// <summary>أعمدة المفتاح في الملف (مطابقة позиقيًا لـ TargetKeys).</summary>
+    /// <summary>أعمدة المفتاح في الملف (مطابقة موضعياً لـ TargetKeys).</summary>
     public List<string> ExportKeys { get; set; } = new();
 
     /// <summary>هل المرجع إلزامي؟ (بلا قيمة = لا مرجع).</summary>

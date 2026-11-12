@@ -8,7 +8,7 @@ using Npgsql;
 namespace Techtoon.UI.Services;
 
 /// <summary>
-/// إغلاق فجوات «التفاصيل والسجلات» التي كانت بلا书写:
+/// إغلاق فجوات «التفاصيل والسجلات» التي كانت بلا تفاصيل:
 ///  * warehouse_transfer_lines + warehouse_transfer_log  (تفاصيل تحويل المخازن وسجله)
 ///  * kit_component_history                                (تاريخ مكوّنات الكيت)
 ///  * bad_debt_attachments                                 (مرفقات الديون المعدومة)

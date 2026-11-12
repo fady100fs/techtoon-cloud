@@ -81,7 +81,7 @@ namespace Techtoon.UI.Services
             foreach (var def in RoleCatalog.All())
             {
                 int roleId = UpsertRole(conn, def);
-                // 'ADMIN' يُعامَل особيًا في HasPermission (صلاحية كاملة) — نخزّن صفوفًا له أيضًا
+                // 'ADMIN' يُعامَل بشكل خاص في HasPermission (صلاحية كاملة) — نخزّن صفوفًا له أيضًا
                 // حتى تظهر مصفوفة الأدوار متسقة في شاشة الصلاحيات.
                 SetRolePermissions(conn, roleId, def.Permissions);
             }

@@ -83,7 +83,7 @@ public class LicenseSettingsViewModelTests : IDisposable
     [Fact]
     public void Import_Tampered_File_Fails_And_Keeps_Previous_License()
     {
-        // ترخيص صالح 먼저
+        // ترخيص صالح عروف
         var good = SandboxFile("good.key");
         File.WriteAllText(good, LicenseService.CreateLicenseFile(LicenseTypes.Lifetime, "العميل الأصلي", 0), new UTF8Encoding(false));
 
