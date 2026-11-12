@@ -149,7 +149,18 @@ public class MasterDataBundleService
         return bundle;
     }
 
-    /// <summary>يصدّر مجمّعًا إلى ملف JSON.</summary>
+    /// <summary>يصدّر مجمّعًا إلى ملف Excel (.xlsx).</summary>
+    public string ExportToExcelFile(BundleDefinition def, string path)
+    {
+        var bundle = Export(def);
+        DataBundleExcel.Write(bundle, path);
+        return System.IO.Path.GetFullPath(path);
+    }
+
+    /// <summary>يقرأ حزمة من ملف Excel (.xlsx).</summary>
+    public static DataBundle ReadExcelBundle(string path) => DataBundleExcel.Read(path);
+
+    /// <summary>يصدّر مجمّعًا إلى ملف JSON (للاستخدام البرمجي).</summary>
     public string ExportToFile(BundleDefinition def, string path)
     {
         var bundle = Export(def);

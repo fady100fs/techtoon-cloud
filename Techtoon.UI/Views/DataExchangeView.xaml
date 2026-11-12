@@ -15,7 +15,7 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="&#x1F69E; &#x0627;&#x0644;&#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F; &#x0648;&#x0627;&#x0644;&#x062A;&#x0635;&#x062F;&#x064A;&#x0631; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639;&#x0627;&#x062A;"
+            <TextBlock Grid.Column="0" Text="&#x1F69E; &#x0627;&#x0644;&#x0627;&#x0633;&#x064A;&#x0631;&#x0627;&#x062F; / &#x0627;&#x0644;&#x062A;&#x0635;&#x062F;&#x064A;&#x0631; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639;&#x0627;&#x062A; (Excel)"
                        FontSize="22" FontWeight="Bold" Foreground="#00695C" VerticalAlignment="Center"/>
             <Button Grid.Column="1" x:Name="BtnRefresh" Content="&#x1F504; &#x062A;&#x062D;&#x062F;&#x064A;&#x062B;" Background="#26A69A" Foreground="White" FontWeight="SemiBold"
                     Padding="12,8" BorderThickness="0" Cursor="Hand" Command="{Binding RefreshCommand}"/>
@@ -31,7 +31,7 @@
             <Border Grid.Column="0" Background="White" CornerRadius="8" BorderBrush="#E0E0E0" BorderThickness="1" Padding="12" Margin="0,0,12,0">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="&#x1F4E6; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639;&#x0627;&#x062A; &#x0627;&#x0644;&#x0645;&#x062A;&#x0627;&#x062D;&#x0629;" FontSize="15" FontWeight="Bold" Foreground="#37474F" Margin="0,0,0,8"/>
-                    <TextBlock DockPanel.Dock="Top" Text="&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; = &#x0645;&#x062C;&#x0645;&#x0648;&#x0639;&#x0629; &#x0645;&#x062A;&#x0631;&#x0627;&#x0628;&#x0637;&#x0629; &#x062A;&#x064F;&#x0646;&#x0642;&#x0644; &#x0643;&#x0645;&#x0644;&#x0641;&#x0629; &#x0648;&#x0627;&#x062D;&#x062F;"
+                    <TextBlock DockPanel.Dock="Top" Text="&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; = &#x0645;&#x062C;&#x0645;&#x0648;&#x0639;&#x0629; &#x0645;&#x062A;&#x0631;&#x0627;&#x0628;&#x0637;&#x0629; &#x062A;&#x064F;&#x0646;&#x0642;&#x0644; &#x0643;&#x0645;&#x0644;&#x0641;&#x0629; &#x0648;&#x0627;&#x062D;&#x062F; &#x0641;&#x064A; &#x0645;&#x0644;&#x0641; Excel."
                                FontSize="11" Foreground="#607D8B" TextWrapping="Wrap" Margin="0,0,0,8"/>
                     <ListBox x:Name="LstBundles" ItemsSource="{Binding Bundles}" SelectedItem="{Binding SelectedBundle}" FontSize="13" BorderThickness="0" Background="Transparent">
                         <ListBox.ItemTemplate>
@@ -56,9 +56,9 @@
                     <Border DockPanel.Dock="Top" Background="#E8F5E9" CornerRadius="6" Padding="14" Margin="0,0,0,12" BorderBrush="#A5D6A7" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="&#x1F4E6; &#x062A;&#x0635;&#x062F;&#x064A;&#x0631; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639;" FontSize="15" FontWeight="Bold" Foreground="#2E7D32" Margin="0,0,0,6"/>
-                            <TextBlock Text="&#x064A;&#x064F;&#x0646;&#x0634;&#x0624; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; &#x0643;&#x0645;&#x0644;&#x0641;&#x0629; &#x0645;&#x062A;&#x0631;&#x0627;&#x0628;&#x0637;&#x0629; &#x0641;&#x064A; &#x0645;&#x0644;&#x0641; &#x0648;&#x0627;&#x062D;&#x062F; &#x064A;&#x0646;&#x0642;&#x0644; &#x0628;&#x064A;&#x0646; &#x0642;&#x0627;&#x0639;&#x062F;&#x062A;&#x064A;&#x0646; &#x0623;&#x062E;&#x0631;&#x0649;."
+                            <TextBlock Text="&#x064A;&#x064F;&#x0646;&#x0634;&#x0624; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; &#x0643;&#x0645;&#x0644;&#x0641;&#x0629; &#x0645;&#x062A;&#x0631;&#x0627;&#x0628;&#x0637;&#x0629; &#x0641;&#x064A; &#x0645;&#x0644;&#x0641; Excel &#x0628;&#x0648;&#x0627;&#x062D;&#x062F; &#x0648;&#x0631;&#x0642;&#x0629; &#x0644;&#x0643;&#x0644; &#x062C;&#x062F;&#x0648;&#x0644; &#x0645;&#x0646;&#x0642;&#x0648;&#x0644; &#x0645;&#x062A;&#x0639;&#x062F;&#x064A;&#x062F;."
                                        FontSize="12" Foreground="#33691E" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                            <Button x:Name="BtnExport" Content="&#x1F4E6; &#x062A;&#x0635;&#x062F;&#x064A;&#x0631; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; &#x0625;&#x0644;&#x0649; &#x0645;&#x0644;&#x0641;" Background="#2E7D32" Foreground="White"
+                            <Button x:Name="BtnExport" Content="&#x1F4E6; &#x062A;&#x0635;&#x062F;&#x064A;&#x0631; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; &#x0625;&#x0644;&#x0649; &#x0645;&#x0644;&#x0641; Excel" Background="#2E7D32" Foreground="White"
                                     FontWeight="SemiBold" FontSize="13" Padding="18,9" BorderThickness="0" Cursor="Hand" HorizontalAlignment="Left"
                                     Command="{Binding ExportCommand}"/>
                         </StackPanel>
@@ -67,11 +67,11 @@
                     <!-- الاستيراد -->
                     <Border DockPanel.Dock="Top" Background="#E3F2FD" CornerRadius="6" Padding="14" Margin="0,0,0,12" BorderBrush="#90CAF9" BorderThickness="1">
                         <StackPanel>
-                            <TextBlock Text="&#x1F4E5; &#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; &#x0645;&#x0646; &#x0645;&#x0644;&#x0641;" FontSize="15" FontWeight="Bold" Foreground="#1565C0" Margin="0,0,0,6"/>
-                            <TextBlock Text="&#x064A;&#x062A;&#x0645; &#x0627;&#x0644;&#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F; &#x0641;&#x064A; &#x0645;&#x0639;&#x0627;&#x0645;&#x0644;&#x0629; &#x0648;&#x0627;&#x062D;&#x062F;&#x0629; &#x0623;&#x062D;&#x062F;&#x0629; &#x0645;&#x0639; &#x0627;&#x0644;&#x0643;&#x0644;&#x0629; &#x0623;&#x0648; &#x0644;&#x0627; &#x0634;&#x064A;&#x0621;&#x064A;&#x0646;&#x0647;&#x0627;&#x064b; &#x064B;&#x0627;&#x0626;&#x064A;&#x0627;&#x064B;."
+                            <TextBlock Text="&#x1F4E5; &#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F; &#x0627;&#x0644;&#x0645;&#x062C;&#x0645;&#x0651;&#x0639; &#x0645;&#x0646; &#x0645;&#x0644;&#x0641; Excel" FontSize="15" FontWeight="Bold" Foreground="#1565C0" Margin="0,0,0,6"/>
+                            <TextBlock Text="&#x064A;&#x062A;&#x0645; &#x0627;&#x0644;&#x0627;&#x0633;&#x064A;&#x0631;&#x0627;&#x062F; &#x0641;&#x064A; &#x0645;&#x0639;&#x0627;&#x0645;&#x0644;&#x0629; &#x0648;&#x0627;&#x062D;&#x062F;&#x0629; &#x0623;&#x062D;&#x062F;&#x0629; &#x0645;&#x0639; &#x0627;&#x0644;&#x0643;&#x0644;&#x0629; &#x0623;&#x0648; &#x0644;&#x0627; &#x0634;&#x064A;&#x0621;&#x064A;&#x0646;&#x0647;&#x0627;&#x064B; &#x064B;&#x0627;&#x0626;&#x064A;&#x0627;&#x064B;."
                                        FontSize="12" Foreground="#0D47A1" TextWrapping="Wrap" Margin="0,0,0,10"/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <Button x:Name="BtnPick" Content="&#x1F50D; &#x0627;&#x062E;&#x062A;&#x064A;&#x0627;&#x0631; &#x0648;&#x0645;&#x0639;&#x0627;&#x064A;&#x0646;&#x0629;" Background="#1565C0" Foreground="White"
+                                <Button x:Name="BtnPick" Content="&#x1F50D; &#x0627;&#x062E;&#x062A;&#x064A;&#x0627;&#x0631; &#x0645;&#x0644;&#x0641; Excel" Background="#1565C0" Foreground="White"
                                         FontWeight="SemiBold" FontSize="13" Padding="18,9" BorderThickness="0" Cursor="Hand" Margin="0,0,10,0"
                                         Command="{Binding PickAndAnalyzeCommand}"/>
                                 <Button x:Name="BtnImport" Content="&#x27A4; &#x062A;&#x0646;&#x0641;&#x064A;&#x0630; &#x0627;&#x0644;&#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F;" Background="#EF6C00" Foreground="White"
@@ -93,7 +93,7 @@
                     <!-- معاينة الخطة -->
                     <Border DockPanel.Dock="Top" Background="#FAFAFA" CornerRadius="6" Padding="12" BorderBrush="#E0E0E0" BorderThickness="1">
                         <StackPanel>
-                            <TextBlock Text="&#x1F4CB; &#x0645;&#x0639;&#x0627;&#x064A;&#x0646;&#x0629; &#x0627;&#x0644;&#x0627;&#x0633;&#x062A;&#x064A;&#x0631;&#x0627;&#x062F;" FontSize="13" FontWeight="Bold" Foreground="#37474F" Margin="0,0,0,8"/>
+                            <TextBlock Text="&#x1F4CB; &#x0645;&#x0639;&#x0627;&#x064A;&#x0646;&#x0629; &#x0627;&#x0644;&#x0627;&#x0633;&#x064A;&#x0631;&#x0627;&#x062F;" FontSize="13" FontWeight="Bold" Foreground="#37474F" Margin="0,0,0,8"/>
                             <TextBlock Text="{Binding BundleInfo}" FontSize="11" Foreground="#607D8B" TextWrapping="Wrap" Margin="0,0,0,8"/>
                             <DataGrid x:Name="DgPlan" ItemsSource="{Binding PlanRows}" AutoGenerateColumns="False" IsReadOnly="True"
                                       CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"

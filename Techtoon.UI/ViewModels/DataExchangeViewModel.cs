@@ -127,21 +127,21 @@ namespace Techtoon.UI.ViewModels
             var def = BundleCatalog.Find(SelectedBundle.Id);
             if (def == null) return;
 
-            var suggested = "techtoon_" + def.Id + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".json";
+            var suggested = "techtoon_" + def.Id + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx";
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Title = "تصدير " + def.Title,
-                Filter = "Techtoon data bundle (*.json)|*.json|All files (*.*)|*.*",
-                DefaultExt = ".json",
+                Filter = "Excel workbook (*.xlsx)|*.xlsx",
+                DefaultExt = ".xlsx",
                 FileName = suggested
             };
             if (dialog.ShowDialog() != true) return;
 
             try
             {
-                StatusMessage = "جارٍ التصدير...";
+                StatusMessage = "جارٍ التصدير إلى Excel...";
                 var svc = MasterDataBundleService.Create();
-                var path = svc.ExportToFile(def, dialog.FileName);
+                var path = svc.ExportToExcelFile(def, dialog.FileName);
                 var size = new FileInfo(path).Length;
                 BundleInfo = $"تم التصدير: {Path.GetFileName(path)} ({size / 1024.0:N1} KB)";
                 StatusMessage = BundleInfo;
@@ -158,26 +158,30 @@ namespace Techtoon.UI.ViewModels
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                Title = "اختر ملف الحزمة",
-                Filter = "Techtoon data bundle (*.json)|*.json|All files (*.*)|*.*",
-                DefaultExt = ".json"
+                Title = "اختر ملف الحزمة (Excel)",
+                Filter = "Excel workbook (*.xlsx)|*.xlsx",
+                DefaultExt = ".xlsx"
             };
             if (dialog.ShowDialog() != true) return;
 
             try
             {
-                StatusMessage = "جارٍ تحليل الحزمة...";
-                var json = File.ReadAllText(dialog.FileName, System.Text.Encoding.UTF8);
-                var bundle = DataBundle.FromJson(json);
+                StatusMessage = "جارٍ تحليل ملف Excel...";
+                var bundle = MasterDataBundleService.ReadExcelBundle(dialog.FileName);
 
                 var def = BundleCatalog.Find(bundle.BundleId);
                 if (def == null)
                 {
-                    StatusMessage = "مجمّع غير معروف: '" + bundle.BundleId + "'.";
-                    PlanRows.Clear();
-                    HasPlan = false;
-                    CanImport = false;
-                    return;
+                    // الملف بلا معرّف مجمّع — نستخدم المجمّع المحدد في الواجهة
+                    if (SelectedBundle == null)
+                    {
+                        StatusMessage = "الملف لا يحتوي على معرّف مجمّع — اختر مجمّعًا ثم أعد المحاولة.";
+                        PlanRows.Clear();
+                        HasPlan = false;
+                        CanImport = false;
+                        return;
+                    }
+                    def = BundleCatalog.Find(SelectedBundle.Id)!;
                 }
 
                 var svc = MasterDataBundleService.Create();
@@ -194,7 +198,7 @@ namespace Techtoon.UI.ViewModels
                         Errors = t.Errors.Count
                     });
 
-                BundleInfo = $"الحزمة: {bundle.Title} — {bundle.ExportedAt:yyyy-MM-dd HH:mm} — {bundle.TotalRows} صف";
+                BundleInfo = $"الملف: {Path.GetFileName(dialog.FileName)} — {bundle.Title} — {bundle.TotalRows} صف";
                 StatusMessage = plan.TotalErrors > 0
                     ? $"تحليل: {plan.TotalInsert} جديد، {plan.TotalUpdate} تحديث، {plan.TotalSkip} متخطّى — {plan.TotalErrors} خطأ (لن يتم الاستيراد)."
                     : $"تحليل: {plan.TotalInsert} جديد، {plan.TotalUpdate} تحديث، {plan.TotalSkip} متخطّى — جاهز للاستيراد.";

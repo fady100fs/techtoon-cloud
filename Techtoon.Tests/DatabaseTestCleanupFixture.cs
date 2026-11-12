@@ -61,5 +61,40 @@ public class DatabaseTestCleanupFixture : IDisposable
             try { TestDb.Execute(sql); }
             catch { /* جدول غير موجود — نتخطاه */ }
         }
+        SyncSequences();
+    }
+
+    /// <summary>
+    /// يزامن الـ sequences مع أعلى id في كل جدول.
+    /// ضروري بعد أي استعادة لنسخة احتياطية (الصفوف تُدرج بأرقام صريحة فتتأخر الـ sequences
+    /// ويشل أول إدراج بمفتاح مكرر).
+    /// </summary>
+    private static void SyncSequences()
+    {
+        try
+        {
+            var seqs = new List<(string seq, string table)>();
+            using (var conn = TestDb.Open())
+            using (var cmd = new Npgsql.NpgsqlCommand(
+                "SELECT c.relname, split_part(c.relname, '_id_seq', 1) " +
+                "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace " +
+                "WHERE c.relkind='S' AND n.nspname='public' AND c.relname LIKE '%_id_seq'", conn))
+            using (var r = cmd.ExecuteReader())
+                while (r.Read()) seqs.Add((r.GetString(0), r.GetString(1)));
+
+            foreach (var (seq, table) in seqs)
+            {
+                try
+                {
+                    var max = TestDb.Scalar("SELECT COALESCE(MAX(id),0) FROM \"" + table + "\"");
+                    if (max == null || max == DBNull.Value) continue;
+                    var v = Convert.ToInt64(max);
+                    if (v <= 0) continue;
+                    TestDb.Execute("SELECT setval('public.\"" + seq + "\"', @v, true)", ("@v", v));
+                }
+                catch { /* جدول بلا id — نتخطاه */ }
+            }
+        }
+        catch { }
     }
 }
