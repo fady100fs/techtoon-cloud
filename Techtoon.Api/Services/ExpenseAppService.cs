@@ -13,6 +13,7 @@ public interface IExpenseAppService
     Task<PagedResultDto<ExpenseDto>> GetExpensesAsync(DateTime? from, DateTime? to, int? categoryId, int page, int pageSize);
     Task<ExpenseDto?> GetExpenseAsync(int id);
     Task<ExpenseDto> CreateExpenseAsync(ExpenseCreateDto dto, int userId);
+    Task<ExpenseDto?> UpdateExpenseAsync(int id, ExpenseCreateDto dto, int userId);
     Task<bool> DeleteExpenseAsync(int id, int userId);
 }
 
@@ -43,7 +44,7 @@ public class ExpenseAppService : IExpenseAppService
 
         using (var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM expenses e " + whereSql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             result.TotalCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 
@@ -53,7 +54,7 @@ public class ExpenseAppService : IExpenseAppService
 
         using (var cmd = new NpgsqlCommand(sql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             cmd.Parameters.AddWithValue("limit", pageSize);
             cmd.Parameters.AddWithValue("offset", (page - 1) * pageSize);
             using var r = await cmd.ExecuteReaderAsync();
@@ -107,17 +108,26 @@ public class ExpenseAppService : IExpenseAppService
         await conn.OpenAsync();
         using var tx = await conn.BeginTransactionAsync();
 
+        // category_id و cash_box_id إلزاميان في قاعدة البيانات.
+        // إن لم يحدّدهما العميل نختار أول تصنيف/خزينة متاح (لا نخترع قيمة).
+        int categoryId = dto.CategoryId ?? await ResolveFirstIdAsync(conn, tx, "expense_categories");
+        if (categoryId <= 0)
+            throw new ArgumentException("categoryId is required — no expense category is available");
+        int cashBoxId = dto.CashBoxId ?? await ResolveFirstIdAsync(conn, tx, "cash_boxes");
+        if (cashBoxId <= 0)
+            throw new ArgumentException("cashBoxId is required — no cash box is available");
+
         int newId;
         using (var cmd = new NpgsqlCommand(
             "INSERT INTO expenses (date, category_id, amount, description, payment_method, cash_box_id, notes, created_by) " +
             "VALUES (@date, @cat, @amount, @desc, @method, @cb, @notes, @uid) RETURNING id", conn, tx))
         {
             cmd.Parameters.AddWithValue("date", dto.Date);
-            cmd.Parameters.AddWithValue("cat", (object?)dto.CategoryId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("cat", categoryId);
             cmd.Parameters.AddWithValue("amount", dto.Amount);
             cmd.Parameters.AddWithValue("desc", (object?)dto.Description ?? DBNull.Value);
             cmd.Parameters.AddWithValue("method", dto.PaymentMethod);
-            cmd.Parameters.AddWithValue("cb", (object?)dto.CashBoxId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("cb", cashBoxId);
             cmd.Parameters.AddWithValue("notes", (object?)dto.Notes ?? DBNull.Value);
             cmd.Parameters.AddWithValue("uid", userId);
             newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
@@ -135,6 +145,60 @@ public class ExpenseAppService : IExpenseAppService
 
         await tx.CommitAsync();
         return (await GetExpenseAsync(newId))!;
+    }
+
+    /// <summary>أول معرّف متاح في جدول معيّن (0 إذا كان الجدول فارغًا).</summary>
+    private static async Task<int> ResolveFirstIdAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string table)
+    {
+        using var cmd = new NpgsqlCommand($"SELECT id FROM {table} ORDER BY id LIMIT 1", conn, tx);
+        var v = await cmd.ExecuteScalarAsync();
+        return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
+    }
+
+    /// <summary>يعدّل مصروفًا قائمًا (PUT).</summary>
+    public async Task<ExpenseDto?> UpdateExpenseAsync(int id, ExpenseCreateDto dto, int userId)
+    {
+        if (dto.Amount <= 0) throw new ArgumentException("Amount must be positive");
+
+        using var conn = new NpgsqlConnection(_connStr);
+        await conn.OpenAsync();
+        using var tx = await conn.BeginTransactionAsync();
+
+        int categoryId = dto.CategoryId ?? await ResolveFirstIdAsync(conn, tx, "expense_categories");
+        if (categoryId <= 0)
+            throw new ArgumentException("categoryId is required — no expense category is available");
+        int cashBoxId = dto.CashBoxId ?? await ResolveFirstIdAsync(conn, tx, "cash_boxes");
+        if (cashBoxId <= 0)
+            throw new ArgumentException("cashBoxId is required — no cash box is available");
+
+        using (var cmd = new NpgsqlCommand(
+            "UPDATE expenses SET date=@date, category_id=@cat, amount=@amount, description=@desc, " +
+            "payment_method=@method, cash_box_id=@cb, notes=@notes WHERE id=@id", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("id", id);
+            cmd.Parameters.AddWithValue("date", dto.Date);
+            cmd.Parameters.AddWithValue("cat", categoryId);
+            cmd.Parameters.AddWithValue("amount", dto.Amount);
+            cmd.Parameters.AddWithValue("desc", (object?)dto.Description ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("method", dto.PaymentMethod);
+            cmd.Parameters.AddWithValue("cb", cashBoxId);
+            cmd.Parameters.AddWithValue("notes", (object?)dto.Notes ?? DBNull.Value);
+            var affected = await cmd.ExecuteNonQueryAsync();
+            if (affected == 0) { await tx.RollbackAsync(); return null; }
+        }
+
+        using (var cmd = new NpgsqlCommand(
+            "INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, created_at) VALUES (@uid, 'update_expense', 'expense', @eid, @details, NOW())",
+            conn, tx))
+        {
+            cmd.Parameters.AddWithValue("uid", userId);
+            cmd.Parameters.AddWithValue("eid", id);
+            cmd.Parameters.AddWithValue("details", "Expense updated: " + dto.Amount);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+        return await GetExpenseAsync(id);
     }
 
     public async Task<bool> DeleteExpenseAsync(int id, int userId)

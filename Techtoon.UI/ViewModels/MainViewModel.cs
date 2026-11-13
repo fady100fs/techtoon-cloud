@@ -276,15 +276,21 @@ public class MainViewModel : ViewModelBase
             // تصحيح اسم نافذة الأصناف
             if (windowName == "ItemsEditWindow") windowName = "ItemEditWindow";
             var type = Type.GetType($"Techtoon.UI.Views.{windowName}, Techtoon.UI");
-            if (type != null)
+            if (type != null && typeof(System.Windows.Window).IsAssignableFrom(type))
             {
                 var win = (System.Windows.Window)Activator.CreateInstance(type, id);
                 win.ShowDialog();
+                return;
             }
-            else
+
+            // الاعتماد قد يشير إلى صفحة (UserControl) لا إلى نافذة — في هذه الحالة ننتقل إلى الصفحة
+            if (!string.IsNullOrEmpty(PermissionCatalog.PagePermission(windowName)))
             {
-                System.Windows.MessageBox.Show($"Window '{windowName}' not found.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                Navigate(windowName);
+                return;
             }
+
+            System.Windows.MessageBox.Show($"Window '{windowName}' not found.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {

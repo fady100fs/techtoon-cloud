@@ -55,7 +55,15 @@ $exe = Join-Path $dist "Application\Techtoon.UI.exe"
 $log = Join-Path $dist "Application\techtoon.log"
 if (Test-Path $log) { Remove-Item $log -Force }
 $p = Start-Process -FilePath $exe -PassThru -WorkingDirectory (Join-Path $dist "Application")
-Start-Sleep -Seconds 12
+# ننتظر ظهور النافذة فعليًا (زمن الاتصال بـNeon يختلف من شبكة لأخرى)
+$shown = $false
+for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep -Seconds 1
+    if (Test-Path $log) {
+        if ((Get-Content $log -Raw) -match "MainWindow shown") { $shown = $true; break }
+    }
+    if ($p.HasExited) { break }
+}
 $running = -not $p.HasExited
 Check "Techtoon.UI.exe stays running" $running ("exit=" + $(if ($p.HasExited) { $p.ExitCode } else { "n/a" }))
 if (Test-Path $log) {

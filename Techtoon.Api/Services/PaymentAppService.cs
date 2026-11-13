@@ -79,7 +79,7 @@ public class PaymentAppService : IPaymentAppService
 
         using (var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM payments p " + whereSql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             result.TotalCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 
@@ -92,7 +92,7 @@ public class PaymentAppService : IPaymentAppService
 
         using (var cmd = new NpgsqlCommand(sql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             cmd.Parameters.AddWithValue("limit", pageSize);
             cmd.Parameters.AddWithValue("offset", (page - 1) * pageSize);
             using var r = await cmd.ExecuteReaderAsync();
@@ -180,7 +180,7 @@ public class PaymentAppService : IPaymentAppService
         using (var cmd = new NpgsqlCommand(
             "INSERT INTO payments (" + string.Join(",", cols) + ") VALUES (" + string.Join(",", vals) + ") RETURNING id", conn, tx))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 

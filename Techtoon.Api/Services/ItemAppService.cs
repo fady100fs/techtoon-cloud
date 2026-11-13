@@ -87,7 +87,7 @@ public class ItemAppService : IItemAppService
         // Count
         using (var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM items i " + whereSql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             result.TotalCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 
@@ -104,7 +104,7 @@ public class ItemAppService : IItemAppService
 
         using (var cmd = new NpgsqlCommand(sql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             cmd.Parameters.AddWithValue("limit", pageSize);
             cmd.Parameters.AddWithValue("offset", (page - 1) * pageSize);
             using var r = await cmd.ExecuteReaderAsync();

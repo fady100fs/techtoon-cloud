@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/api_service.dart';
@@ -15,6 +14,7 @@ class _PartiesScreenState extends State<PartiesScreen> {
   List<dynamic> _parties = [];
   bool _isLoading = true;
   bool _isSelectMode = false;
+  String? _error;
   final Set<int> _selectedIds = {};
 
   @override
@@ -24,18 +24,29 @@ class _PartiesScreenState extends State<PartiesScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     final api = Provider.of<ApiService>(context, listen: false);
-    final ep = widget.type != null ? 'api/parties?type=${widget.type}&pageSize=50' : 'api/parties?pageSize=50';
-    final data = await api.getRaw(ep);
     try {
-      final json = jsonDecode(data);
+      // The API's server-side `type` filter is broken (it answers 400), so the
+      // list is fetched unfiltered and narrowed down on the device.
+      final items = widget.type != null
+          ? await api.getItemsByField('api/parties', 'type', widget.type!)
+          : await api.getAllItems('api/parties');
+      if (!mounted) return;
       setState(() {
-        _parties = json['items'] ?? [];
+        _parties = items;
         _isLoading = false;
       });
-    } catch (_) {
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _parties = [];
+        _error = e is ApiException ? e.message : 'تعذر تحميل الأطراف';
+        _isLoading = false;
+      });
     }
   }
 
@@ -54,12 +65,21 @@ class _PartiesScreenState extends State<PartiesScreen> {
     if (confirmed != true) return;
 
     final api = Provider.of<ApiService>(context, listen: false);
-    for (final id in _selectedIds.toList()) {
-      await api.delete('api/parties/$id');
+    try {
+      for (final id in _selectedIds.toList()) {
+        await api.delete('api/parties/$id');
+      }
+      setState(() { _isSelectMode = false; _selectedIds.clear(); });
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحذف'), backgroundColor: Colors.green));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e is ApiException ? e.message : 'تعذر الحذف'),
+        backgroundColor: Colors.red,
+      ));
     }
-    setState(() { _isSelectMode = false; _selectedIds.clear(); });
-    _load();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحذف'), backgroundColor: Colors.green));
   }
 
   Future<void> _showPartyForm([Map<String, dynamic>? party]) async {
@@ -89,8 +109,16 @@ class _PartiesScreenState extends State<PartiesScreen> {
             TextButton(
               onPressed: () async {
                 final api = Provider.of<ApiService>(context, listen: false);
-                await api.delete('api/parties/${party!['id']}');
-                Navigator.pop(ctx, true);
+                try {
+                  await api.delete('api/parties/${party!['id']}');
+                  Navigator.pop(ctx, true);
+                } catch (e) {
+                  if (!ctx.mounted) return;
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                    content: Text(e is ApiException ? e.message : 'تعذر الحذف'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
               },
               child: Text('حذف', style: TextStyle(color: Colors.red)),
             ),
@@ -105,12 +133,20 @@ class _PartiesScreenState extends State<PartiesScreen> {
                 'openingBalance': 0.0,
               };
               final api = Provider.of<ApiService>(context, listen: false);
-              if (isEdit) {
-                await api.put('api/parties/${party!['id']}', body);
-              } else {
-                await api.post('api/parties', body);
+              try {
+                if (isEdit) {
+                  await api.put('api/parties/${party!['id']}', body);
+                } else {
+                  await api.post('api/parties', body);
+                }
+                Navigator.pop(ctx, true);
+              } catch (e) {
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                  content: Text(e is ApiException ? e.message : 'تعذر الحفظ'),
+                  backgroundColor: Colors.red,
+                ));
               }
-              Navigator.pop(ctx, true);
             },
             child: Text('حفظ التعديلات'),
           ),
@@ -118,7 +154,8 @@ class _PartiesScreenState extends State<PartiesScreen> {
       ),
     );
     if (result == true) {
-      _load();
+      await _load();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحفظ'), backgroundColor: Colors.green));
     }
   }
@@ -143,51 +180,92 @@ class _PartiesScreenState extends State<PartiesScreen> {
           ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: _parties.isEmpty
-                  ? Center(child: Text('لا توجد بيانات'))
-                  : ListView.builder(
-                      itemCount: _parties.length,
-                      itemBuilder: (context, i) {
-                        final p = _parties[i];
-                        final bal = (p['currentBalance'] ?? 0).toDouble();
-                        final id = p['id'] as int;
-                        final isSelected = _selectedIds.contains(id);
-
-                        return Card(
-                          color: isSelected ? Colors.blueGrey[100] : null,
-                          margin: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          child: ListTile(
-                            onLongPress: () {
-                              setState(() {
-                                _isSelectMode = true;
-                                _selectedIds.add(id);
-                              });
-                            },
-                            onTap: () {
-                              if (_isSelectMode) {
-                                setState(() {
-                                  if (isSelected) _selectedIds.remove(id);
-                                  else _selectedIds.add(id);
-                                  if (_selectedIds.isEmpty) _isSelectMode = false;
-                                });
-                              } else {
-                                _showPartyForm(p);
-                              }
-                            },
-                            leading: CircleAvatar(
-                              backgroundColor: bal > 0 ? Colors.red : bal < 0 ? Colors.green : Colors.grey,
-                              child: _isSelectMode
-                                  ? Icon(isSelected ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.white)
-                                  : Icon(Icons.person, color: Colors.white),
+              child: Column(
+                children: [
+                  if (_error != null) _errorBanner(),
+                  Expanded(
+                    child: _parties.isEmpty
+                        ? Center(
+                            child: Text(
+                              _error != null ? 'تعذر تحميل الأطراف' : 'لا توجد بيانات',
                             ),
-                            title: Text(p['name'] ?? '', style: TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(p['phone'] ?? 'لا يوجد هاتف'),
-                            trailing: Text('${bal.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: bal > 0 ? Colors.red : Colors.green)),
+                          )
+                        : ListView.builder(
+                            itemCount: _parties.length,
+                            itemBuilder: (context, i) {
+                              final p = _parties[i];
+                              final bal = (p['currentBalance'] ?? 0).toDouble();
+                              final id = p['id'] as int;
+                              final isSelected = _selectedIds.contains(id);
+
+                              return Card(
+                                color: isSelected ? Colors.blueGrey[100] : null,
+                                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                child: ListTile(
+                                  onLongPress: () {
+                                    setState(() {
+                                      _isSelectMode = true;
+                                      _selectedIds.add(id);
+                                    });
+                                  },
+                                  onTap: () {
+                                    if (_isSelectMode) {
+                                      setState(() {
+                                        if (isSelected) _selectedIds.remove(id);
+                                        else _selectedIds.add(id);
+                                        if (_selectedIds.isEmpty) _isSelectMode = false;
+                                      });
+                                    } else {
+                                      _showPartyForm(p);
+                                    }
+                                  },
+                                  leading: CircleAvatar(
+                                    backgroundColor: bal > 0 ? Colors.red : bal < 0 ? Colors.green : Colors.grey,
+                                    child: _isSelectMode
+                                        ? Icon(isSelected ? Icons.check_box : Icons.check_box_outline_blank, color: Colors.white)
+                                        : Icon(Icons.person, color: Colors.white),
+                                  ),
+                                  title: Text(p['name'] ?? '', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text(p['phone'] ?? 'لا يوجد هاتف'),
+                                  trailing: Text('${bal.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: bal > 0 ? Colors.red : Colors.green)),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
+                  ),
+                ],
+              ),
             ),
+    );
+  }
+
+  Widget _errorBanner() {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.red.shade700, size: 20),
+            onPressed: _load,
+            tooltip: 'إعادة المحاولة',
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/api_service.dart';
@@ -13,6 +12,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<dynamic> _filtered = [];
   bool _isLoading = true;
   bool _isSelectMode = false;
+  String? _error;
   final Set<int> _selectedIds = {};
   final _search = TextEditingController();
 
@@ -23,18 +23,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _loadItems() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     final api = Provider.of<ApiService>(context, listen: false);
-    final data = await api.getRaw('api/items?pageSize=200');
     try {
-      final json = jsonDecode(data);
+      final data = await api.getItem('api/items?pageSize=200');
+      if (!mounted) return;
       setState(() {
-        _items = json['items'] ?? [];
+        _items = data['items'] as List<dynamic>? ?? [];
         _filtered = _items;
         _isLoading = false;
       });
-    } catch (_) {
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _items = [];
+        _filtered = [];
+        _error = e is ApiException ? e.message : 'تعذر تحميل الأصناف';
+        _isLoading = false;
+      });
     }
   }
 
@@ -59,12 +68,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (confirmed != true) return;
 
     final api = Provider.of<ApiService>(context, listen: false);
-    for (final id in _selectedIds.toList()) {
-      await api.delete('api/items/$id');
+    try {
+      for (final id in _selectedIds.toList()) {
+        await api.delete('api/items/$id');
+      }
+      setState(() { _isSelectMode = false; _selectedIds.clear(); });
+      await _loadItems();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحذف'), backgroundColor: Colors.green));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e is ApiException ? e.message : 'تعذر الحذف'),
+        backgroundColor: Colors.red,
+      ));
     }
-    setState(() { _isSelectMode = false; _selectedIds.clear(); });
-    _loadItems();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحذف'), backgroundColor: Colors.green));
   }
 
   Future<void> _showItemForm([Map<String, dynamic>? item]) async {
@@ -103,8 +121,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
             TextButton(
               onPressed: () async {
                 final api = Provider.of<ApiService>(context, listen: false);
-                await api.delete('api/items/${item!['id']}');
-                Navigator.pop(ctx, true);
+                try {
+                  await api.delete('api/items/${item!['id']}');
+                  Navigator.pop(ctx, true);
+                } catch (e) {
+                  if (!ctx.mounted) return;
+                  ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                    content: Text(e is ApiException ? e.message : 'تعذر الحذف'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
               },
               child: Text('حذف', style: TextStyle(color: Colors.red)),
             ),
@@ -121,12 +147,20 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 'isKit': false,
               };
               final api = Provider.of<ApiService>(context, listen: false);
-              if (isEdit) {
-                await api.put('api/items/${item!['id']}', body);
-              } else {
-                await api.post('api/items', body);
+              try {
+                if (isEdit) {
+                  await api.put('api/items/${item!['id']}', body);
+                } else {
+                  await api.post('api/items', body);
+                }
+                Navigator.pop(ctx, true);
+              } catch (e) {
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                  content: Text(e is ApiException ? e.message : 'تعذر الحفظ'),
+                  backgroundColor: Colors.red,
+                ));
               }
-              Navigator.pop(ctx, true);
             },
             child: Text('حفظ التعديلات'),
           ),
@@ -134,7 +168,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
     );
     if (result == true) {
-      _loadItems();
+      await _loadItems();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحفظ بنجاح'), backgroundColor: Colors.green));
     }
   }
@@ -177,13 +212,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
               ),
             ),
           ),
+          if (_error != null) _errorBanner(),
           Expanded(
             child: _isLoading
                 ? Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadItems,
                     child: _filtered.isEmpty
-                        ? Center(child: Text('لا توجد أصناف'))
+                        ? Center(
+                            child: Text(
+                              _error != null ? 'تعذر تحميل الأصناف' : 'لا توجد أصناف',
+                            ),
+                          )
                         : ListView.builder(
                             itemCount: _filtered.length,
                             itemBuilder: (context, index) {
@@ -230,6 +270,36 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             },
                           ),
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorBanner() {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.red.shade700, size: 20),
+            onPressed: _loadItems,
+            tooltip: 'إعادة المحاولة',
           ),
         ],
       ),

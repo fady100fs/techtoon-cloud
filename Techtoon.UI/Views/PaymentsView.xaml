@@ -13,7 +13,11 @@
             <Button Content="&#x62A;&#x62D;&#x62F;&#x64A;&#x62B;" Command="{Binding RefreshCommand}" Width="80" Height="34" Margin="0,0,16,0"/>
             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="250" Height="34" VerticalContentAlignment="Center"/>
         </StackPanel>
-        <DataGrid ItemsSource="{Binding Payments}" SelectedItem="{Binding SelectedPayment}"
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+            <Button Content="&#x627;&#x644;&#x633;&#x627;&#x628;&#x642;" Command="{Binding PrevPageCommand}" Width="90" Height="30" Margin="0,0,8,0" Padding="10,0" FontWeight="SemiBold" Background="#ECEFF1" BorderThickness="0"/>
+            <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13" Foreground="#37474F"/>
+            <Button Content="&#x627;&#x644;&#x62A;&#x627;&#x644;&#x64A;" Command="{Binding NextPageCommand}" Width="90" Height="30" Padding="10,0" FontWeight="SemiBold" Background="#ECEFF1" BorderThickness="0"/>
+        </StackPanel>        <DataGrid ItemsSource="{Binding Payments}" SelectedItem="{Binding SelectedPayment}"
                   AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
                   HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                   AlternatingRowBackground="#FFF9F9F9">

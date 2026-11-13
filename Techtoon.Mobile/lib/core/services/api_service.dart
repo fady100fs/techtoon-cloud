@@ -188,6 +188,53 @@ class ApiService {
     throw _errorFrom(response);
   }
 
+  /// Calls the API health endpoint (`GET /health`) and returns the raw body.
+  /// Throws [ApiException] when the server is unreachable or answers with an error.
+  Future<String> checkHealth() async {
+    final response = await _send(
+      () => http.get(Uri.parse('$baseUrl/health')),
+    );
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.body;
+    }
+    throw _errorFrom(response, fallback: 'الخادم لا يستجيب بشكل صحيح');
+  }
+
+  /// Fetches every item of a paged endpoint (`items`/`totalCount`/`totalPages`),
+  /// following the pagination until all pages are read.
+  Future<List<dynamic>> getAllItems(String endpoint, {int pageSize = 200}) async {
+    final all = <dynamic>[];
+    var page = 1;
+    var totalPages = 1;
+    while (page <= totalPages && page <= 200) {
+      final separator = endpoint.contains('?') ? '&' : '?';
+      final data = await getItem(
+        '$endpoint${separator}page=$page&pageSize=$pageSize',
+      );
+      final items = data['items'];
+      if (items is List) all.addAll(items);
+      final pages = data['totalPages'];
+      final pageCount = (pages is int) ? pages as int : 1;
+      totalPages = pageCount > 0 ? pageCount : 1;
+      page++;
+    }
+    return all;
+  }
+
+  /// Fetches every item of [endpoint] and keeps only those whose [field]
+  /// equals [value].
+  ///
+  /// The API currently answers 400 ("The parameter already belongs to a
+  /// collection") for every request that carries a server-side `type` filter,
+  /// so the filtering is done on the device instead of on the server.
+  Future<List<dynamic>> getItemsByField(
+      String endpoint, String field, String value) async {
+    final all = await getAllItems(endpoint);
+    return all
+        .where((item) => item is Map && item[field]?.toString() == value)
+        .toList();
+  }
+
   Future<Map<String, dynamic>> getItem(String endpoint) async {
     final response = await _authed(
       () => http.get(Uri.parse('$baseUrl/$endpoint'), headers: _headers),

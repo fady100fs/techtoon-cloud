@@ -8,7 +8,7 @@ namespace Techtoon.UI.Views
         public RecurringInvoicesView()
         {
             InitializeComponent();
-            DataContext = new ViewModels.RecurringInvoicesViewModel();
+            if (DataContext == null) DataContext = new ViewModels.RecurringInvoicesViewModel();
         }
     }
 }

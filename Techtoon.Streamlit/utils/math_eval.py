@@ -1,4 +1,4 @@
-#""
+"""
 Safe arithmetic expression evaluator for numeric input cells.
 Supports: + - * / ** % ( ) and numbers.
 Usage in Streamlit cells:

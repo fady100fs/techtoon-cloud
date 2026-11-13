@@ -70,7 +70,7 @@ public class PartyAppService : IPartyAppService
 
         using (var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM parties p " + whereSql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             result.TotalCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 
@@ -85,7 +85,7 @@ public class PartyAppService : IPartyAppService
 
         using (var cmd = new NpgsqlCommand(sql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             cmd.Parameters.AddWithValue("limit", pageSize);
             cmd.Parameters.AddWithValue("offset", (page - 1) * pageSize);
             using var r = await cmd.ExecuteReaderAsync();
@@ -109,8 +109,13 @@ public class PartyAppService : IPartyAppService
     {
         using var conn = new NpgsqlConnection(_connStr);
         await conn.OpenAsync();
+        var cols = await GetPartyColumnsAsync(conn);
+        bool hasEmail = cols.Contains("email");
+        bool hasTax = cols.Contains("tax_number");
         var sql = "SELECT p.id::bigint, p.name, COALESCE(p.type,'') AS type, COALESCE(p.phone,'') AS phone, " +
-                  "COALESCE(p.email,'') AS email, COALESCE(p.address,'') AS address, COALESCE(p.tax_number,'') AS tax_number, " +
+                  (hasEmail ? "COALESCE(p.email,'') AS email, " : "''::text AS email, ") +
+                  "COALESCE(p.address,'') AS address, " +
+                  (hasTax ? "COALESCE(p.tax_number,'') AS tax_number, " : "''::text AS tax_number, ") +
                   "COALESCE(p.opening_balance,0)::numeric AS opening_balance, " +
                   "COALESCE(p.opening_balance,0)::numeric + " +
                   "COALESCE((SELECT SUM(amount) FROM payments WHERE party_id = p.id AND payment_type='receipt'), 0)::numeric - " +
@@ -138,6 +143,29 @@ public class PartyAppService : IPartyAppService
         };
     }
 
+    /// <summary>أول معرّف متاح في جدول معيّن (0 إذا كان الجدول فارغًا).</summary>
+    private static async Task<int> ResolveFirstIdAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string table)
+    {
+        using var cmd = new NpgsqlCommand($"SELECT id FROM {table} ORDER BY id LIMIT 1", conn, tx);
+        var v = await cmd.ExecuteScalarAsync();
+        return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
+    }
+
+    /// <summary>
+    /// أعمدة جدول الأطراف الموجودة فعلًا — فبعض الإصدارات لا تحتوي email/tax_number،
+    /// وكان الاستعلام يفشل بخطأ PostgreSQL (عمود غير موجود).
+    /// </summary>
+    private static async Task<HashSet<string>> GetPartyColumnsAsync(NpgsqlConnection conn)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var cmd = new NpgsqlCommand(
+            "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='parties'",
+            conn);
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync()) set.Add(r.GetString(0));
+        return set;
+    }
+
     public async Task<PartyDetailDto> CreatePartyAsync(PartyCreateDto dto, int userId)
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
@@ -149,17 +177,40 @@ public class PartyAppService : IPartyAppService
         await conn.OpenAsync();
         using var tx = await conn.BeginTransactionAsync();
 
+        var cols = await GetPartyColumnsAsync(conn);
+        bool hasEmail = cols.Contains("email");
+        bool hasTax = cols.Contains("tax_number");
+        bool hasAccount = cols.Contains("account_id");
+
+        // account_id إلزامي في قاعدة البيانات — إن لم يحدّده العميل نختار أول حساب متاح
+        int accountId = 0;
+        if (hasAccount)
+        {
+            accountId = dto.AccountId ?? await ResolveFirstIdAsync(conn, tx, "accounts");
+            if (accountId <= 0)
+                throw new ArgumentException("accountId is required — no chart of accounts is available");
+        }
+
+        var insCols = new List<string> { "name", "type", "phone" };
+        var insVals = new List<string> { "@name", "@type", "@phone" };
+        if (hasEmail) { insCols.Add("email"); insVals.Add("@email"); }
+        insCols.Add("address"); insVals.Add("@address");
+        if (hasTax) { insCols.Add("tax_number"); insVals.Add("@tax"); }
+        if (hasAccount) { insCols.Add("account_id"); insVals.Add("@account"); }
+        insCols.Add("opening_balance"); insVals.Add("@opening");
+
         int newId;
         using (var cmd = new NpgsqlCommand(
-            "INSERT INTO parties (name, type, phone, email, address, tax_number, opening_balance) " +
-            "VALUES (@name, @type, @phone, @email, @address, @tax, @opening) RETURNING id", conn, tx))
+            $"INSERT INTO parties ({string.Join(", ", insCols)}) " +
+            $"VALUES ({string.Join(", ", insVals)}) RETURNING id", conn, tx))
         {
             cmd.Parameters.AddWithValue("name", dto.Name);
             cmd.Parameters.AddWithValue("type", dto.Type);
             cmd.Parameters.AddWithValue("phone", (object?)dto.Phone ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("email", (object?)dto.Email ?? DBNull.Value);
+            if (hasEmail) cmd.Parameters.AddWithValue("email", (object?)dto.Email ?? DBNull.Value);
             cmd.Parameters.AddWithValue("address", (object?)dto.Address ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("tax", (object?)dto.TaxNumber ?? DBNull.Value);
+            if (hasTax) cmd.Parameters.AddWithValue("tax", (object?)dto.TaxNumber ?? DBNull.Value);
+            if (hasAccount) cmd.Parameters.AddWithValue("account", accountId);
             cmd.Parameters.AddWithValue("opening", dto.OpeningBalance);
             newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
@@ -179,16 +230,25 @@ public class PartyAppService : IPartyAppService
         await conn.OpenAsync();
         using var tx = await conn.BeginTransactionAsync();
 
+        var cols = await GetPartyColumnsAsync(conn);
+        bool hasEmail = cols.Contains("email");
+        bool hasTax = cols.Contains("tax_number");
+
+        var sets = new List<string> { "name=@name", "type=@type", "phone=@phone" };
+        if (hasEmail) sets.Add("email=@email");
+        sets.Add("address=@address");
+        if (hasTax) sets.Add("tax_number=@tax");
+
         using (var cmd = new NpgsqlCommand(
-            "UPDATE parties SET name=@name, type=@type, phone=@phone, email=@email, address=@address, tax_number=@tax WHERE id=@id", conn, tx))
+            $"UPDATE parties SET {string.Join(", ", sets)} WHERE id=@id", conn, tx))
         {
             cmd.Parameters.AddWithValue("id", id);
             cmd.Parameters.AddWithValue("name", dto.Name);
             cmd.Parameters.AddWithValue("type", (object?)dto.Type ?? "customer");
             cmd.Parameters.AddWithValue("phone", (object?)dto.Phone ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("email", (object?)dto.Email ?? DBNull.Value);
+            if (hasEmail) cmd.Parameters.AddWithValue("email", (object?)dto.Email ?? DBNull.Value);
             cmd.Parameters.AddWithValue("address", (object?)dto.Address ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("tax", (object?)dto.TaxNumber ?? DBNull.Value);
+            if (hasTax) cmd.Parameters.AddWithValue("tax", (object?)dto.TaxNumber ?? DBNull.Value);
             var affected = await cmd.ExecuteNonQueryAsync();
             if (affected == 0) { await tx.RollbackAsync(); return null; }
         }
@@ -265,7 +325,7 @@ public class PartyAppService : IPartyAppService
         var sqlInv = "SELECT date, type, invoice_number, total::numeric, COALESCE(notes,'') FROM invoices WHERE party_id=@pid" + dateFilter + " ORDER BY date";
         using (var cmd = new NpgsqlCommand(sqlInv, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             using var r = await cmd.ExecuteReaderAsync();
             while (await r.ReadAsync())
             {
@@ -287,7 +347,7 @@ public class PartyAppService : IPartyAppService
         var sqlPay = "SELECT date, payment_type, COALESCE(voucher_no,''), amount::numeric, COALESCE(notes,'') FROM payments WHERE party_id=@pid" + dateFilter + " ORDER BY date";
         using (var cmd = new NpgsqlCommand(sqlPay, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             using var r = await cmd.ExecuteReaderAsync();
             while (await r.ReadAsync())
             {

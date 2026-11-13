@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Npgsql;
+using Techtoon.Core.Permissions;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -104,7 +105,7 @@ public class AuthAppService : IAuthAppService
         }
 
         // Load permissions
-        var permissions = await LoadPermissionsAsync(conn, userId);
+        var permissions = await LoadPermissionsAsync(conn, userId, role);
 
         // Generate tokens
         var (accessToken, refreshToken) = _jwt.GenerateTokens(userId, username, role, deviceId, permissions);
@@ -184,7 +185,7 @@ public class AuthAppService : IAuthAppService
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }
 
-        var permissions = await LoadPermissionsAsync(conn, userId);
+        var permissions = await LoadPermissionsAsync(conn, userId, role);
         var (newAccess, newRefresh) = _jwt.GenerateTokens(userId, username, role, deviceId, permissions);
 
         // Rotate refresh token: update hash
@@ -288,28 +289,76 @@ public class AuthAppService : IAuthAppService
         };
         r.Close();
 
-        user.Permissions = await LoadPermissionsAsync(conn, userId);
+        user.Permissions = await LoadPermissionsAsync(conn, userId, user.Role);
         return user;
     }
 
-    private async Task<List<string>> LoadPermissionsAsync(NpgsqlConnection conn, int userId)
+    private async Task<List<string>> LoadPermissionsAsync(NpgsqlConnection conn, int userId, string? roleName = null)
     {
-        var perms = new List<string>();
-        using var cmd = new NpgsqlCommand(
-            "SELECT permission_key FROM user_permissions WHERE user_id=@id AND is_granted=TRUE",
-            conn);
-        cmd.Parameters.AddWithValue("id", userId);
-        using var r = await cmd.ExecuteReaderAsync();
-        while (await r.ReadAsync())
-            perms.Add(r.GetString(0));
-        return perms;
+        var perms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1) دور ADMIN يملك كل الصلاحيات
+        if (string.Equals(roleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var k in PermissionCatalog.AllKeys) perms.Add(k);
+        }
+        else
+        {
+            // 2) صلاحيات الدور (من role_permissions) — إما عبر users.role_id أو باسم الدور
+            using (var cmd = new NpgsqlCommand(
+                "SELECT rp.permission_key FROM role_permissions rp " +
+                "JOIN roles r ON r.id = rp.role_id " +
+                "LEFT JOIN users u ON u.role_id = r.id AND u.id = @id " +
+                "WHERE rp.is_granted = TRUE AND (u.id = @id OR UPPER(r.name) = UPPER(@role))",
+                conn))
+            {
+                cmd.Parameters.AddWithValue("id", userId);
+                cmd.Parameters.AddWithValue("role", roleName ?? "");
+                using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                    perms.Add(r.GetString(0));
+            }
+        }
+
+        // 3) استثناءات المستخدم فوق الدور: المنح يضيف والمنع يسحب
+        using (var cmd = new NpgsqlCommand(
+            "SELECT permission_key, COALESCE(is_granted, TRUE) FROM user_permissions WHERE user_id=@id",
+            conn))
+        {
+            cmd.Parameters.AddWithValue("id", userId);
+            using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                var key = r.GetString(0);
+                bool granted = r.GetBoolean(1);
+                if (granted) perms.Add(key);
+                else perms.Remove(key);
+            }
+        }
+
+        return perms.ToList();
     }
 
     private async Task StoreDeviceAsync(NpgsqlConnection conn, int userId, string deviceId, string? deviceName, string refreshToken)
     {
         var refreshHash = _jwt.HashToken(refreshToken);
+
+        // تحديث الجهاز إن كان موجودًا (لا نستخدم ON CONFLICT: لا يوجد قيد فريد
+        // على (user_id, device_id) في المخطط ⇒ كان الاستيراد يفشل بـ 42P10).
+        using (var upd = new NpgsqlCommand(
+            "UPDATE user_devices SET refresh_token_hash=@h, device_name=@dname, last_seen=NOW(), is_revoked=FALSE " +
+            "WHERE user_id=@uid AND device_id=@did", conn))
+        {
+            upd.Parameters.AddWithValue("uid", userId);
+            upd.Parameters.AddWithValue("did", deviceId);
+            upd.Parameters.AddWithValue("dname", (object?)deviceName ?? DBNull.Value);
+            upd.Parameters.AddWithValue("h", refreshHash);
+            if (await upd.ExecuteNonQueryAsync() > 0) return;
+        }
+
         using var cmd = new NpgsqlCommand(
-            "INSERT INTO user_devices (user_id, device_id, device_name, refresh_token_hash, last_seen, is_revoked, created_at) VALUES (@uid, @did, @dname, @h, NOW(), FALSE, NOW()) ON CONFLICT (user_id, device_id) DO UPDATE SET refresh_token_hash = EXCLUDED.refresh_token_hash, device_name = EXCLUDED.device_name, last_seen = NOW(), is_revoked = FALSE",
+            "INSERT INTO user_devices (user_id, device_id, device_name, refresh_token_hash, last_seen, is_revoked, created_at) " +
+            "VALUES (@uid, @did, @dname, @h, NOW(), FALSE, NOW())",
             conn);
         cmd.Parameters.AddWithValue("uid", userId);
         cmd.Parameters.AddWithValue("did", deviceId);

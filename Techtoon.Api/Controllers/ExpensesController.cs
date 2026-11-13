@@ -58,6 +58,23 @@ public class ExpensesController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}")]
+    [HasPermission("expenses")]
+    public async Task<IActionResult> UpdateExpense(int id, [FromBody] ExpenseCreateDto dto)
+    {
+        if (_current.UserId == null) return Unauthorized();
+        try
+        {
+            var updated = await _svc.UpdateExpenseAsync(id, dto, _current.UserId.Value);
+            if (updated == null) return NotFound();
+            return Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpDelete("{id:int}")]
     [HasPermission("expenses")]
     public async Task<IActionResult> DeleteExpense(int id)

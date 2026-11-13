@@ -116,9 +116,12 @@ class _MainShellState extends State<MainShell> {
               _drawerItem(Icons.account_balance, 'الخزائن والبنوك', () => _navigate(CashBoxesScreen(), 'الخزائن والبنوك')),
               _drawerItem(Icons.receipt, 'التسوية البنكية', () => _navigate(
                 _genericScreen('التسوية البنكية', 'api/bank-reconciliation/statements', [
-                  {'field': 'reconciliationNumber', 'label': 'رقم التسوية'},
                   {'field': 'cashBoxName', 'label': 'الحساب'},
-                  {'field': 'difference', 'label': 'الفرق'},
+                  {'field': 'periodStart', 'label': 'من'},
+                  {'field': 'periodEnd', 'label': 'إلى'},
+                  {'field': 'openingBalance', 'label': 'رصيد افتتاحي'},
+                  {'field': 'closingBalance', 'label': 'رصيد ختامي'},
+                  {'field': 'status', 'label': 'الحالة'},
                 ]), 'التسوية البنكية')),
               _drawerItem(Icons.money, 'المصروفات', () => _navigate(ExpensesScreen(), 'المصروفات')),
               _drawerItem(Icons.delete, 'الديون المعدومة', () => _navigate(

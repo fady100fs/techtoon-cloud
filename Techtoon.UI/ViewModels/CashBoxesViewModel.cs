@@ -37,6 +37,10 @@ namespace Techtoon.UI.ViewModels
         public ICommand CloseShiftCommand { get; set; }
         public ObservableCollection<string> OperationsLog { get; } = new();
 
+        private string _statusMessage = "";
+        /// <summary>رسالة الحالة (كانت مرتبطة في الواجهة بلا وجود خاصية → رابط مكسور).</summary>
+        public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
+
         public CashBoxesViewModel()
         {
             CashBoxes = new ObservableCollection<CashBoxRow>();
@@ -136,6 +140,7 @@ namespace Techtoon.UI.ViewModels
             try
             {
                 OperationsLog.Clear();
+            StatusMessage = "";
                 using var conn = new NpgsqlConnection(SecureConnectionManager.GetConnectionString());
                 await conn.OpenAsync();
                 using (var cmd = new NpgsqlCommand(@"

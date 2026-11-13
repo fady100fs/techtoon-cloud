@@ -8,7 +8,7 @@ namespace Techtoon.UI.Views
         public SubscriptionsView()
         {
             InitializeComponent();
-            DataContext = new ViewModels.SubscriptionsViewModel();
+            if (DataContext == null) DataContext = new ViewModels.SubscriptionsViewModel();
         }
     }
 }

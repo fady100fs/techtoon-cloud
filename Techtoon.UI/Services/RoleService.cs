@@ -41,21 +41,39 @@ namespace Techtoon.UI.Services
             {
                 using var conn = new NpgsqlConnection(AuthService.GetCS());
                 conn.Open();
-                Execute(conn, null, @"
-                    CREATE TABLE IF NOT EXISTS role_permissions (
-                        id              SERIAL PRIMARY KEY,
-                        role_id         INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-                        permission_key  VARCHAR(100) NOT NULL,
-                        is_granted      BOOLEAN NOT NULL DEFAULT TRUE,
-                        created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-                        CONSTRAINT role_permissions_unique UNIQUE (role_id, permission_key)
-                    )");
-                Execute(conn, null, "CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(role_id)");
-                Execute(conn, null, "CREATE INDEX IF NOT EXISTS idx_user_permissions_user ON user_permissions(user_id)");
-                // مفتاح فريد للاستثناءات (مستخدم + صلاحية) — يلزم لعملية ON CONFLICT
-                Execute(conn, null,
-                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_permissions_unique ON user_permissions(user_id, permission_key)");
-                Execute(conn, null, "CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_name ON roles(name)");
+
+                // فحص سريع في رحلة واحدة: هل الجدول والفهارس موجودة؟
+                // (كان كل تشغيل ينفّذ DDL ⇒ تأخّر الإقلاع ~15 ثانية على Neon)
+                bool schemaReady = false;
+                using (var chk = new NpgsqlCommand(
+                    "SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='role_permissions') " +
+                    "+ (SELECT COUNT(*) FROM pg_indexes WHERE tablename='role_permissions') " +
+                    "+ (SELECT COUNT(*) FROM pg_indexes WHERE indexname='idx_user_permissions_unique') " +
+                    "+ (SELECT COUNT(*) FROM pg_indexes WHERE indexname='idx_roles_name')", conn))
+                {
+                    var v = chk.ExecuteScalar();
+                    schemaReady = v != null && Convert.ToInt32(v) >= 4;
+                }
+
+                if (!schemaReady)
+                {
+                    Execute(conn, null, @"
+                        CREATE TABLE IF NOT EXISTS role_permissions (
+                            id              SERIAL PRIMARY KEY,
+                            role_id         INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                            permission_key  VARCHAR(100) NOT NULL,
+                            is_granted      BOOLEAN NOT NULL DEFAULT TRUE,
+                            created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+                            CONSTRAINT role_permissions_unique UNIQUE (role_id, permission_key)
+                        )");
+                    Execute(conn, null, "CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(role_id)");
+                    Execute(conn, null, "CREATE INDEX IF NOT EXISTS idx_user_permissions_user ON user_permissions(user_id)");
+                    // مفتاح فريد للاستثناءات (مستخدم + صلاحية) — يلزم لعملية ON CONFLICT
+                    Execute(conn, null,
+                        "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_permissions_unique ON user_permissions(user_id, permission_key)");
+                    Execute(conn, null, "CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_name ON roles(name)");
+                }
+
                 SeedSystemRoles(conn);
             }
             catch (Exception ex)
@@ -78,12 +96,87 @@ namespace Techtoon.UI.Services
 
         private static void SeedSystemRoles(NpgsqlConnection conn)
         {
-            foreach (var def in RoleCatalog.All())
+            var defs = RoleCatalog.All();
+
+            // 1) زرع/تحديث الأدوار في رحلة واحدة
+            var names = new List<string>();
+            var displays = new List<string>();
+            var descriptions = new List<string>();
+            foreach (var d in defs)
             {
-                int roleId = UpsertRole(conn, def);
-                // 'ADMIN' يُعامَل بشكل خاص في HasPermission (صلاحية كاملة) — نخزّن صفوفًا له أيضًا
-                // حتى تظهر مصفوفة الأدوار متسقة في شاشة الصلاحيات.
-                SetRolePermissions(conn, roleId, def.Permissions);
+                names.Add(d.Name);
+                displays.Add(d.DisplayName);
+                descriptions.Add(d.Description ?? "");
+            }
+            using (var cmd = new NpgsqlCommand(
+                "INSERT INTO roles (name, display_name, description, is_system_role, is_active, created_at) " +
+                "SELECT n, d, ds, TRUE, TRUE, NOW() FROM unnest(@names::text[], @displays::text[], @descs::text[]) " +
+                "AS t(n, d, ds) ON CONFLICT (name) DO UPDATE SET display_name=EXCLUDED.display_name, " +
+                "description=EXCLUDED.description, is_system_role=TRUE, is_active=TRUE", conn))
+            {
+                cmd.Parameters.AddWithValue("names", names.ToArray());
+                cmd.Parameters.AddWithValue("displays", displays.ToArray());
+                cmd.Parameters.AddWithValue("descs", descriptions.ToArray());
+                cmd.ExecuteNonQuery();
+            }
+
+            // 2) قراءة الصلاحيات الحالية مرة واحدة
+            var current = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = new NpgsqlCommand(
+                "SELECT r.name, rp.permission_key FROM role_permissions rp JOIN roles r ON r.id=rp.role_id " +
+                "WHERE rp.is_granted=TRUE", conn))
+            using (var r = cmd.ExecuteReader())
+            {
+                while (r.Read())
+                {
+                    var rn = r.GetString(0);
+                    if (!current.TryGetValue(rn, out var set))
+                    {
+                        set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        current[rn] = set;
+                    }
+                    set.Add(r.GetString(1));
+                }
+            }
+
+            // 3) إدراج الناقص لكل دور في رحلة واحدة
+            var roleNames = new List<string>();
+            var permKeys = new List<string>();
+            var toDelete = new List<(string role, string key)>();
+            foreach (var def in defs)
+            {
+                current.TryGetValue(def.Name, out var existing);
+                existing ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var key in def.Permissions)
+                {
+                    if (existing.Contains(key)) continue;
+                    roleNames.Add(def.Name);
+                    permKeys.Add(key);
+                }
+                // الصلاحيات التي لم تعد في الكتالوج تُحذف (نادرة)
+                foreach (var extra in existing)
+                    if (!def.Permissions.Contains(extra)) toDelete.Add((def.Name, extra));
+            }
+
+            if (roleNames.Count > 0)
+            {
+                using var cmd = new NpgsqlCommand(
+                    "INSERT INTO role_permissions (role_id, permission_key, is_granted, created_at) " +
+                    "SELECT r.id, k.key, TRUE, NOW() FROM roles r " +
+                    "JOIN unnest(@rnames::text[], @keys::text[]) AS k(role_name, key) ON k.role_name = r.name " +
+                    "ON CONFLICT (role_id, permission_key) DO UPDATE SET is_granted = TRUE", conn);
+                cmd.Parameters.AddWithValue("rnames", roleNames.ToArray());
+                cmd.Parameters.AddWithValue("keys", permKeys.ToArray());
+                cmd.ExecuteNonQuery();
+            }
+
+            foreach (var (role, key) in toDelete)
+            {
+                using var cmd = new NpgsqlCommand(
+                    "DELETE FROM role_permissions WHERE role_id=(SELECT id FROM roles WHERE name=@rn) AND permission_key=@k", conn);
+                cmd.Parameters.AddWithValue("rn", role);
+                cmd.Parameters.AddWithValue("k", key);
+                cmd.ExecuteNonQuery();
             }
         }
 

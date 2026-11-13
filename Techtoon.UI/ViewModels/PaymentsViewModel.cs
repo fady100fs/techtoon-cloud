@@ -162,6 +162,7 @@ namespace Techtoon.UI.ViewModels
         {
             if (SelectedPayment == null) return;
             var win = new PaymentEditWindow();
+            win.LoadForEdit(SelectedPayment.Id);
             win.Owner = Application.Current.MainWindow;
             if (win.ShowDialog() == true) _ = LoadPaymentsAsync();
         }
@@ -205,11 +206,11 @@ namespace Techtoon.UI.ViewModels
                     // P1.2: حذف بند invoice_payments المرتبط (حتى تُعاد التسوية من الدفتر النظيف)
                     if (invoiceId.HasValue && TableExists(conn, tx, "invoice_payments"))
                     {
+                        // linkage heuristic: بند الدفتر غير مرتبط بسند payments بمفتاح أجنبي،
+                        // فنحذف أقدم بند بنفس الفاتورة والمبلغ.
                         using (var delIp = new NpgsqlCommand(
-                            "DELETE FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt AND payment_method=ILIKE '%نقدي%' OR TRUE", conn, tx))
+                            "DELETE FROM invoice_payments WHERE id = (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt ORDER BY id LIMIT 1)", conn, tx))
                         {
-                            // نستخدم oldest matching row by amount to approximate linkage safely:
-                            delIp.CommandText = "DELETE FROM invoice_payments WHERE id = (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@amt ORDER BY id LIMIT 1)";
                             delIp.Parameters.AddWithValue("@iid", invoiceId.Value);
                             delIp.Parameters.AddWithValue("@amt", amount);
                             delIp.ExecuteNonQuery();

@@ -38,7 +38,8 @@ public class PartiesViewModel : ViewModelBase
             using var scope = App.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<TechtoonDbContext>();
             var list = await db.Parties.Include(p => p.Account).OrderBy(p => p.Name).Take(500).ToListAsync();
-            Parties = new ObservableCollection<Party>(list);
+            _allParties = new ObservableCollection<Party>(list);
+            Parties = new ObservableCollection<Party>(_allParties);
             ApplyFilter();
         }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadAsync error: " + ex.Message); }
@@ -46,11 +47,21 @@ public class PartiesViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
-        if (string.IsNullOrWhiteSpace(SearchText)) return;
+        // مسح البحث يجب أن يُعيد القائمة كاملة (كان return مبكرًا يترك القائمة مُصفّحة للأبد)
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            if (_allParties == null) return;
+            Parties = new ObservableCollection<Party>(_allParties);
+            return;
+        }
         var s = SearchText.Trim().ToLower();
-        var filtered = Parties.Where(p => (p.Name?.ToLower().Contains(s) == true) || (p.Phone?.ToLower().Contains(s) == true)).ToList();
+        var source = _allParties ?? Parties;
+        var filtered = source.Where(p => (p.Name?.ToLower().Contains(s) == true) || (p.Phone?.ToLower().Contains(s) == true)).ToList();
         Parties = new ObservableCollection<Party>(filtered);
     }
+
+    /// <summary>نسخة كاملة من الأطراف — تُستخدم لإلغاء البحث.</summary>
+    private ObservableCollection<Party>? _allParties;
 
     private void OpenEdit(Party? party)
     {

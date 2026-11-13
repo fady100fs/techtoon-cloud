@@ -77,7 +77,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [HasPermission("cancel_invoice")]
+    [HasPermission("payments.delete")]
     public async Task<IActionResult> DeletePayment(int id)
     {
         if (_current.UserId == null) return Unauthorized();

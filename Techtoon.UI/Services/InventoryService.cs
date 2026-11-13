@@ -24,12 +24,12 @@ public static class InventoryService
                 db.StockLevels.Add(sl);
             }
             
-            decimal qtyChange = invoice.Type == "sale" ? -line.Quantity : line.Quantity;
+            decimal qtyChange = invoice.Type == "sales" ? -line.Quantity : line.Quantity;
             sl.Quantity += qtyChange;
             sl.LastUpdated = DateTime.UtcNow;
 
             // P1.4: store canonical in/out with positive magnitude (was sale_out/purchase_in — unknown to InventorySignConvention).
-            bool isSale = invoice.Type == "sale";
+            bool isSale = invoice.Type == "sales";
             db.InventoryMovements.Add(new InventoryMovement
             {
                 ItemId = line.ItemId,

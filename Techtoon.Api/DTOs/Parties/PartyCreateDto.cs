@@ -9,4 +9,9 @@ public class PartyCreateDto
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
     public decimal OpeningBalance { get; set; }
+
+    /// <summary>
+    /// حساب الطرف (إلزامي في قاعدة البيانات). إن لم يُحدَّد يختار الخدمة أول حساب متاح.
+    /// </summary>
+    public int? AccountId { get; set; }
 }

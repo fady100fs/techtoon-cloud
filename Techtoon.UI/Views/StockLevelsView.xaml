@@ -8,6 +8,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,10">
@@ -44,5 +45,12 @@
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
+        <Grid Grid.Row="3" Margin="0,10,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="&#x627;&#x644;&#x633;&#x627;&#x628;&#x642;" Command="{Binding PrevPageCommand}" Width="90" Height="30" Margin="0,0,8,0" Padding="10,0" FontWeight="SemiBold" Background="#ECEFF1" BorderThickness="0"/>
+                <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13" Foreground="#37474F"/>
+                <Button Content="&#x627;&#x644;&#x62A;&#x627;&#x644;&#x64A;" Command="{Binding NextPageCommand}" Width="90" Height="30" Padding="10,0" FontWeight="SemiBold" Background="#ECEFF1" BorderThickness="0"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </UserControl>

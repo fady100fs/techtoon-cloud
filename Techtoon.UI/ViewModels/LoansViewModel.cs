@@ -285,6 +285,28 @@ namespace Techtoon.UI.ViewModels
                 _ = LoadLoansAsync();
                 return;
             }
+            if (SelLoan.Remaining <= 0)
+            {
+                // القرض مسدَّد بالكامل — الإقفال يجب أن يغيّر الحالة فعلًا (كان لا يفعل شيئًا)
+                try
+                {
+                    using var conn = new NpgsqlConnection(GetCS());
+                    conn.Open();
+                    using var cmd = new NpgsqlCommand(
+                        "UPDATE loans SET status='closed', remaining_amount=0, paid_amount=principal_amount WHERE id=@id",
+                        conn);
+                    cmd.Parameters.AddWithValue("@id", SelLoan.Id);
+                    cmd.ExecuteNonQuery();
+                    AuditService.Log("CLOSE", "Loan", SelLoan.Id, "Closed loan: " + SelLoan.LoanNumber);
+                    MessageBox.Show("تم إقفال القرض " + SelLoan.LoanNumber + ".");
+                    _ = LoadLoansAsync();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("تعذر إقفال القرض: " + ex.Message);
+                }
+                return;
+            }
             if (SelLoan.Remaining > 0) { MessageBox.Show("لا يمكن الإقفال قبل سداد كامل الأقساط (المتبقي " + SelLoan.Remaining.ToString("N2") + ")."); return; }
         }
 

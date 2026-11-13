@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/api_service.dart';
@@ -15,6 +14,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   List<dynamic> _invoices = [];
   bool _isLoading = true;
   bool _isSelectMode = false;
+  String? _error;
   final Set<int> _selectedIds = {};
 
   @override
@@ -24,18 +24,29 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     final api = Provider.of<ApiService>(context, listen: false);
-    final ep = widget.type != null ? 'api/invoices?type=${widget.type}&pageSize=50' : 'api/invoices?pageSize=50';
-    final data = await api.getRaw(ep);
     try {
-      final json = jsonDecode(data);
+      // The API's server-side `type` filter is broken (it answers 400), so the
+      // list is fetched unfiltered and narrowed down on the device.
+      final items = widget.type != null
+          ? await api.getItemsByField('api/invoices', 'type', widget.type!)
+          : await api.getAllItems('api/invoices');
+      if (!mounted) return;
       setState(() {
-        _invoices = json['items'] ?? [];
+        _invoices = items;
         _isLoading = false;
       });
-    } catch (_) {
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _invoices = [];
+        _error = e is ApiException ? e.message : 'تعذر تحميل الفواتير';
+        _isLoading = false;
+      });
     }
   }
 
@@ -54,18 +65,37 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     if (confirmed != true) return;
 
     final api = Provider.of<ApiService>(context, listen: false);
-    for (final id in _selectedIds.toList()) {
-      await api.delete('api/invoices/$id');
+    try {
+      for (final id in _selectedIds.toList()) {
+        await api.delete('api/invoices/$id');
+      }
+      setState(() { _isSelectMode = false; _selectedIds.clear(); });
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحذف'), backgroundColor: Colors.green));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e is ApiException ? e.message : 'تعذر الحذف'),
+        backgroundColor: Colors.red,
+      ));
     }
-    setState(() { _isSelectMode = false; _selectedIds.clear(); });
-    _load();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم الحذف'), backgroundColor: Colors.green));
   }
 
   Future<void> _viewInvoice(Map<String, dynamic> inv) async {
     final api = Provider.of<ApiService>(context, listen: false);
-    final details = await api.getItem('api/invoices/${inv['id']}');
-    
+    Map<String, dynamic> details;
+    try {
+      details = await api.getItem('api/invoices/${inv['id']}');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(e is ApiException ? e.message : 'تعذر تحميل تفاصيل الفاتورة'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     if (!mounted) return;
     
     await showDialog(
@@ -102,10 +132,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         actions: [
           TextButton(
             onPressed: () async {
-              await api.delete('api/invoices/${inv['id']}');
-              Navigator.pop(ctx);
-              _load();
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حذف الفاتورة'), backgroundColor: Colors.green));
+              try {
+                await api.delete('api/invoices/${inv['id']}');
+                Navigator.pop(ctx);
+                await _load();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حذف الفاتورة'), backgroundColor: Colors.green));
+              } catch (e) {
+                if (!ctx.mounted) return;
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                  content: Text(e is ApiException ? e.message : 'تعذر حذف الفاتورة'),
+                  backgroundColor: Colors.red,
+                ));
+              }
             },
             child: Text('حذف الفاتورة', style: TextStyle(color: Colors.red)),
           ),
@@ -143,55 +182,96 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: _invoices.isEmpty
-                  ? Center(child: Text('لا توجد فواتير'))
-                  : ListView.builder(
-                      itemCount: _invoices.length,
-                      itemBuilder: (context, i) {
-                        final inv = _invoices[i];
-                        final total = (inv['total'] ?? 0).toDouble();
-                        final id = inv['id'] as int;
-                        final isSelected = _selectedIds.contains(id);
-
-                        return Card(
-                          color: isSelected ? Colors.blueGrey[100] : null,
-                          margin: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          child: ListTile(
-                            onLongPress: () {
-                              setState(() {
-                                _isSelectMode = true;
-                                _selectedIds.add(id);
-                              });
-                            },
-                            onTap: () {
-                              if (_isSelectMode) {
-                                setState(() {
-                                  if (isSelected) _selectedIds.remove(id);
-                                  else _selectedIds.add(id);
-                                  if (_selectedIds.isEmpty) _isSelectMode = false;
-                                });
-                              } else {
-                                _viewInvoice(inv);
-                              }
-                            },
-                            title: Text(inv['invoiceNumber'] ?? '', style: TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('${inv['partyName'] ?? ''} | ${inv['date'] ?? ''}'),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('${total.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold)),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(color: _statusColor(inv['status']), borderRadius: BorderRadius.circular(8)),
-                                  child: Text(inv['status'] ?? '', style: TextStyle(color: Colors.white, fontSize: 10)),
-                                ),
-                              ],
+              child: Column(
+                children: [
+                  if (_error != null) _errorBanner(),
+                  Expanded(
+                    child: _invoices.isEmpty
+                        ? Center(
+                            child: Text(
+                              _error != null ? 'تعذر تحميل الفواتير' : 'لا توجد فواتير',
                             ),
+                          )
+                        : ListView.builder(
+                            itemCount: _invoices.length,
+                            itemBuilder: (context, i) {
+                              final inv = _invoices[i];
+                              final total = (inv['total'] ?? 0).toDouble();
+                              final id = inv['id'] as int;
+                              final isSelected = _selectedIds.contains(id);
+
+                              return Card(
+                                color: isSelected ? Colors.blueGrey[100] : null,
+                                margin: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                child: ListTile(
+                                  onLongPress: () {
+                                    setState(() {
+                                      _isSelectMode = true;
+                                      _selectedIds.add(id);
+                                    });
+                                  },
+                                  onTap: () {
+                                    if (_isSelectMode) {
+                                      setState(() {
+                                        if (isSelected) _selectedIds.remove(id);
+                                        else _selectedIds.add(id);
+                                        if (_selectedIds.isEmpty) _isSelectMode = false;
+                                      });
+                                    } else {
+                                      _viewInvoice(inv);
+                                    }
+                                  },
+                                  title: Text(inv['invoiceNumber'] ?? '', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text('${inv['partyName'] ?? ''} | ${inv['date'] ?? ''}'),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text('${total.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(color: _statusColor(inv['status']), borderRadius: BorderRadius.circular(8)),
+                                        child: Text(inv['status'] ?? '', style: TextStyle(color: Colors.white, fontSize: 10)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
+                  ),
+                ],
+              ),
             ),
+    );
+  }
+
+  Widget _errorBanner() {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.red.shade700, size: 20),
+            onPressed: _load,
+            tooltip: 'إعادة المحاولة',
+          ),
+        ],
+      ),
     );
   }
 }

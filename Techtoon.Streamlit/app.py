@@ -59,30 +59,32 @@ st.markdown(
 # Auth
 # ------------------------------------------------------------------------------
 def _verify_password(plain, hashed):
+    """تحقّق صارم: bcrypt فقط — لا مقارنة نصية أبدًا (وإلا لا يتحقق من كلمة المرور)."""
+    if not plain or not hashed:
+        return False
     try:
         import bcrypt
         if isinstance(hashed, str):
             hashed = hashed.encode()
-        return bcrypt.checkpw(plain.encode(), hashed)
+        if isinstance(plain, str):
+            plain = plain.encode()
+        return bcrypt.checkpw(plain, hashed)
     except Exception:
-        # legacy fallback: plain compare
-        return str(plain) == str(hashed)
+        return False
 
 
 def login_user(username, password):
     try:
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT id, username, COALESCE(full_name, username), "
-                "COALESCE(password_hash, ''), COALESCE(is_active, true) "
-                "FROM users WHERE username = %s",
-                (username,),
-            )
-            row = cur.fetchone()
-        finally:
-            conn.close()
+        # get_connection() هو context manager — لا يمكن استدعاء cursor() عليه مباشرة
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, username, COALESCE(full_name, username), "
+                    "COALESCE(password_hash, ''), COALESCE(is_active, true) "
+                    "FROM users WHERE username = %s",
+                    (username,),
+                )
+                row = cur.fetchone()
     except Exception:
         return {"error": "تعذر الاتصال بقاعدة البيانات"}
     if not row:
@@ -91,8 +93,8 @@ def login_user(username, password):
     if not active:
         return {"error": "الحساب غير نشط، راجع المدير"}
     if not phash:
-        # no password set yet -> first login
-        return {"id": uid, "username": uname, "full_name": fname}
+        # لا يوجد hash صالح — لا يمكن الدخول (لا نسمح بدخول بكلمة مرور فارغة)
+        return {"error": "لا توجد كلمة مرور لهذا الحساب — راجع المدير"}
     if _verify_password(password, phash):
         return {"id": uid, "username": uname, "full_name": fname}
     return None
@@ -204,16 +206,15 @@ def route(page):
 # --------------------------------------------------------------------------------
 def _safe_scalar(sql, params=()):
     try:
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(sql, params)
-            r = cur.fetchone()
-            return r[0] if r else 0
-        finally:
-            conn.close()
-    except Exception:
-         return 0
+        # get_connection() هو context manager — لا يمكن استدعاء cursor() عليه مباشرة
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                r = cur.fetchone()
+                return r[0] if r else 0
+    except Exception as e:
+        print(f"[db] {e}")
+        return 0
 
 
 def show_dashboard():

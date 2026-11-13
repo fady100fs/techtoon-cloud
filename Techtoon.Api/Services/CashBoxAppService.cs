@@ -122,7 +122,7 @@ public class CashBoxAppService : ICashBoxAppService
         using (var cmd = new NpgsqlCommand(
             "INSERT INTO cash_boxes (" + string.Join(",", cols) + ") VALUES (" + string.Join(",", vals) + ") RETURNING id", conn, tx))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 

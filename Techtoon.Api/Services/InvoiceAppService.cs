@@ -82,7 +82,7 @@ public class InvoiceAppService : IInvoiceAppService
 
         using (var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM invoices i LEFT JOIN parties p ON i.party_id = p.id " + whereSql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             result.TotalCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
         }
 
@@ -94,7 +94,7 @@ public class InvoiceAppService : IInvoiceAppService
 
         using (var cmd = new NpgsqlCommand(sql, conn))
         {
-            foreach (var p in parms) cmd.Parameters.Add(p);
+            foreach (var p in parms) cmd.Parameters.AddClones(parms);
             cmd.Parameters.AddWithValue("limit", pageSize);
             cmd.Parameters.AddWithValue("offset", (page - 1) * pageSize);
             using var r = await cmd.ExecuteReaderAsync();
@@ -273,7 +273,7 @@ public class InvoiceAppService : IInvoiceAppService
             int newId;
             using (var cmd = new NpgsqlCommand("INSERT INTO invoices (" + string.Join(",", cols) + ") VALUES (" + string.Join(",", vals) + ") RETURNING id", conn, tx))
             {
-                foreach (var p in parms) cmd.Parameters.Add(p);
+                foreach (var p in parms) cmd.Parameters.AddClones(parms);
                 newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
             }
 
@@ -299,7 +299,7 @@ public class InvoiceAppService : IInvoiceAppService
 
                 using (var cmd = new NpgsqlCommand("INSERT INTO invoice_lines (" + string.Join(",", lCols) + ") VALUES (" + string.Join(",", lVals) + ")", conn, tx))
                 {
-                    foreach (var p in lParms) cmd.Parameters.Add(p);
+                    foreach (var p in lParms) cmd.Parameters.AddClones(parms);
                     await cmd.ExecuteNonQueryAsync();
                 }
 
@@ -322,7 +322,7 @@ public class InvoiceAppService : IInvoiceAppService
 
                     using (var cmd = new NpgsqlCommand("INSERT INTO inventory_movements (" + string.Join(",", mCols) + ") VALUES (" + string.Join(",", mVals) + ")", conn, tx))
                     {
-                        foreach (var p in mParms) cmd.Parameters.Add(p);
+                        foreach (var p in mParms) cmd.Parameters.AddClones(parms);
                         await cmd.ExecuteNonQueryAsync();
                     }
                 }

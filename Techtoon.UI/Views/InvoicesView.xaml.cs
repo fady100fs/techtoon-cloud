@@ -7,7 +7,7 @@ namespace Techtoon.UI.Views
 {
     public partial class InvoicesView : UserControl
     {
-        public InvoicesView() { InitializeComponent(); SetArabicTexts(); DataContext = new InvoicesViewModel(); }
+        public InvoicesView() { InitializeComponent(); SetArabicTexts(); if (DataContext == null) DataContext = new InvoicesViewModel(); }
         private void SetArabicTexts()
         {
             try { LblTitle.Text = "\u0627\u0644\u0641\u0648\u0627\u062A\u064A\u0631"; } catch { }

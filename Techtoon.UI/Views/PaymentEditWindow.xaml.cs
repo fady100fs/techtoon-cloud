@@ -14,6 +14,9 @@ namespace Techtoon.UI.Views
         private int _paymentId;
         private bool _isEditMode;
         private bool _isReceipt = true;
+        // قيم السند قبل التعديل — لازم لتعديل بند الدفتر الموحّد بدل إضافته من جديد
+        private decimal _originalAmount;
+        private int _originalInvoiceId;
 
         public bool Saved { get; private set; }
         public int SavedPaymentId { get; private set; }
@@ -128,6 +131,82 @@ namespace Techtoon.UI.Views
             _isReceipt = isReceipt;
             Title = isReceipt ? "سند قبض" : "سند صرف";
             if (lblParty != null) lblParty.Text = isReceipt ? "العميل" : "المورد";
+        }
+
+        /// <summary>
+        /// تحميل سند قائم للتعديل.
+        /// <para>بدون هذه الدالة كان زر «تعديل» يُنشئ سندًا جديدًا (تكرار) بدل تعديل السند.</para>
+        /// </summary>
+        public void LoadForEdit(int paymentId)
+        {
+            _isEditMode = true;
+            _paymentId = paymentId;
+
+            using var conn = new NpgsqlConnection(_connectionString);
+            conn.Open();
+            using var cmd = new NpgsqlCommand(
+                "SELECT id, party_id, account_id, invoice_id, amount, date, cash_box_id, " +
+                "payment_method, reference_number, notes, payment_type FROM payments WHERE id=@id", conn);
+            cmd.Parameters.AddWithValue("@id", paymentId);
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read()) return;
+
+            int partyId = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
+            int accountId = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+            int invoiceId = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+            decimal amount = reader.IsDBNull(4) ? 0m : reader.GetDecimal(4);
+            DateTime date = reader.IsDBNull(5) ? DateTime.Today : reader.GetDateTime(5);
+            int cashBoxId = reader.IsDBNull(6) ? 0 : reader.GetInt32(6);
+            string method = reader.IsDBNull(7) ? "نقدي" : reader.GetString(7);
+            string reference = reader.IsDBNull(8) ? "" : reader.GetString(8);
+            string notes = reader.IsDBNull(9) ? "" : reader.GetString(9);
+            string pType = reader.IsDBNull(10) ? "" : reader.GetString(10);
+            reader.Close();
+
+            _originalAmount = amount;
+            _originalInvoiceId = invoiceId;
+
+            _isReceipt = pType != "payment";
+            Title = _isReceipt ? "تعديل سند قبض" : "تعديل سند صرف";
+            if (lblParty != null) lblParty.Text = _isReceipt ? "العميل" : "المورد";
+
+            if (dpDate != null) dpDate.SelectedDate = date;
+            if (txtAmount != null) txtAmount.Text = amount.ToString("0.##");
+            if (txtRef != null) txtRef.Text = reference;
+            if (txtNotes != null) txtNotes.Text = notes;
+
+            SelectById(cmbParty, partyId);
+            SelectById(cmbAccount, accountId);
+            SelectById(cmbCashBox, cashBoxId);
+            if (cmbMethod != null)
+            {
+                int idx = Methods.IndexOf(method);
+                cmbMethod.SelectedIndex = idx >= 0 ? idx : 0;
+            }
+
+            // الفاتورة تُحمَّل بعد اختيار الطرف
+            if (invoiceId > 0 && partyId > 0)
+            {
+                LoadInvoices(partyId);
+                SelectById(cmbInvoice, invoiceId);
+            }
+        }
+
+        /// <summary>يختار عنصر القائمة الذي مطابقه المعرّف.</summary>
+        private static void SelectById(System.Windows.Controls.ComboBox combo, int id)
+        {
+            if (combo == null || id <= 0 || combo.ItemsSource == null) return;
+            foreach (var item in combo.ItemsSource)
+            {
+                var prop = item.GetType().GetProperty("Id");
+                if (prop == null) continue;
+                var val = prop.GetValue(item);
+                if (val is int i && i == id)
+                {
+                    combo.SelectedItem = item;
+                    return;
+                }
+            }
         }
 
         private void CmbParty_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -246,21 +325,54 @@ namespace Techtoon.UI.Views
 
                 // P1.2: ربط الدفعة بالفاتورة في الدفتر الموحّد + إعادة تسوية paid_amount
                 // (كان BtnSave لا يكتب invoice_payments ولا يُحدّث paid_amount)
+                if (_isEditMode && _originalInvoiceId > 0)
+                {
+                    // في وضع التعديل: بند الدفتر الموحّد موجود مسبقًا — نعدّله
+                    // (إضافة بند جديد تُحتسب الدفعة مرتين في paid_amount)
+                    using (var ipUpd = new NpgsqlCommand(
+                        "UPDATE invoice_payments SET method=@wm, amount=@amt, reference=@ref, paid_at=@dt " +
+                        "WHERE id = (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@oamt ORDER BY id LIMIT 1)", conn, tx))
+                    {
+                        ipUpd.Parameters.AddWithValue("@iid", _originalInvoiceId);
+                        ipUpd.Parameters.AddWithValue("@oamt", _originalAmount);
+                        ipUpd.Parameters.AddWithValue("@amt", amount);
+                        ipUpd.Parameters.AddWithValue("@dt", date);
+                        ipUpd.Parameters.AddWithValue("@wm", method);
+                        ipUpd.Parameters.AddWithValue("@ref", string.IsNullOrEmpty(reference) ? (object)DBNull.Value : reference);
+                        ipUpd.ExecuteNonQuery();
+                    }
+                }
+                else if (_isEditMode && _originalInvoiceId > 0 && invoiceId != _originalInvoiceId)
+                {
+                    // غُيّر ارتباط الفاتورة: احذف البند القديم
+                    using (var ipDel = new NpgsqlCommand(
+                        "DELETE FROM invoice_payments WHERE id = (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@oamt ORDER BY id LIMIT 1)", conn, tx))
+                    {
+                        ipDel.Parameters.AddWithValue("@iid", _originalInvoiceId);
+                        ipDel.Parameters.AddWithValue("@oamt", _originalAmount);
+                        ipDel.ExecuteNonQuery();
+                    }
+                }
+
                 if (invoiceId > 0)
                 {
-                    // الدفتر الموحّد (إن فُرض) — أعمدة invoice_payments الفعلية:
-                    // method / reference / paid_at (كانت date/payment_method/reference_number — أعمدة غير موجودة)
-                    using (var ipCmd = new NpgsqlCommand(
-                        "INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at, created_at) " +
-                        "VALUES (@iid, @wm, @amt, @ref, @dt, NOW())", conn, tx))
+                    if (!_isEditMode)
                     {
-                        ipCmd.Parameters.AddWithValue("@iid", invoiceId);
-                        ipCmd.Parameters.AddWithValue("@dt", date);
-                        ipCmd.Parameters.AddWithValue("@amt", amount);
-                        ipCmd.Parameters.AddWithValue("@wm", method);
-                        ipCmd.Parameters.AddWithValue("@ref", string.IsNullOrEmpty(reference) ? (object)DBNull.Value : reference);
-                        ipCmd.ExecuteNonQuery();
+                        // الدفتر الموحّد (إن فُرض) — أعمدة invoice_payments الفعلية:
+                        // method / reference / paid_at (كانت date/payment_method/reference_number — أعمدة غير موجودة)
+                        using (var ipCmd = new NpgsqlCommand(
+                            "INSERT INTO invoice_payments (invoice_id, method, amount, reference, paid_at, created_at) " +
+                            "VALUES (@iid, @wm, @amt, @ref, @dt, NOW())", conn, tx))
+                        {
+                            ipCmd.Parameters.AddWithValue("@iid", invoiceId);
+                            ipCmd.Parameters.AddWithValue("@dt", date);
+                            ipCmd.Parameters.AddWithValue("@amt", amount);
+                            ipCmd.Parameters.AddWithValue("@wm", method);
+                            ipCmd.Parameters.AddWithValue("@ref", string.IsNullOrEmpty(reference) ? (object)DBNull.Value : reference);
+                            ipCmd.ExecuteNonQuery();
+                        }
                     }
+
                     // إعادة حساب paid_amount من الدفتر الموحّد
                     using (var rec = new NpgsqlCommand(
                         "WITH s AS (SELECT COALESCE(SUM(amount),0) AS paid FROM invoice_payments WHERE invoice_id=@iid) " +
@@ -272,9 +384,25 @@ namespace Techtoon.UI.Views
                         rec.ExecuteNonQuery();
                     }
                 }
-                else if (partyId > 0 && invoiceId == 0)
+                else if (_isEditMode && _originalInvoiceId > 0)
                 {
-                    // لا تغيير — دفعة غير مرتبطة بفاتورة
+                    // أُلغي ارتباط الفاتورة — احذف بند الدفتر وأعد تسوية الفاتورة الأصلية
+                    using (var ipDel = new NpgsqlCommand(
+                        "DELETE FROM invoice_payments WHERE id = (SELECT id FROM invoice_payments WHERE invoice_id=@iid AND amount=@oamt ORDER BY id LIMIT 1)", conn, tx))
+                    {
+                        ipDel.Parameters.AddWithValue("@iid", _originalInvoiceId);
+                        ipDel.Parameters.AddWithValue("@oamt", _originalAmount);
+                        ipDel.ExecuteNonQuery();
+                    }
+                    using (var rec = new NpgsqlCommand(
+                        "WITH s AS (SELECT COALESCE(SUM(amount),0) AS paid FROM invoice_payments WHERE invoice_id=@iid) " +
+                        "UPDATE invoices SET paid_amount=s.paid, " +
+                        "status=CASE WHEN s.paid >= COALESCE(total,0) THEN 'paid' WHEN s.paid > 0 THEN 'partial' ELSE 'unpaid' END, " +
+                        "updated_at=NOW() FROM s WHERE invoices.id=@iid", conn, tx))
+                    {
+                        rec.Parameters.AddWithValue("@iid", _originalInvoiceId);
+                        rec.ExecuteNonQuery();
+                    }
                 }
 
                 tx.Commit();

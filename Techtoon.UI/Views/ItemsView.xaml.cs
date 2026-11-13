@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using Techtoon.UI.ViewModels;
 
@@ -10,7 +10,7 @@ namespace Techtoon.UI.Views
         {
             InitializeComponent();
             SetArabicTexts();
-            DataContext = new ItemsViewModel();
+            if (DataContext == null) DataContext = new ItemsViewModel();
         }
 
         private void SetArabicTexts()

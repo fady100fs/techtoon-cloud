@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/api_service.dart';
@@ -14,6 +13,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _parties = 0;
   int _payments = 0;
   bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -24,28 +24,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadStats() async {
     final api = Provider.of<ApiService>(context, listen: false);
     try {
-      final inv = await api.getRaw('api/invoices?pageSize=1');
-      final items = await api.getRaw('api/items?pageSize=1');
-      final parties = await api.getRaw('api/parties?pageSize=1');
-      final pay = await api.getRaw('api/payments?pageSize=1');
+      final inv = await api.getItem('api/invoices?pageSize=1');
+      final items = await api.getItem('api/items?pageSize=1');
+      final parties = await api.getItem('api/parties?pageSize=1');
+      final pay = await api.getItem('api/payments?pageSize=1');
+      if (!mounted) return;
 
       setState(() {
-        _invoices = _extractCount(inv);
-        _items = _extractCount(items);
-        _parties = _extractCount(parties);
-        _payments = _extractCount(pay);
+        _invoices = _countOf(inv);
+        _items = _countOf(items);
+        _parties = _countOf(parties);
+        _payments = _countOf(pay);
+        _error = null;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        _error = e is ApiException ? e.message : 'تعذر تحميل لوحة المعلومات';
+        _isLoading = false;
+      });
     }
   }
 
-  int _extractCount(String json) {
-    try {
-      final data = jsonDecode(json);
-      return data['totalCount'] ?? 0;
-    } catch (_) { return 0; }
+  int _countOf(Map<String, dynamic> data) {
+    final total = data['totalCount'];
+    return total is int ? total : 0;
   }
 
   @override
@@ -56,16 +60,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadStats,
-              child: GridView.count(
-                crossAxisCount: 2,
-                padding: EdgeInsets.all(16),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
+              child: ListView(
                 children: [
-                  _statCard('الفواتير', _invoices, Icons.receipt_long, Colors.blue),
-                  _statCard('الأصناف', _items, Icons.inventory_2, Colors.green),
-                  _statCard('العملاء/الموردين', _parties, Icons.people, Colors.orange),
-                  _statCard('المدفوعات', _payments, Icons.payments, Colors.purple),
+                  if (_error != null) _errorBanner(),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    padding: EdgeInsets.all(16),
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    children: [
+                      _statCard('الفواتير', _invoices, Icons.receipt_long, Colors.blue),
+                      _statCard('الأصناف', _items, Icons.inventory_2, Colors.green),
+                      _statCard('العملاء/الموردين', _parties, Icons.people, Colors.orange),
+                      _statCard('المدفوعات', _payments, Icons.payments, Colors.purple),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -88,6 +99,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(title, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _errorBanner() {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.red.shade700, size: 20),
+            onPressed: _loadStats,
+            tooltip: 'إعادة المحاولة',
+          ),
+        ],
       ),
     );
   }

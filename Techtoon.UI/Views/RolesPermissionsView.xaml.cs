@@ -12,7 +12,7 @@ namespace Techtoon.UI.Views
         public RolesPermissionsView()
         {
             InitializeComponent();
-            DataContext = new RolesPermissionsViewModel();
+            if (DataContext == null) DataContext = new RolesPermissionsViewModel();
         }
     }
 }

@@ -50,10 +50,12 @@ namespace Techtoon.UI.ViewModels
             try {
                 using var conn = new NpgsqlConnection(GetCS());
                 conn.Open();
-                string sql = @"SELECT sr.id, COALESCE(e.full_name,''), sr.month, sr.year, sr.net_salary, sr.payment_date, COALESCE(sr.status,'paid') 
+                string sql = @"SELECT sr.id, COALESCE(e.full_name,''), sr.month, sr.year, sr.net_salary, sr.payment_date, COALESCE(sr.status,'paid')
                     FROM salary_records sr LEFT JOIN employees e ON e.id = sr.employee_id WHERE 1=1";
+                // البحث يُضاف مباشرةً — كان الاستبدال على "ORDER BY" لا يعمل
+                // (السلسلة الأساسية لا تحتوي ORDER BY) فكان البحث يُتجاهل بصمت.
                 if (!string.IsNullOrWhiteSpace(SearchText))
-                    sql = sql.Replace("ORDER BY", " AND e.full_name ILIKE @q ORDER BY");
+                    sql += " AND e.full_name ILIKE @q";
                 sql += " ORDER BY sr.payment_date DESC LIMIT 500";
                 using var cmd = new NpgsqlCommand(sql, conn);
                 if (!string.IsNullOrWhiteSpace(SearchText)) cmd.Parameters.AddWithValue("q", "%" + SearchText + "%");

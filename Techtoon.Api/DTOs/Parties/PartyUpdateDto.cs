@@ -8,4 +8,9 @@ public class PartyUpdateDto
     public string? Email { get; set; }
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
+
+    /// <summary>
+    /// حساب الطرف — يُترك كما هو إن كان null.
+    /// </summary>
+    public int? AccountId { get; set; }
 }

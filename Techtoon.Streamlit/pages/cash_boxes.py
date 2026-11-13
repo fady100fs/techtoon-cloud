@@ -24,7 +24,7 @@ try:
     from database import get_connection as _get_connection  # type: ignore
 except Exception:
     import os
-    import psycopg3
+    import psycopg2
 
     def _get_connection():
         return psycopg2.connect(
@@ -73,7 +73,7 @@ def _table_columns(table):
     except Exception:
         return set()
 
-@@st.cache_data(ttl=60)
+@st.cache_data(ttl=60)
 def _table_exists(table):
     try:
         rows, _ = run_query(
@@ -382,14 +382,14 @@ def show():
                     else:
                         amt = safe_eval(amt_raw, default=0.0)
                         if amt <= 0:
-                           st.error("المبلغ يجة أن يدعول أكبر من ص؁ر%)")
+                            st.error("المبلغ يجب أن يكون أكبر من صفر")
                         else:
                             try:
-                               transfer_amount(from_id, to_id, amt, note)
-                                st.success(f"�حويل {amt:,.2f} من '{names[from_id]}' إلى '{names[to_id]}'")
-                               st.rerun()
-                          except Exception as e:
-                               st.error(f"خطأ: {e}")
+                                transfer_amount(from_id, to_id, amt, note)
+                                st.success(f"تحويل {amt:,.2f} من '{names[from_id]}' إلى '{names[to_id]}'")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"خطأ: {e}")
 
     # ---- Tab 4: cell calculator demo ----
     with tabs[3]:

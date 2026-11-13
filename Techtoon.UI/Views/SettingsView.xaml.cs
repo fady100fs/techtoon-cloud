@@ -1,4 +1,4 @@
-﻿using System.Windows.Controls;
+using System.Windows.Controls;
 using Techtoon.UI.ViewModels;
 
 namespace Techtoon.UI.Views
@@ -16,7 +16,7 @@ namespace Techtoon.UI.Views
             try { LblLicenseHint.Text = "اختر ملف الترخيص (.key / .lic) الذي أرسله لك المورد. يُتحقق من التوقيع الرقمي قبل الحفظ — ملف غير صالح لن يستبدل ترخيصًا ساريًا."; } catch { }
             try { BtnImportLicense.Content = "📄 استيراد ملف الترخيص"; } catch { }
             try { BtnRefreshLicense.Content = "🔄 تحديث حالة الترخيص"; } catch { }
-            DataContext = new SettingsViewModel();
+            if (DataContext == null) DataContext = new SettingsViewModel();
         }
     }
 }
