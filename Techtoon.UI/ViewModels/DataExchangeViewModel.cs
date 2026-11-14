@@ -148,7 +148,7 @@ namespace Techtoon.UI.ViewModels
             }
             catch (Exception ex)
             {
-                StatusMessage = "فشل التصدير: " + ex.Message;
+                StatusMessage = ex is InvalidOperationException ? ex.Message : "فشل التصدير: " + ex.Message;
             }
         }
 
@@ -267,7 +267,7 @@ namespace Techtoon.UI.ViewModels
             }
             catch (Exception ex)
             {
-                StatusMessage = "فشل الاستيراد: " + ex.Message;
+                StatusMessage = ex is InvalidOperationException ? ex.Message : "فشل الاستيراد: " + ex.Message;
             }
         }
     }

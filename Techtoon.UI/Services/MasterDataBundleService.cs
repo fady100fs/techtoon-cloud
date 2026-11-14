@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Npgsql;
 using Techtoon.Core.Bundles;
 
@@ -158,7 +160,43 @@ public class MasterDataBundleService
     }
 
     /// <summary>يقرأ حزمة من ملف Excel (.xlsx).</summary>
-    public static DataBundle ReadExcelBundle(string path) => DataBundleExcel.Read(path);
+    /// <remarks>
+    /// <para><b>ملاحظة:</b> الملف قد يكون مفتوحًا في Excel أو محجوبًا بمزامنة Google Drive،
+    /// فيرفض النظام فتحه (used by another process). لذلك ننسخه أولًا
+    /// بمشاركة القراءة والكتابة، ونعيد المحاولة عدة مرات قبل إظهار رسالة واضحة.</para>
+    /// </remarks>
+    public static DataBundle ReadExcelBundle(string path)
+    {
+        var temp = Path.Combine(Path.GetTempPath(),
+            "techtoon_import_" + Guid.NewGuid().ToString("N") + Path.GetExtension(path));
+        IOException? last = null;
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            try
+            {
+                using (var src = new FileStream(path, FileMode.Open, FileAccess.Read,
+                           FileShare.ReadWrite | FileShare.Delete))
+                using (var dst = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+                    src.CopyTo(dst);
+                last = null;
+                break;
+            }
+            catch (IOException ex)
+            {
+                last = ex;
+                try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+                Thread.Sleep(400);
+            }
+        }
+
+        if (last != null)
+            throw new InvalidOperationException(
+                "تعذّر قراءة الملف — قد يكون مفتوحًا في برنامج Excel أو قيد المزامنة. " +
+                "أغلق الملف ثم أعد المحاولة.", last);
+
+        try { return DataBundleExcel.Read(temp); }
+        finally { try { if (File.Exists(temp)) File.Delete(temp); } catch { } }
+    }
 
     /// <summary>يصدّر مجمّعًا إلى ملف JSON (للاستخدام البرمجي).</summary>
     public string ExportToFile(BundleDefinition def, string path)
