@@ -250,6 +250,12 @@ namespace Techtoon.UI.ViewModels
         private void TogglePause()
         {
             if (SelectedSubscription == null) return;
+            if (!_canEditSubscriptions)
+            {
+                System.Windows.MessageBox.Show("لا صلاحية لتعديل الاشتراكات — يُرجى مراجعة مدير النظام.",
+                    "لا صلاحية", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
             try
             {
                 using var conn = new NpgsqlConnection(GetCS());

@@ -5,6 +5,8 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
 
+using Techtoon.UI.Services;
+
 namespace Techtoon.UI.ViewModels
 {
     public class EmployeeRow : ViewModelBase
@@ -39,7 +41,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(LoadEmployees);
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
-            DeleteCommand = new RelayCommand(DeleteEmployee, () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteEmployee, () => SelectedItem != null && AuthService.HasPermission("employees.edit"));
             LoadEmployees();
         }
 

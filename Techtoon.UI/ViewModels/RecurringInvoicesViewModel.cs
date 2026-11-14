@@ -93,7 +93,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => _ = LoadAsync());
             AddCommand = new UiRelayCommand(_ => OpenEditor(0));
             EditCommand = new UiRelayCommand(_ => OpenEditor(SelectedTemplate?.Id ?? 0), _ => SelectedTemplate != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteTemplate(), _ => SelectedTemplate != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteTemplate(), _ => SelectedTemplate != null && AuthService.HasPermission("subscriptions.edit"));
             ToggleCommand = new UiRelayCommand(_ => ToggleActive(), _ => SelectedTemplate != null);
             GenerateCommand = new UiRelayCommand(_ => _ = GenerateNowAsync(SelectedTemplate), _ => SelectedTemplate != null);
             GenerateDueCommand = new UiRelayCommand(_ => _ = GenerateDueAsync());

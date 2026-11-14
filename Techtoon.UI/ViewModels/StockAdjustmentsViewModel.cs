@@ -31,7 +31,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => Load());
             NewCommand = new UiRelayCommand(_ => NewAdjustment());
             OpenCommand = new UiRelayCommand(_ => OpenAdjustment(), _ => Selected != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteAdjustment(), _ => Selected != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteAdjustment(), _ => Selected != null && AuthService.HasPermission("inventory.adjust"));
             FilterAllCommand = new UiRelayCommand(_ => { StatusFilter = ""; Load(); });
             FilterDraftCommand = new UiRelayCommand(_ => { StatusFilter = "draft"; Load(); });
             FilterPendingCommand = new UiRelayCommand(_ => { StatusFilter = "pending"; Load(); });

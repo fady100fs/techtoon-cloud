@@ -60,7 +60,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(LoadCustodies);
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
-            DeleteCommand = new RelayCommand(DeleteCustody, () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteCustody, () => SelectedItem != null && AuthService.HasPermission("pettycash.edit"));
             ExpenseCommand = new RelayCommand(AddExpense, () => SelectedItem != null);
             SettleCommand = new RelayCommand(SettleCustody, () => SelectedItem != null);
             IncreaseCommand = new RelayCommand(RequestIncrease, () => SelectedItem != null);

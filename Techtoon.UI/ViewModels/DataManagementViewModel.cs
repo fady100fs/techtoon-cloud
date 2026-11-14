@@ -53,10 +53,10 @@ namespace Techtoon.UI.ViewModels
             PreviewItems = new ObservableCollection<DataPreviewItem>();
             Categories = BuildCategories(Groups);
 
-            DeleteGroupCommand = new UiRelayCommand(p => DeleteGroup(p as DataGroup));
-            DeletePartyDataCommand = new UiRelayCommand(_ => DeletePartyData());
-            DeleteBeforeDateCommand = new UiRelayCommand(_ => DeleteBeforeDate());
-            FactoryResetCommand = new UiRelayCommand(_ => ExecuteFactoryReset());
+            DeleteGroupCommand = new UiRelayCommand(p => DeleteGroup(p as DataGroup), _ => AuthService.HasPermission("settings.data"));
+            DeletePartyDataCommand = new UiRelayCommand(_ => DeletePartyData(), _ => AuthService.HasPermission("settings.data"));
+            DeleteBeforeDateCommand = new UiRelayCommand(_ => DeleteBeforeDate(), _ => AuthService.HasPermission("settings.data"));
+            FactoryResetCommand = new UiRelayCommand(_ => ExecuteFactoryReset(), _ => AuthService.HasPermission("settings.data"));
             RefreshPreviewCommand = new UiRelayCommand(_ => RefreshPreview());
         }
 

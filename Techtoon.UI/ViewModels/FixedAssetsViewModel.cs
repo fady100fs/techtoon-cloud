@@ -110,7 +110,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => { LoadAssets(); LoadDepreciationHistory(); });
             AddCommand = new UiRelayCommand(_ => OpenEditWindow(0));
             EditCommand = new UiRelayCommand(_ => OpenEditWindow(SelectedItem?.Id ?? 0), _ => SelectedItem != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteAsset(), _ => SelectedItem != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteAsset(), _ => SelectedItem != null && AuthService.HasPermission("assets.edit"));
             DepreciateCommand = new UiRelayCommand(
                 p => Depreciate(p as FixedAssetRow),
                 p => (p as FixedAssetRow)?.CanDepreciate == true);

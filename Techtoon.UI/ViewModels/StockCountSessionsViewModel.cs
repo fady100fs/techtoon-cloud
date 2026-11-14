@@ -41,7 +41,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => Load());
             NewSessionCommand = new UiRelayCommand(_ => NewSession());
             OpenSessionCommand = new UiRelayCommand(_ => OpenSession(), _ => Selected != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteSession(), _ => Selected != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteSession(), _ => Selected != null && AuthService.HasPermission("inventory.count"));
             FilterAllCommand = new UiRelayCommand(_ => { StatusFilter = ""; Load(); });
             FilterDraftCommand = new UiRelayCommand(_ => { StatusFilter = "draft"; Load(); });
             FilterInProgressCommand = new UiRelayCommand(_ => { StatusFilter = "in_progress"; Load(); });

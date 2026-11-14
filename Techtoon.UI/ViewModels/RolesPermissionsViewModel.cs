@@ -131,7 +131,7 @@ namespace Techtoon.UI.ViewModels
             ClearAllCommand = new UiRelayCommand(_ => SetAllChecked(false));
             NewRoleCommand = new UiRelayCommand(_ => NewRole());
             EditRoleCommand = new UiRelayCommand(_ => EditRole(), _ => SelectedRole != null);
-            DeleteRoleCommand = new UiRelayCommand(_ => DeleteRole(), _ => SelectedRole != null && !SelectedRole.IsSystemRole);
+            DeleteRoleCommand = new UiRelayCommand(_ => DeleteRole(), _ => SelectedRole != null && !SelectedRole.IsSystemRole && AuthService.HasPermission("users.roles"));
             SaveUserOverridesCommand = new UiRelayCommand(_ => SaveUserOverrides());
 
             Refresh();

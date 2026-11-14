@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
+
+using Techtoon.UI.Services;
 
 namespace Techtoon.UI.ViewModels
 {
@@ -47,7 +49,7 @@ namespace Techtoon.UI.ViewModels
             AddRootCommand = new RelayCommand(() => ShowEditWindow(null));
             AddChildCommand = new RelayCommand(() => { if (SelectedNode != null) ShowEditWindow(SelectedNode); }, () => SelectedNode != null);
             EditCommand = new RelayCommand(() => { if (SelectedNode != null) ShowEditWindow(null, SelectedNode); }, () => SelectedNode != null);
-            DeleteCommand = new RelayCommand(DeleteAccount, () => SelectedNode != null);
+            DeleteCommand = new RelayCommand(DeleteAccount, () => SelectedNode != null && AuthService.HasPermission("accounts.edit"));
             LoadAccounts();
         }
 

@@ -76,7 +76,7 @@ namespace Techtoon.UI.ViewModels
             AddReceiptCommand = new UiRelayCommand(_ => AddReceipt(), null);
             AddPaymentCommand = new UiRelayCommand(_ => AddPayment(), null);
             EditCommand = new UiRelayCommand(_ => Edit(), _ => SelectedPayment != null);
-            DeleteCommand = new UiRelayCommand(_ => Delete(), _ => SelectedPayment != null);
+            DeleteCommand = new UiRelayCommand(_ => Delete(), _ => SelectedPayment != null && AuthService.HasPermission("payments.delete"));
             RefreshCommand = new UiRelayCommand(_ => _ = LoadPaymentsAsync(), null);
             NextPageCommand = new UiRelayCommand(_ => { if (TotalPages == 0 || Page < TotalPages) { Page++; _ = LoadPaymentsAsync(); } }, null);
             PrevPageCommand = new UiRelayCommand(_ => { if (Page > 1) { Page--; _ = LoadPaymentsAsync(); } }, null);

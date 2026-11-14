@@ -72,7 +72,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => _ = LoadInvoicesAsync());
             NewInvoiceCommand = new UiRelayCommand(_ => OpenNew());
             EditInvoiceCommand = new UiRelayCommand(_ => OpenEdit(), _ => SelectedInvoice != null);
-            DeleteInvoiceCommand = new UiRelayCommand(_ => DeleteSelected(), _ => SelectedInvoice != null);
+            DeleteInvoiceCommand = new UiRelayCommand(_ => DeleteSelected(), _ => SelectedInvoice != null && AuthService.HasPermission("invoices.delete"));
             SearchCommand = new UiRelayCommand(_ => _ = LoadInvoicesAsync());
             ClearSearchCommand = new UiRelayCommand(_ => ClearSearch());
             NextPageCommand = new UiRelayCommand(_ => { if (TotalPages == 0 || Page < TotalPages) { Page++; _ = LoadInvoicesAsync(); } });

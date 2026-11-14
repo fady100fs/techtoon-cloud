@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
+
+using Techtoon.UI.Services;
 
 namespace Techtoon.UI.ViewModels
 {
@@ -42,7 +44,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(LoadCostCenters);
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
-            DeleteCommand = new RelayCommand(DeleteCostCenter, () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteCostCenter, () => SelectedItem != null && AuthService.HasPermission("costs.edit"));
             LoadCostCenters();
         }
 

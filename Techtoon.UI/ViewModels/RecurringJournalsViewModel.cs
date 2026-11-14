@@ -5,6 +5,8 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
 
+using Techtoon.UI.Services;
+
 namespace Techtoon.UI.ViewModels
 {
     public class RecurringJournalRow : ViewModelBase
@@ -55,7 +57,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(LoadTemplates);
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
-            DeleteCommand = new RelayCommand(DeleteTemplate, () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteTemplate, () => SelectedItem != null && AuthService.HasPermission("journals.edit"));
             RunNowCommand = new RelayCommand(async () => await RunNowAsync(), () => SelectedItem != null);
             ShowExecutionsCommand = new RelayCommand(async () => await ShowExecutionsAsync(), () => SelectedItem != null);
             LoadTemplates();

@@ -112,7 +112,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => { LoadBudgets(); LoadReport(); });
             AddCommand = new UiRelayCommand(_ => OpenEditWindow(0));
             EditCommand = new UiRelayCommand(_ => OpenEditWindow(SelectedItem?.Id ?? 0), _ => SelectedItem != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteBudget(), _ => SelectedItem != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteBudget(), _ => SelectedItem != null && AuthService.HasPermission("budgets.edit"));
             ReportCommand = new UiRelayCommand(_ => LoadReport());
 
             _suppressReport = true;

@@ -30,7 +30,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => Load());
             NewCommand = new UiRelayCommand(_ => NewRequest());
             OpenCommand = new UiRelayCommand(_ => OpenRequest(), _ => Selected != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteRequest(), _ => Selected != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteRequest(), _ => Selected != null && AuthService.HasPermission("inventory.writeoff"));
             FilterAllCommand = new UiRelayCommand(_ => { StatusFilter = ""; Load(); });
             FilterPendingCommand = new UiRelayCommand(_ => { StatusFilter = "pending_approval"; Load(); });
             FilterApprovedCommand = new UiRelayCommand(_ => { StatusFilter = "approved"; Load(); });

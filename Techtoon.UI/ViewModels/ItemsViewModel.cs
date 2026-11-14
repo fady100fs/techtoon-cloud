@@ -6,6 +6,8 @@ using CommunityToolkit.Mvvm.Input;
 using Npgsql;
 using Techtoon.Core.Models;
 
+using Techtoon.UI.Services;
+
 namespace Techtoon.UI.ViewModels
 {
     public class ItemRow : ViewModelBase
@@ -84,9 +86,9 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(() => _ = LoadItemsAsync());
             NextPageCommand = new RelayCommand(() => { if (CanGoNext) { Page++; _ = LoadItemsAsync(); } }, () => CanGoNext);
             PrevPageCommand = new RelayCommand(() => { if (CanGoPrev) { Page--; _ = LoadItemsAsync(); } }, () => CanGoPrev);
-            EditCommand = new RelayCommand(EditSelected, () => Items.Any(i => i.IsSelected));
+            EditCommand = new RelayCommand(EditSelected, () => Items.Any(i => i.IsSelected && AuthService.HasPermission("items.delete")));
             AddCommand = new RelayCommand(AddNewItem);
-            DeleteCommand = new RelayCommand(DeleteSelected, () => Items.Any(i => i.IsSelected));
+            DeleteCommand = new RelayCommand(DeleteSelected, () => Items.Any(i => i.IsSelected && AuthService.HasPermission("items.delete")));
             BulkMoveWarehouseCommand = new RelayCommand(BulkMoveWarehouse, () => Items.Any(i => i.IsSelected));
             BulkToggleActiveCommand = new RelayCommand(BulkToggleActive, () => Items.Any(i => i.IsSelected));
             ExportExcelCommand = new RelayCommand(ExportToExcel);

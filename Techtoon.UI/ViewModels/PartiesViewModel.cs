@@ -29,7 +29,7 @@ public class PartiesViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(async () => await LoadAsync());
         NewCommand = new RelayCommand(() => OpenEdit(null));
         EditCommand = new RelayCommand(() => OpenEdit(SelectedParty), () => SelectedParty != null);
-        DeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => SelectedParty != null);
+        DeleteCommand = new RelayCommand(async () => await DeleteAsync(), () => SelectedParty != null && AuthService.HasPermission("parties.delete"));
     }
 
     public async Task LoadAsync()
@@ -74,6 +74,7 @@ public class PartiesViewModel : ViewModelBase
     private async Task DeleteAsync()
     {
         if (SelectedParty == null) return;
+        if (!AuthService.HasPermission("parties.delete")) { System.Windows.MessageBox.Show("لا صلاحية لحذف الأطراف — يُرجى مراجعة مدير النظام.", "لا صلاحية", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning); return; }
         var partyName = SelectedParty.Name ?? "";
         var confirm = System.Windows.MessageBox.Show(
             $"هل تريد حذف العميل «{partyName}»؟", "تأكيد",

@@ -126,7 +126,7 @@ namespace Techtoon.UI.ViewModels
             AddCommand = new UiRelayCommand(_ => OpenEditor(null, false));
             EditCommand = new UiRelayCommand(_ => OpenEditor(SelectedEntry?.Id, false), _ => SelectedEntry != null);
             ViewCommand = new UiRelayCommand(_ => OpenEditor(SelectedEntry?.Id, true), _ => SelectedEntry != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteEntry(), _ => SelectedEntry != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteEntry(), _ => SelectedEntry != null && AuthService.HasPermission("journals.edit"));
             RunTrialBalanceCommand = new UiRelayCommand(_ => LoadTrialBalance());
             LoadEntries();
         }

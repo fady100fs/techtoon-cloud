@@ -47,7 +47,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => _ = LoadAsync());
             AddCommand = new UiRelayCommand(_ => AddBox());
             EditCommand = new UiRelayCommand(_ => EditBox(), _ => SelectedRow != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteBox(), _ => SelectedRow != null);
+            DeleteCommand = new UiRelayCommand(_ => DeleteBox(), _ => SelectedRow != null && AuthService.HasPermission("cashboxes.edit"));
             TransferCommand = new UiRelayCommand(_ => TransferBetweenBoxes());
             CloseShiftCommand = new UiRelayCommand(_ => CloseShift());
             _ = LoadAsync();

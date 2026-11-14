@@ -68,7 +68,7 @@ namespace Techtoon.UI.ViewModels
             AddCommand = new UiRelayCommand(_ => OpenEditWindow(0));
             EditCommand = new UiRelayCommand(_ => OpenEditWindow(SelectedItem?.Id ?? 0), _ => SelectedItem != null);
             CloseCommand = new UiRelayCommand(_ => ClosePeriod(), _ => SelectedItem != null && !SelectedItem.IsClosed);
-            DeleteCommand = new UiRelayCommand(_ => DeletePeriod(), _ => SelectedItem != null);
+            DeleteCommand = new UiRelayCommand(_ => DeletePeriod(), _ => SelectedItem != null && AuthService.HasPermission("periods.edit"));
             LoadPeriods();
         }
 

@@ -157,10 +157,10 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new UiRelayCommand(_ => LoadAll());
             AddAllocationCommand = new UiRelayCommand(_ => OpenAllocationEditor(0), _ => SelectedCostCenter != null);
             EditAllocationCommand = new UiRelayCommand(_ => OpenAllocationEditor(SelectedAllocation?.Id ?? 0), _ => SelectedAllocation != null);
-            DeleteAllocationCommand = new UiRelayCommand(_ => DeleteAllocation(), _ => SelectedAllocation != null);
+            DeleteAllocationCommand = new UiRelayCommand(_ => DeleteAllocation(), _ => SelectedAllocation != null && AuthService.HasPermission("costs.edit"));
             AddTransactionCommand = new UiRelayCommand(_ => OpenTransactionEditor(0), _ => SelectedCostCenter != null);
             EditTransactionCommand = new UiRelayCommand(_ => OpenTransactionEditor(SelectedTransaction?.Id ?? 0), _ => SelectedTransaction != null);
-            DeleteTransactionCommand = new UiRelayCommand(_ => DeleteTransaction(), _ => SelectedTransaction != null);
+            DeleteTransactionCommand = new UiRelayCommand(_ => DeleteTransaction(), _ => SelectedTransaction != null && AuthService.HasPermission("costs.edit"));
             LoadAll();
         }
 

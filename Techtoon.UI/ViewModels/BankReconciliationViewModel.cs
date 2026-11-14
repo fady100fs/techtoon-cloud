@@ -5,6 +5,8 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
 
+using Techtoon.UI.Services;
+
 namespace Techtoon.UI.ViewModels
 {
     public class ReconciliationRow : ViewModelBase
@@ -49,7 +51,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(LoadReconciliations);
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
-            DeleteCommand = new RelayCommand(DeleteReconciliation, () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteReconciliation, () => SelectedItem != null && AuthService.HasPermission("bankrec.edit"));
             LoadReconciliations();
         }
 

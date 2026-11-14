@@ -5,6 +5,8 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using Npgsql;
 
+using Techtoon.UI.Services;
+
 namespace Techtoon.UI.ViewModels
 {
     public class WarehouseTransferRow : ViewModelBase
@@ -52,7 +54,7 @@ namespace Techtoon.UI.ViewModels
             RefreshCommand = new RelayCommand(LoadTransfers);
             AddCommand = new RelayCommand(() => OpenEditWindow(0));
             EditCommand = new RelayCommand(() => OpenEditWindow(SelectedItem?.Id ?? 0), () => SelectedItem != null);
-            DeleteCommand = new RelayCommand(DeleteTransfer, () => SelectedItem != null);
+            DeleteCommand = new RelayCommand(DeleteTransfer, () => SelectedItem != null && AuthService.HasPermission("inventory.transfer"));
             LoadTransfers();
         }
 
