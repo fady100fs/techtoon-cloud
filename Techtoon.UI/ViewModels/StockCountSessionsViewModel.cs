@@ -57,7 +57,7 @@ namespace Techtoon.UI.ViewModels
                 var list = InventoryCountService.GetSessions(string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter);
                 foreach (var s in list) Sessions.Add(s);
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void NewSession()
@@ -68,7 +68,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void OpenSession()
@@ -81,7 +81,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
         private void DeleteSession()
         {
@@ -98,7 +98,7 @@ namespace Techtoon.UI.ViewModels
                 InventoryCountService.DeleteSession(Selected.Id);
                 Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
     }
 }

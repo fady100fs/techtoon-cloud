@@ -45,7 +45,7 @@ namespace Techtoon.UI.ViewModels
                 var list = AuthService.GetAllUsers(string.IsNullOrEmpty(SearchText) ? null : SearchText);
                 foreach (var u in list) Users.Add(u);
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void NewUser()
@@ -56,7 +56,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void EditUser()
@@ -69,7 +69,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void ToggleActive()
@@ -82,7 +82,7 @@ namespace Techtoon.UI.ViewModels
                 AuthService.ToggleUserActive(Selected.Id);
                 Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void ResetPassword()
@@ -98,7 +98,7 @@ namespace Techtoon.UI.ViewModels
                 AuthService.ResetPassword(Selected.Id, pwd);
                 MessageBox.Show("تم إعادة تعيين كلمة المرور. سيُطلب من المستخدم تغييرها عند أول دخول.");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void ManagePermissions()
@@ -111,7 +111,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 win.ShowDialog();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
     }
 }

@@ -45,7 +45,7 @@ namespace Techtoon.UI.ViewModels
                 var list = DamagedItemsService.GetAll(string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter);
                 foreach (var i in list) Items.Add(i);
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void NewItem()
@@ -56,7 +56,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void OpenItem()
@@ -69,7 +69,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void DeleteItem()
@@ -78,7 +78,7 @@ namespace Techtoon.UI.ViewModels
             if (Selected.Status != "draft") { MessageBox.Show("لا يمكن حذف سجل غير مسودة"); return; }
             if (MessageBox.Show($"حذف سجل التالف #{Selected.Id}؟", "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             try { DamagedItemsService.Delete(Selected.Id); Load(); }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
     }
 }

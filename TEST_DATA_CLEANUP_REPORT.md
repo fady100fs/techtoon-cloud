@@ -95,3 +95,30 @@ DELETE FROM accounts           WHERE code = 'DEFAULT-PARTY';
 | `Techtoon.Streamlit/smoke_test.py` | داخل المستودع | **مُضاف كدليل اختبار قابل لإعادة التشغيل** |
 | `deploy/distribution/` + `dist/` | مخرجات بناء | مُتجاهَلة في git |
 | `C:\Users\fady1\AppData\Local\TechtoonTools\installtest` | مجلد التثبيت الاختباري | حُذف بتثبيت/إلغاء التثبيت |
+
+---
+
+## 9) التحقق (2026-11-14) — إدارة البيانات والـ sequences
+
+**القاعدة:** `techtoon_test` (نسخة working DB للمستخدم) — `neondb` (الإنتاج) — **لم يُمس**.
+
+| الفحص | النتيجة |
+|-------|---------|
+| `neondb` (الإنتاج) — parties/items/payments/accounts/users/cash_boxes | **3 / 112 / 0 / 31 / 3 / 2** — لم تُنفَّذ على الإنتاج أي كتابة ✓ |
+| `techtoon_test` — parties/subscriptions/items/accounts | 288 / 283 / 0 / 9 (بيانات المستخدم الحقيقية — أُضيفت via استيراد الإنتاج) |
+| قواعد اختبارية باقية | `techtoon_test_dm` (خردة DataManagementTests) — **أُسقطت** في هذا التحقق |
+| sequences (parties_id_seq) | **تعذّر تكرار المفاتيح**: `Factory Reset` now يضبط الـ sequence على `MAX(id)` (لا `RESTART WITH 1` عندما تبقى صفوف) — اختُبِر ✓ |
+
+## 10) التحقق (2026-11-14) — 156/156 اختبار
+
+| المجموعة | العدد | النتيجة |
+|----------|-------|---------|
+| Suite كامل (xUnit) | 156 | **156/156 ناجحة** (20 م 25 س) |
+| تغطية إدارة البيانات | 9 | **9/9** (86 جدول + 25 مجموعة + scopes + rollback) |
+| DataManagementViewModel | 4 | **4/4** |
+| BundleSubscriptions (self-sufficient) | 7 | **7/7** |
+| PaymentEdit (self-sufficient) | 2 | **2/2** |
+| توزيع (verify-distribution.ps1) | 29 | **29/29** |
+
+**لا أوامر عامة (TRUNCATE/DROP/DELETE بلا شرط) أُستخدمت في أي اختبار.**
+كل حذف كان بشروط دقيقة (`WHERE name LIKE '...'`, `WHERE id = @id`) أو داخل قاعدة خردة منفصلة.

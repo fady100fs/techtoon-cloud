@@ -1,9 +1,10 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Techtoon.Core.Models;
 using Techtoon.Data.Context;
+using Techtoon.UI.Services;
 using Techtoon.UI.Views;
 
 namespace Techtoon.UI.ViewModels;
@@ -73,15 +74,79 @@ public class PartiesViewModel : ViewModelBase
     private async Task DeleteAsync()
     {
         if (SelectedParty == null) return;
-        var confirm = System.Windows.MessageBox.Show("Delete: " + SelectedParty.Name + "?", "Confirm", System.Windows.MessageBoxButton.YesNo);
+        var partyName = SelectedParty.Name ?? "";
+        var confirm = System.Windows.MessageBox.Show(
+            $"هل تريد حذف العميل «{partyName}»؟", "تأكيد",
+            System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning);
         if (confirm != System.Windows.MessageBoxResult.Yes) return;
         try
         {
+            // نتحقق من السجلات المرتبطة قبل الحذف.
+            // بدون هذا يفشل الحذف برسالة EF غامضة:
+            // «An error occurred while saving the entity changes»
+            var refs = await CountReferencesAsync(SelectedParty.Id);
+            if (refs.Count > 0)
+            {
+                System.Windows.MessageBox.Show(
+                    $"لا يمكن حذف العميل «{partyName}» لوجود سجلات مرتبطة به:\n\n" +
+                    string.Join("\n", refs.Select(r => "• " + r)) +
+                    "\n\nاحذف السجلات المرتبطة أولًا، أو ألغِ العملية.",
+                    "لا يمكن الحذف", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
             using var scope = App.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<TechtoonDbContext>();
             var p = await db.Parties.FirstOrDefaultAsync(x => x.Id == SelectedParty.Id);
             if (p != null) { db.Parties.Remove(p); await db.SaveChangesAsync(); await LoadAsync(); }
         }
-        catch (Exception ex) { System.Windows.MessageBox.Show("Error: " + ex.Message, "Error"); }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر حذف العميل"),
+                "خطأ", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>عدد السجلات المرتبطة بالعميل (لكل نوع).</summary>
+    private static async Task<List<string>> CountReferencesAsync(int partyId)
+    {
+        var result = new List<string>();
+        try
+        {
+            var cs = Techtoon.UI.Services.SecureConnectionManager.GetConnectionString();
+            await using var db = new Npgsql.NpgsqlConnection(cs);
+            await db.OpenAsync();
+
+            async Task<int> Count(string sql)
+            {
+                await using var cmd = new Npgsql.NpgsqlCommand(sql, db);
+                // بدون هذا المعامل يفشل الاستعلام ويُبتلع الاستثناء فتُفقد القائمة
+                cmd.Parameters.AddWithValue("@id", partyId);
+                var v = await cmd.ExecuteScalarAsync();
+                return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
+            }
+
+            var invoices = await Count("SELECT COUNT(*) FROM invoices WHERE party_id=@id");
+            if (invoices > 0) result.Add($"{invoices} فاتورة");
+
+            var payments = await Count("SELECT COUNT(*) FROM payments WHERE party_id=@id");
+            if (payments > 0) result.Add($"{payments} سند قبض/صرف");
+
+            var subs = await Count("SELECT COUNT(*) FROM subscriptions WHERE party_id=@id");
+            if (subs > 0) result.Add($"{subs} اشتراك");
+
+            var invoicePayments = await Count(
+                "SELECT COUNT(*) FROM invoice_payments ip JOIN invoices i ON i.id=ip.invoice_id WHERE i.party_id=@id");
+            if (invoicePayments > 0) result.Add($"{invoicePayments} دفعة فاتورة");
+
+            var badDebts = await Count("SELECT COUNT(*) FROM bad_debt_writeoffs WHERE party_id=@id");
+            if (badDebts > 0) result.Add($"{badDebts} عملية شطب دين");
+        }
+        catch (Exception ex)
+        {
+            // لا نمنع الحذف بسبب تعذّر الفحص، لكن نُظهر الخطأ عند فشل الحذف نفسه.
+            System.Diagnostics.Debug.WriteLine("فشل فحص مراجع العميل: " + ex.Message);
+        }
+        return result;
     }
 }

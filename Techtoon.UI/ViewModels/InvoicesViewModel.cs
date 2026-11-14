@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Npgsql;
+using Techtoon.UI.Services;
 using Techtoon.UI.Views;
 
 namespace Techtoon.UI.ViewModels
@@ -165,7 +166,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 StatusMessage = "Loaded: " + Invoices.Count + " invoices";
             }
-            catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+            catch (Exception ex) { StatusMessage = ErrorMessages.Describe(ex, "تعذّر إتمام العملية"); }
         }
 
         private void OpenNew() { try { var w = new InvoiceEditWindow(null); w.ShowDialog(); _ = LoadInvoicesAsync(); } catch { } }
@@ -191,7 +192,7 @@ namespace Techtoon.UI.ViewModels
                 }
                 _ = LoadInvoicesAsync();
             }
-            catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+            catch (Exception ex) { StatusMessage = ErrorMessages.Describe(ex, "تعذّر إتمام العملية"); }
         }
     }
 }

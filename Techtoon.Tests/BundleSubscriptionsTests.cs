@@ -27,17 +27,55 @@ public class BundleSubscriptionsTests : IDisposable
         try { if (Directory.Exists(_sandbox)) Directory.Delete(_sandbox, true); } catch { }
     }
 
-    /// <summary>يحذف الحساب الافتراضي للأطراف وأطرافه (أثر اختبارات فقط).</summary>
+    /// <summary>
+    /// ينظّف أطراف الاختبار فقط — <b>لا يمسّ بيانات المستخدم</b>.
+    /// <para>ملاحظة مهمة: الحساب الافتراضي (DEFAULT-PARTY) صار مستخدمًا في بيانات
+    /// المستخدم الحقيقية (استيراد الإنتاج)، لذلك لا يجوز حذفه أو حذف أطرافه.
+    /// لذلك نحذف أطراف الاختبار بالاسم فقط، والحساب الافتراضي فقط إن لم يعد أحد يستخدمه.</para>
+    /// </summary>
     private static void ResetDefaultAccount()
     {
         try
         {
-            TestDb.Execute("DELETE FROM subscription_periods WHERE subscription_id IN (SELECT id FROM subscriptions WHERE party_id IN (SELECT id FROM parties WHERE account_id IN (SELECT id FROM accounts WHERE code = 'DEFAULT-PARTY')))");
-            TestDb.Execute("DELETE FROM subscriptions WHERE party_id IN (SELECT id FROM parties WHERE account_id IN (SELECT id FROM accounts WHERE code = 'DEFAULT-PARTY'))");
-            TestDb.Execute("DELETE FROM parties WHERE account_id IN (SELECT id FROM accounts WHERE code = 'DEFAULT-PARTY')");
-            TestDb.Execute("DELETE FROM accounts WHERE code = 'DEFAULT-PARTY'");
+            TestDb.Execute("DELETE FROM subscription_periods WHERE subscription_id IN (SELECT id FROM subscriptions WHERE party_id IN (SELECT id FROM parties WHERE name LIKE @p))", ("@p", "%طرف بلا حساب%"));
+            TestDb.Execute("DELETE FROM subscriptions WHERE party_id IN (SELECT id FROM parties WHERE name LIKE @p)", ("@p", "%طرف بلا حساب%"));
+            TestDb.Execute("DELETE FROM parties WHERE name LIKE @p", ("@p", "%طرف بلا حساب%"));
+            // الحساب الافتراضي يُحذف فقط إن لم يعد أي طرف يستخدمه
+            TestDb.Execute("DELETE FROM accounts WHERE code = 'DEFAULT-PARTY' AND id NOT IN (SELECT account_id FROM parties WHERE account_id IS NOT NULL)");
         }
         catch { /* جدول غير موجود */ }
+    }
+
+    /// <summary>ينشئ طرفًا باسم فريد (لضمان استقلال الاختبار عن بيانات القاعدة).</summary>
+    private static int CreateTestParty(string tag)
+    {
+        var accountId = Convert.ToInt32(TestDb.Scalar(
+            "SELECT id FROM accounts ORDER BY id LIMIT 1"));
+        using var conn = TestDb.Open();
+        using var cmd = new Npgsql.NpgsqlCommand(
+            "INSERT INTO parties (name, type, account_id, is_active) VALUES (@n, 'customer', @a, true) RETURNING id", conn);
+        cmd.Parameters.AddWithValue("@n", "عميل اختبار " + tag);
+        cmd.Parameters.AddWithValue("@a", accountId);
+        return (int)cmd.ExecuteScalar();
+    }
+
+    /// <summary>ينشئ اشتراكًا (بفترته) لطرف محدد — لضمان وجود بيانات في المجمّع.</summary>
+    private static int CreateTestSubscription(string tag, int partyId)
+    {
+        using var conn = TestDb.Open();
+        using var cmd = new Npgsql.NpgsqlCommand(
+            "INSERT INTO subscriptions (party_id, service_name, amount, frequency, start_date, auto_invoice, status) " +
+            "VALUES (@p, @s, 85, 'monthly', CURRENT_DATE, false, 'active') RETURNING id", conn);
+        cmd.Parameters.AddWithValue("@p", partyId);
+        cmd.Parameters.AddWithValue("@s", "خدمة اختبار " + tag);
+        var id = (int)cmd.ExecuteScalar();
+
+        using var period = new Npgsql.NpgsqlCommand(
+            "INSERT INTO subscription_periods (subscription_id, period_number, period_start, period_end, due_date, amount, status) " +
+            "VALUES (@s, 1, CURRENT_DATE, CURRENT_DATE + 30, CURRENT_DATE, 85, 'pending')", conn);
+        period.Parameters.AddWithValue("@s", id);
+        period.ExecuteNonQuery();
+        return id;
     }
 
     // ==================== مجمّع الاشتراكات ====================
@@ -61,34 +99,55 @@ public class BundleSubscriptionsTests : IDisposable
     {
         if (!TestDb.Available) return;
 
-        var svc = MasterDataBundleService.Create();
-        var def = BundleCatalog.Find("subscriptions")!;
-        var bundle = svc.Export(def);
+        var tag = "SUBEXP" + Guid.NewGuid().ToString("N").Substring(0, 8);
+        var partyId = CreateTestParty(tag);
+        var subId = CreateTestSubscription(tag, partyId);
 
-        // ورقة الاشتراكات: الطرف بالاسم لا بالرقم
-        Assert.True(bundle.Tables.ContainsKey("subscriptions"));
-        var subs = bundle.Tables["subscriptions"];
-        Assert.NotEmpty(subs);
-        var first = subs[0];
-        Assert.Contains("party_name", first.Keys);
-        Assert.False(string.IsNullOrWhiteSpace(first.GetValueOrDefault("party_name") ?? ""));
-        Assert.Contains("service_name", first.Keys);
-        Assert.Contains("start_date", first.Keys);
+        try
+        {
+            var svc = MasterDataBundleService.Create();
+            var def = BundleCatalog.Find("subscriptions")!;
+            var bundle = svc.Export(def);
 
-        // ورقة الفترات: الاشتراك محدَّد بالاسم + تاريخ البدء + اسم الطرف
-        Assert.True(bundle.Tables.ContainsKey("subscription_periods"));
-        var periods = bundle.Tables["subscription_periods"];
-        Assert.NotEmpty(periods);
-        var p0 = periods[0];
-        Assert.Contains("subscription_party_name", p0.Keys);
-        Assert.Contains("subscription_service_name", p0.Keys);
-        Assert.Contains("subscription_start_date", p0.Keys);
-        Assert.Contains("period_number", p0.Keys);
+            // ورقة الاشتراكات: الطرف بالاسم لا بالرقم
+            Assert.True(bundle.Tables.ContainsKey("subscriptions"));
+            var subs = bundle.Tables["subscriptions"];
+            Assert.NotEmpty(subs);
 
-        // القيم محمولة (اسم وتاريخ) لا أرقام قاعدة بيانات
-        Assert.False(string.IsNullOrWhiteSpace(p0.GetValueOrDefault("subscription_party_name") ?? ""));
-        Assert.False(string.IsNullOrWhiteSpace(p0.GetValueOrDefault("subscription_service_name") ?? ""));
-        Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", p0.GetValueOrDefault("subscription_start_date") ?? "");
+            // صف اشتراكنا هو ما نتحقق منه (لا نعتمد على بيانات أخرى)
+            var mine = subs.FirstOrDefault(r =>
+                (r.GetValueOrDefault("service_name") ?? "").Contains("خدمة اختبار " + tag));
+            Assert.NotNull(mine);
+
+            var first = mine!;
+            Assert.Contains("party_name", first.Keys);
+            Assert.False(string.IsNullOrWhiteSpace(first.GetValueOrDefault("party_name") ?? ""));
+            Assert.Contains("service_name", first.Keys);
+            Assert.Contains("start_date", first.Keys);
+
+            // ورقة الفترات: الاشتراك محدَّد بالاسم + تاريخ البدء + اسم الطرف
+            Assert.True(bundle.Tables.ContainsKey("subscription_periods"));
+            var periods = bundle.Tables["subscription_periods"];
+            Assert.NotEmpty(periods);
+            var p0 = periods.FirstOrDefault(r =>
+                (r.GetValueOrDefault("subscription_service_name") ?? "").Contains("خدمة اختبار " + tag));
+            Assert.NotNull(p0);
+            Assert.Contains("subscription_party_name", p0!.Keys);
+            Assert.Contains("subscription_service_name", p0.Keys);
+            Assert.Contains("subscription_start_date", p0.Keys);
+            Assert.Contains("period_number", p0.Keys);
+
+            // القيم محمولة (اسم وتاريخ) لا أرقام قاعدة بيانات
+            Assert.False(string.IsNullOrWhiteSpace(p0.GetValueOrDefault("subscription_party_name") ?? ""));
+            Assert.False(string.IsNullOrWhiteSpace(p0.GetValueOrDefault("subscription_service_name") ?? ""));
+            Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", p0.GetValueOrDefault("subscription_start_date") ?? "");
+        }
+        finally
+        {
+            TestDb.Execute("DELETE FROM subscription_periods WHERE subscription_id = @s", ("@s", subId));
+            TestDb.Execute("DELETE FROM subscriptions WHERE id = @s", ("@s", subId));
+            TestDb.Execute("DELETE FROM parties WHERE id = @p", ("@p", partyId));
+        }
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows;
 using Npgsql;
+using Techtoon.UI.Services;
 using Techtoon.UI.Views;
 
 namespace Techtoon.UI.ViewModels
@@ -134,7 +135,7 @@ namespace Techtoon.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error loading payments: " + ex.Message);
+                MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر تحميل المدفوعات"));
             }
             finally
             {
@@ -226,7 +227,7 @@ namespace Techtoon.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية"));
             }
             finally
             {

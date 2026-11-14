@@ -47,7 +47,7 @@ namespace Techtoon.UI.ViewModels
                 var list = InventoryAdjustmentService.GetAdjustments(string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter);
                 foreach (var a in list) Adjustments.Add(a);
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void NewAdjustment()
@@ -58,7 +58,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void OpenAdjustment()
@@ -71,7 +71,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
         private void DeleteAdjustment()
         {
@@ -88,7 +88,7 @@ namespace Techtoon.UI.ViewModels
                 InventoryAdjustmentService.DeleteAdjustment(Selected.Id);
                 Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
     }
 }

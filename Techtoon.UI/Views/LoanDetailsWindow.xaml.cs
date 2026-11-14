@@ -51,7 +51,7 @@ namespace Techtoon.UI.Views
                     OverdraftService.Repay(_loanId, amount, 0, DateTime.Now, "Repayment", 1);
                     MessageBox.Show("تم السداد بنجاح");
                 }
-                catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+                catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
             }
             else
             {
@@ -67,7 +67,7 @@ namespace Techtoon.UI.Views
                         MessageBox.Show("تم السداد بنجاح");
                         LoadForEdit(_loanId); // Refresh
                     }
-                    catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+                    catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
                 }
                 else
                 {

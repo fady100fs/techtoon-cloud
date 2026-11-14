@@ -106,7 +106,7 @@ namespace Techtoon.UI.ViewModels
                     });
                 }
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
     }
 }

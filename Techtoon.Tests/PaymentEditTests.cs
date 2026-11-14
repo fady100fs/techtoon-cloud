@@ -22,6 +22,7 @@ public class PaymentEditTests : IDisposable
             try { TestDb.Execute("DELETE FROM invoice_payments WHERE invoice_id IN (SELECT id FROM invoices WHERE invoice_number=@n)", ("@n", n)); } catch { }
             try { TestDb.Execute("DELETE FROM payments WHERE notes=@n", ("@n", n)); } catch { }
             try { TestDb.Execute("DELETE FROM invoices WHERE invoice_number=@n", ("@n", n)); } catch { }
+            try { TestDb.Execute("DELETE FROM parties WHERE name=@n", ("@n", n + " عميل")); } catch { }
         }
     }
 
@@ -42,16 +43,24 @@ public class PaymentEditTests : IDisposable
             conn.Open();
             using var tx = conn.BeginTransaction();
 
-            // فاتورة ومرفقة بطرف وحساب (المطلوب NOT NULL)
+            // فاتورة ومرفقة بطرف وحساب (المطلوب NOT NULL).
+            // ننشئ طرفنا بأنفسنا حتى لا يعتمد الاختبار على بيانات القاعدة.
             int partyId, accountId, cashBoxId;
             using (var q = new NpgsqlCommand(
-                "SELECT (SELECT id FROM parties ORDER BY id LIMIT 1), (SELECT id FROM accounts ORDER BY id LIMIT 1), (SELECT id FROM cash_boxes ORDER BY id LIMIT 1)", conn, tx))
+                "SELECT (SELECT id FROM accounts ORDER BY id LIMIT 1), (SELECT id FROM cash_boxes ORDER BY id LIMIT 1)", conn, tx))
             using (var r = q.ExecuteReader())
             {
                 r.Read();
-                partyId = r.GetInt32(0);
-                accountId = r.GetInt32(1);
-                cashBoxId = r.GetInt32(2);
+                accountId = r.GetInt32(0);
+                cashBoxId = r.GetInt32(1);
+            }
+
+            using (var q = new NpgsqlCommand(
+                "INSERT INTO parties (name, type, account_id, is_active) VALUES (@n, 'customer', @a, true) RETURNING id", conn, tx))
+            {
+                q.Parameters.AddWithValue("@n", tag + " عميل");
+                q.Parameters.AddWithValue("@a", accountId);
+                partyId = Convert.ToInt32(q.ExecuteScalar());
             }
 
             using (var cmd = new NpgsqlCommand(
@@ -156,12 +165,23 @@ public class PaymentEditTests : IDisposable
         using (var conn = new NpgsqlConnection(cs))
         {
             conn.Open();
+            // طرف خاص بالاختبار — لا نعتمد على بيانات القاعدة
+            int partyId;
+            using (var q = new NpgsqlCommand(
+                "INSERT INTO parties (name, type, account_id, is_active) " +
+                "VALUES (@n, 'customer', (SELECT id FROM accounts ORDER BY id LIMIT 1), true) RETURNING id", conn))
+            {
+                q.Parameters.AddWithValue("@n", tag + " عميل");
+                partyId = Convert.ToInt32(q.ExecuteScalar());
+            }
+
             using var cmd = new NpgsqlCommand(
                 "INSERT INTO payments (party_id, account_id, invoice_id, amount, date, cash_box_id, " +
                 "payment_method, reference_number, notes, payment_type, currency_id) " +
-                "SELECT (SELECT id FROM parties ORDER BY id LIMIT 1), (SELECT id FROM accounts ORDER BY id LIMIT 1), " +
-                "NULL, 42.5, CURRENT_DATE, (SELECT id FROM cash_boxes ORDER BY id LIMIT 1), 'نقدي', @ref, @notes, 'receipt', 1 " +
+                "VALUES (@pid, (SELECT id FROM accounts ORDER BY id LIMIT 1), " +
+                "NULL, 42.5, CURRENT_DATE, (SELECT id FROM cash_boxes ORDER BY id LIMIT 1), 'نقدي', @ref, @notes, 'receipt', 1) " +
                 "RETURNING id", conn);
+            cmd.Parameters.AddWithValue("@pid", partyId);
             cmd.Parameters.AddWithValue("@ref", tag);
             cmd.Parameters.AddWithValue("@notes", tag);
             paymentId = Convert.ToInt32(cmd.ExecuteScalar());

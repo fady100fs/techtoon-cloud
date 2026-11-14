@@ -8,6 +8,7 @@ using Techtoon.UI.ViewModels;
 
 namespace Techtoon.UI.Views
 {
+    using Techtoon.UI.Services;
     public class ItemSearchResult
     {
         public int Id { get; set; }
@@ -165,7 +166,7 @@ namespace Techtoon.UI.Views
                 AddLine();
                 if (Payments.Count == 0) Payments.Add(new InvoicePaymentRow { Method = "cash", Amount = 0 });
             }
-            catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+            catch (Exception ex) { StatusMessage = ErrorMessages.Describe(ex, "تعذّر إتمام العملية"); }
             finally { IsBusy = false; }
             await System.Threading.Tasks.Task.CompletedTask;
         }

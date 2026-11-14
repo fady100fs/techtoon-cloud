@@ -83,7 +83,7 @@ namespace Techtoon.UI.Views
                 DialogResult = true;
                 Close();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e) { DialogResult = false; Close(); }

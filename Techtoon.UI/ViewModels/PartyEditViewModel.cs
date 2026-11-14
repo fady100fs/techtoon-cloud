@@ -1,9 +1,11 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Techtoon.Core.Models;
 using Techtoon.Data.Context;
+
+using Techtoon.UI.Services;
 
 namespace Techtoon.UI.ViewModels;
 
@@ -62,7 +64,7 @@ public class PartyEditViewModel : ViewModelBase
                 }
             }
         }
-        catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+        catch (Exception ex) { StatusMessage = ErrorMessages.Describe(ex, "تعذّر إتمام العملية"); }
     }
 
     private async Task SaveAsync()
@@ -82,6 +84,6 @@ public class PartyEditViewModel : ViewModelBase
             StatusMessage = "Saved OK"; DialogResult = true; RequestClose?.Invoke();
         }
         catch (DbUpdateException ex) { var i = ex.InnerException; var m = ex.Message; while (i != null) { m += "\n" + i.Message; i = i.InnerException; } StatusMessage = m; }
-        catch (Exception ex) { StatusMessage = "Error: " + ex.Message; }
+        catch (Exception ex) { StatusMessage = ErrorMessages.Describe(ex, "تعذّر إتمام العملية"); }
     }
 }

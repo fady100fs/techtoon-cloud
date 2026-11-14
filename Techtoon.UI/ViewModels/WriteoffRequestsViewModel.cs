@@ -45,7 +45,7 @@ namespace Techtoon.UI.ViewModels
                 var list = WriteoffService.GetAll(string.IsNullOrEmpty(StatusFilter) ? null : StatusFilter);
                 foreach (var r in list) Requests.Add(r);
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void NewRequest()
@@ -56,7 +56,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void OpenRequest()
@@ -69,7 +69,7 @@ namespace Techtoon.UI.ViewModels
                 win.Owner = Application.Current.MainWindow;
                 if (win.ShowDialog() == true) Load();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void DeleteRequest()
@@ -82,7 +82,7 @@ namespace Techtoon.UI.ViewModels
             }
             if (MessageBox.Show($"حذف طلب الشطب #{Selected.Id}؟", "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             try { WriteoffService.Delete(Selected.Id); Load(); }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
     }
 }

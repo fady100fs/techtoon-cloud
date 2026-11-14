@@ -4,6 +4,7 @@ using System.Windows.Controls;
 
 namespace Techtoon.UI.Views
 {
+    using Techtoon.UI.Services;
     public partial class PartiesView : UserControl
     {
         public PartiesView()
@@ -26,7 +27,7 @@ namespace Techtoon.UI.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية"));
             }
         }
     }

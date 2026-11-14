@@ -88,7 +88,7 @@ namespace Techtoon.UI.ViewModels
                     });
                 }
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
                 // CRUD — نافذة تحرير برمجية (بدون XAML) لدعم الأزرار الميتة سابقًا
         private void AddBox()

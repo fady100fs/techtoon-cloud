@@ -5,6 +5,7 @@ using Techtoon.UI.ViewModels;
 
 namespace Techtoon.UI.Views
 {
+    using Techtoon.UI.Services;
     public partial class InvoicesView : UserControl
     {
         public InvoicesView() { InitializeComponent(); SetArabicTexts(); if (DataContext == null) DataContext = new InvoicesViewModel(); }
@@ -39,7 +40,7 @@ namespace Techtoon.UI.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message);
+                MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية"));
             }
         }
     }

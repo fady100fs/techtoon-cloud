@@ -78,7 +78,7 @@ namespace Techtoon.UI.Views
 
                 UpdateButtons();
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void UpdateButtons()
@@ -102,7 +102,7 @@ namespace Techtoon.UI.Views
                 LoadForEdit(_sessionId);
                 MessageBox.Show("بدأ الجرد. أدخل الكميات الفعلية.");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void CreateSession()
@@ -117,7 +117,7 @@ namespace Techtoon.UI.Views
                 Saved = true;
                 LoadForEdit(_sessionId);
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnSubmit_Click(object sender, RoutedEventArgs e)
@@ -129,7 +129,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم تسليم الجلسة للمراجعة");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnApprove_Click(object sender, RoutedEventArgs e)
@@ -141,7 +141,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم اعتماد الجلسة. يمكنك الآن تنفيذ التسويات.");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnReject_Click(object sender, RoutedEventArgs e)
@@ -155,7 +155,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم رفض الجلسة وإعادتها للعد");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnExecute_Click(object sender, RoutedEventArgs e)
@@ -168,7 +168,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم تنفيذ التسويات بنجاح");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnSaveCounts_Click(object sender, RoutedEventArgs e)

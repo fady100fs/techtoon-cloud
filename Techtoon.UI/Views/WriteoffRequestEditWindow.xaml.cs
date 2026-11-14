@@ -123,7 +123,7 @@ namespace Techtoon.UI.Views
                     MessageBox.Show("تم حفظ الطلب");
                 }
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnSubmit_Click(object sender, RoutedEventArgs e)
@@ -136,7 +136,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم تسليم الطلب للاعتماد");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnApprove_Click(object sender, RoutedEventArgs e)
@@ -148,7 +148,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم اعتماد الطلب");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnExecute_Click(object sender, RoutedEventArgs e)
@@ -161,7 +161,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم تنفيذ الشطب بنجاح");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

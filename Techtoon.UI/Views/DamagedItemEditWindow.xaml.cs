@@ -121,7 +121,7 @@ namespace Techtoon.UI.Views
                     MessageBox.Show("تم حفظ السجل");
                 }
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnStartInspection_Click(object sender, RoutedEventArgs e)
@@ -134,7 +134,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("بدأ الفحص");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnCompleteInspection_Click(object sender, RoutedEventArgs e)
@@ -148,7 +148,7 @@ namespace Techtoon.UI.Views
                 UpdateButtons();
                 MessageBox.Show("تم تسجيل نتيجة الفحص");
             }
-            catch (Exception ex) { MessageBox.Show("Error: " + ex.Message); }
+            catch (Exception ex) { MessageBox.Show(ErrorMessages.Describe(ex, "تعذّر إتمام العملية")); }
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
