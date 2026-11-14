@@ -11,8 +11,9 @@ namespace Techtoon.UI.Services
     /// </summary>
     public static class AutoBackupScheduler
     {
-        private static readonly string BackupDir = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "Backups");
+        // مجلد النسخ: بجانب البرنامج إن كان قابلًا للكتابة، وإلا في بيانات المستخدم
+        // (تثبيت Program Files = مجلد للقراءة فقط ⇒ كانت النسخة تفشل بـ Access denied).
+        private static readonly string BackupDir = AppPaths.BackupDir;
 
         private const int MaxBackupsToKeep = 7;
         private const int BackupIntervalHours = 24;

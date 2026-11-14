@@ -16,7 +16,8 @@ public partial class App : Application
     /// <summary>صحيح عندما يحتاج المستخدم إلى تفعيل البرنامج (يوجّهه للت-tab داخل الإعدادات بعد الدخول).</summary>
     public static bool LicenseActivationRequired { get; set; }
 
-    private static readonly string LogFile = Path.Combine(AppContext.BaseDirectory, "techtoon.log");
+    // السجل في مجلد قابل للكتابة (مجلد بيانات المستخدم عند التثبيت في Program Files)
+    private static readonly string LogFile = Techtoon.UI.Services.AppPaths.LogFile;
 
     public static void Log(string msg)
     {
