@@ -105,14 +105,20 @@ namespace Techtoon.UI.ViewModels
         public ICommand PayPeriodCommand { get; }
         public ICommand RefreshPeriodsCommand { get; }
 
+        private readonly bool _canEditSubscriptions = AuthService.HasPermission("subscriptions.edit");
+
         public SubscriptionsViewModel()
         {
             RefreshCommand = new UiRelayCommand(_ => _ = LoadAsync());
-            AddCommand = new UiRelayCommand(_ => OpenEditor(0));
-            EditCommand = new UiRelayCommand(_ => OpenEditor(SelectedSubscription?.Id ?? 0), _ => SelectedSubscription != null);
-            DeleteCommand = new UiRelayCommand(_ => DeleteSubscription(), _ => SelectedSubscription != null);
-            PauseCommand = new UiRelayCommand(_ => TogglePause(), _ => SelectedSubscription != null);
-            PayPeriodCommand = new UiRelayCommand(_ => PayPeriod(), _ => SelectedPeriod != null);
+            AddCommand = new UiRelayCommand(_ => OpenEditor(0), _ => _canEditSubscriptions);
+            EditCommand = new UiRelayCommand(_ => OpenEditor(SelectedSubscription?.Id ?? 0),
+                _ => SelectedSubscription != null && _canEditSubscriptions);
+            DeleteCommand = new UiRelayCommand(_ => DeleteSubscription(),
+                _ => SelectedSubscription != null && _canEditSubscriptions);
+            PauseCommand = new UiRelayCommand(_ => TogglePause(),
+                _ => SelectedSubscription != null && _canEditSubscriptions);
+            PayPeriodCommand = new UiRelayCommand(_ => PayPeriod(),
+                _ => SelectedPeriod != null && _canEditSubscriptions);
             RefreshPeriodsCommand = new UiRelayCommand(_ => _ = LoadPeriodsAsync());
             _ = LoadAsync();
         }
@@ -262,6 +268,12 @@ namespace Techtoon.UI.ViewModels
         private void DeleteSubscription()
         {
             if (SelectedSubscription == null) return;
+            if (!_canEditSubscriptions)
+            {
+                System.Windows.MessageBox.Show("لا صلاحية لحذف الاشتراكات — يُرجى مراجعة مدير النظام.",
+                    "لا صلاحية", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
             try
             {
                 using var conn = new NpgsqlConnection(GetCS());
