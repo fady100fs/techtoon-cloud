@@ -160,6 +160,58 @@ public class BundleSubscriptionsTests : IDisposable
     }
 
     [Fact]
+    public void Payment_Without_Currency_Falls_Back_To_The_First_Available_Currency()
+    {
+        if (!TestDb.Available) return;
+
+        var svc = MasterDataBundleService.Create();
+        var unique = Guid.NewGuid().ToString("N").Substring(0, 8);
+
+        // دفعة بلا رمز عملة — و currency_id إلزامي في قاعدة البيانات
+        // (هذا ما كان يرفع 4 أخطاء عند استيراد ملف حقيقي: "currency_id إلزامي…")
+        var cashBoxCode = Convert.ToString(TestDb.Scalar(
+            "SELECT code FROM cash_boxes ORDER BY id LIMIT 1")) ?? "";
+        var bundle = new DataBundle
+        {
+            BundleId = "finance",
+            Tables = new Dictionary<string, List<Dictionary<string, string?>>>
+            {
+                ["cash_boxes"] = new List<Dictionary<string, string?>>(),
+                ["payments"] = new List<Dictionary<string, string?>>
+                {
+                    new()
+                    {
+                        ["date"] = DateTime.Now.ToString("yyyy-MM-dd"),
+                        ["amount"] = "10.00",
+                        ["payment_type"] = "receipt",
+                        ["payment_method"] = "نقدي",
+                        ["cash_box_code"] = cashBoxCode,
+                        ["notes"] = "CURTEST_" + unique
+                    }
+                }
+            }
+        };
+
+        var res = svc.Import(bundle, new BundleImportOptions
+        {
+            ConflictMode = BundleConflictMode.Skip,
+            CreateMissingReferences = true
+        });
+
+        Assert.True(res.Success, res.Message);
+        Assert.Equal(1, res.Inserted);
+        Assert.Empty(res.Errors);
+
+        // الدفعة حصلت على عملة حقيقية (ليست NULL)
+        var currencyId = TestDb.Scalar(
+            "SELECT currency_id FROM payments WHERE notes=@n", ("@n", "CURTEST_" + unique));
+        Assert.NotNull(currencyId);
+        Assert.True(Convert.ToInt32(currencyId) > 0);
+
+        TestDb.Execute("DELETE FROM payments WHERE notes=@n", ("@n", "CURTEST_" + unique));
+    }
+
+    [Fact]
     public void Party_Without_Account_Gives_A_Clear_Arabic_Error_When_References_Are_Not_Created()
     {
         if (!TestDb.Available) return;

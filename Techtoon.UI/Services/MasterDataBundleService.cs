@@ -550,12 +550,6 @@ public class MasterDataBundleService
                     //   null value in column "account_id" ... violates not-null constraint
                     if (IsNotNullInDb(spec.Table, r.ForeignKey))
                     {
-                        if (string.IsNullOrWhiteSpace(r.DefaultKey))
-                            throw new InvalidOperationException(
-                                $"العمود '{r.ForeignKey}' في الجدول '{spec.Table}' إلزامي في قاعدة البيانات، " +
-                                $"لكن الملف لا يحتوي على '{string.Join(" + ", r.ExportKeys)}'. " +
-                                "أضف قيمة لهذا العمود في الملف ثم أعد الاستيراد.");
-
                         var defId = ResolveDefaultReference(r, tablePlan, dryRun);
                         if (!defId.HasValue)
                             throw new InvalidOperationException(
@@ -790,6 +784,19 @@ public class MasterDataBundleService
         /// والعمود إلزامي في قاعدة البيانات.
         /// <para>يبحث أولًا عن سجل موجود بنفس المفتاح، ثم ينشئه إن كان الخيار مفعّلًا.</para>
         /// </summary>
+        /// <summary>أول معرّف متاح في جدول معيّن (null إذا كان الجدول فارغًا).</summary>
+        private int? ResolveFirstRowId(string table)
+        {
+            try
+            {
+                using var cmd = Cmd($"SELECT id FROM \"{table}\" ORDER BY id LIMIT 1");
+                var v = cmd.ExecuteScalar();
+                if (v == null || v == DBNull.Value) return null;
+                return Convert.ToInt32(v);
+            }
+            catch { return null; }
+        }
+
         private int? ResolveDefaultReference(BundleRef r, BundleTablePlan tablePlan, bool dryRun)
         {
             var defaultKey = r.DefaultKey!;
@@ -805,12 +812,27 @@ public class MasterDataBundleService
                 lockCmd.ExecuteScalar();
             }
 
-            // 1) هل يوجد سجل بنفس المفتاح؟
-            var existing = ResolveReference(r, new List<string> { defaultKey });
-            if (existing.HasValue)
+            // 1) سجل بمفتاح محدد (مثال: DEFAULT-PARTY) إن وُجد
+            if (!string.IsNullOrWhiteSpace(defaultKey))
             {
-                _idCache[cacheKey] = existing.Value;
-                return existing;
+                var existing = ResolveReference(r, new List<string> { defaultKey });
+                if (existing.HasValue)
+                {
+                    _idCache[cacheKey] = existing.Value;
+                    return existing;
+                }
+            }
+            else
+            {
+                // 2) بلا مفتاح محدد: نأخذ أول سجل متاح في الجدول الهدف
+                //    (مثال: أول عملة — لأن currency_id إلزامي والملف قد لا يحمل رمز العملة)
+                var first = ResolveFirstRowId(r.TargetTable);
+                if (first.HasValue)
+                {
+                    _idCache[cacheKey] = first.Value;
+                    return first;
+                }
+                return null;
             }
 
             if (!_options.CreateMissingReferences) return null;
