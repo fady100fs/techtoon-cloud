@@ -1,0 +1,160 @@
+# OPENCODE_AGENT_DISCOVERY_REPORT.md
+
+> Generated: 2026-11-15 · OpenCode 1.2.0-beta.12
+
+---
+
+## 1. OpenCode Version
+
+- **Version**: 1.2.0-beta.12
+- **Location**: `C:\Users\fady1\AppData\Local\Programs\ai.opencode.desktop`
+- **Config dir**: `C:\Users\fady1\.config\opencode\`
+
+## 2. Configuration Paths
+
+| Path | Purpose |
+|------|---------|
+| `~/.config/opencode/agents/` | Global agents (100+ pre-installed) |
+| `~/.config/opencode/service.json` | Service configuration |
+| `.opencode/agents/` | Project-level agents (Techtoon) |
+| `.opencode/` | Project-level configuration |
+
+## 3. Existing Agents (Global)
+
+- 100+ pre-installed agents in `~/.config/opencode/agents/`
+- Categories: design, engineering, marketing, product, security, testing, etc.
+- All are `mode: subagent` (invoked via `subagent` tool)
+
+## 4. Existing Agents (Project-Level)
+
+Before this task: 5 agents in `.opencode/agents/`:
+- design-ui-designer.md
+- design-ux-researcher.md
+- engineering-mobile-app-builder.md
+- engineering-rapid-prototyper.md
+- marketing-app-store-optimizer.md
+
+After this task: 12 agents (11 specialists + 1 orchestrator)
+
+## 5. Agent Definition Format
+
+```yaml
+---
+name: 'Agent Name'
+description: 'Description'
+mode: subagent  # or primary
+color: '#HEX'
+---
+
+# Agent Title
+
+You are **Agent Name**, ...
+
+## Your Core Mission
+...
+```
+
+- **name**: Display name
+- **description**: Short description (used for agent selection)
+- **mode**: `primary` (entry point) or `subagent` (invoked by primary)
+- **color**: UI color (hex)
+
+## 6. Agent Invocation Mechanism
+
+- Primary agents use the `subagent` tool to invoke subagents
+- `subagent(agent="name", description="...", prompt="...")`
+- Subagents run in child sessions (isolated context)
+- Results returned to the primary agent
+- No manual agent switching required
+
+## 7. Permissions
+
+- Agents inherit permissions from their mode
+- `primary` agents can invoke subagents
+- `subagent` agents cannot invoke other subagents (depth limit)
+- File access: agents can read/write files within project
+- No production deployment without approval
+
+## 8. Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `subagent` | Invoke a subagent (agent, description, prompt) |
+| `read` | Read file contents |
+| `write` | Write file contents |
+| `edit` | Edit file contents |
+| `glob` | Find files by pattern |
+| `grep` | Search file contents |
+| `shell` | Execute shell commands |
+| `question` | Ask user questions |
+| `webfetch` | Fetch URL content |
+| `websearch` | Search the web |
+| `skill` | Load specialized skills |
+| `execute` | Run JavaScript with tool calls |
+
+## 9. Gaps Identified
+
+1. No project-level orchestrator (created now)
+2. No TECHTOON-specific specialist agents (created now)
+3. No shared project context file (agents reference TECHTOON_DISCOVERY_REPORT.md)
+4. No agent performance monitoring (OpenCode handles this internally)
+
+## 10. Configuration Created
+
+| File | Purpose |
+|------|---------|
+| `.opencode/agents/techtoon-orchestrator.md` | Primary orchestrator |
+| `.opencode/agents/techtoon-architect.md` | Architecture specialist |
+| `.opencode/agents/techtoon-database.md` | Database specialist |
+| `.opencode/agents/techtoon-security.md` | Security specialist |
+| `.opencode/agents/techtoon-backend.md` | Backend/API specialist |
+| `.opencode/agents/techtoon-desktop.md` | Desktop/WPF specialist |
+| `.opencode/agents/techtoon-mobile.md` | Mobile/Flutter specialist |
+| `.opencode/agents/techtoon-sync.md` | Sync engine specialist |
+| `.opencode/agents/techtoon-accounting.md` | Accounting specialist |
+| `.opencode/agents/techtoon-qa.md` | QA/testing specialist |
+| `.opencode/agents/techtoon-code-review.md` | Code review specialist |
+| `.opencode/agents/techtoon-devops.md` | DevOps/deployment specialist |
+
+## 11. Agent Invocation Test
+
+### Test 1 — Orchestrator Identification
+- **Status**: To be tested
+- **Method**: Invoke `techtoon-orchestrator` via `subagent` tool
+
+### Test 2 — Specialist Discovery
+- **Status**: To be tested
+- **Method**: Verify all 12 agents are recognized
+
+### Test 3 — Real Subagent Invocation
+- **Status**: To be tested
+- **Method**: Ask orchestrator to analyze project structure and delegate to architect + QA
+
+### Test 4 — Multiple Agent Delegation
+- **Status**: To be tested
+- **Method**: Ask orchestrator to invoke 2 agents in parallel
+
+### Test 5 — Review Delegation
+- **Status**: To be tested
+- **Method**: Ask orchestrator to invoke code review on specialist output
+
+### Test 6 — Permission Verification
+- **Status**: To be tested
+- **Method**: Verify subagents cannot invoke other subagents (depth limit)
+
+### Test 7 — No Manual Agent Switching
+- **Status**: To be tested
+- **Method**: Complete a task using only the orchestrator
+
+---
+
+## 12. Rollback Plan
+
+If agent configuration causes issues:
+1. Delete `.opencode/agents/techtoon-*.md` files
+2. Restart OpenCode
+3. System falls back to global agents
+4. No impact on project code or data
+
+---
+*Generated by OpenCode — Agent Discovery — 2026-11-15*
