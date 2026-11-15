@@ -41,15 +41,28 @@
                     <Button x:Name="BtnAddLine" Grid.Column="1" Style="{StaticResource AddBtn}" Command="{Binding AddLineCommand}"/>
                 </Grid>
                 <DataGrid x:Name="LinesGrid" Grid.Row="1" ItemsSource="{Binding Lines}" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#ECEFF1" BorderBrush="#E0E0E0" BorderThickness="1" Background="White" FontSize="13" MinHeight="180" PreviewKeyDown="LinesGrid_PreviewKeyDown">
+    <DataGrid.RowStyle>
+        <Style TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasStock}" Value="False">
+                    <Setter Property="Background" Value="#FFEBEE"/>
+                    <Setter Property="Foreground" Value="#B71C1C"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <DataGridTemplateColumn x:Name="ColItem" Width="340">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <ComboBox x:Name="ItemSearchCombo" ItemsSource="{Binding FilteredItems}" DisplayMemberPath="SearchDisplay" IsEditable="True" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" StaysOpenOnEdit="True" IsDropDownOpen="True" SelectionChanged="ItemSearchCombo_SelectionChanged" PreviewKeyDown="ItemSearchCombo_PreviewKeyDown" TextBoxBase.TextChanged="ItemSearchCombo_TextChanged" Padding="4,3" FontSize="13"/>
+                                    <ComboBox x:Name="ItemSearchCombo" ItemsSource="{Binding FilteredItems}" DisplayMemberPath="SearchDisplay" IsEditable="True" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" StaysOpenOnEdit="True" IsDropDownOpen="True" SelectionChanged="ItemSearchCombo_SelectionChanged" PreviewKeyDown="ItemSearchCombo_PreviewKeyDown" TextBoxBase.TextChanged="ItemSearchCombo_TextChanged" Padding="4,3" FontSize="13" ToolTip="{Binding StockStatus}"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn x:Name="ColBarcode" Width="110" Binding="{Binding Barcode}" IsReadOnly="True"/>
+                        <DataGridTextColumn x:Name="ColStock" Width="150" Binding="{Binding StockStatus}" IsReadOnly="True">
+                            <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="Foreground" Value="#B71C1C"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="11"/><Setter Property="TextWrapping" Value="Wrap"/></Style></DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
                         <DataGridTemplateColumn x:Name="ColQty" Width="90">
                             <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}" Tag="qty" Padding="4,3" BorderBrush="#E0E0E0" KeyDown="Cell_KeyDown"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

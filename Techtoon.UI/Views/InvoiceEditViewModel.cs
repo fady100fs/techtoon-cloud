@@ -15,6 +15,12 @@ namespace Techtoon.UI.Views
         public string Name { get; set; }
         public string Barcode { get; set; }
         public decimal SellPrice { get; set; }
+        public bool IsKit { get; set; }
+        // كمية المخزون (للكيت: min over components). 0 ⇒ لا مخزون.
+        public decimal StockQuantity { get; set; }
+        public bool HasStock { get { return StockQuantity > 0; } }
+        // رسالة عربية توضيحية (متوفر: X / لا يوجد مخزون / صنف مكوّن غير متوفر)
+        public string StockStatus { get; set; } = "";
         public string SearchDisplay { get { return (Name ?? "") + (string.IsNullOrEmpty(Barcode) ? "" : " [" + Barcode + "]"); } }
     }
 
@@ -56,8 +62,11 @@ namespace Techtoon.UI.Views
         private decimal _price = 0; public decimal Price { get { return _price; } set { _price = value; OnPropertyChanged("Price"); Recalc(); } }
         private decimal _discount = 0; public decimal Discount { get { return _discount; } set { _discount = value; OnPropertyChanged("Discount"); Recalc(); } }
         private decimal _total = 0; public decimal Total { get { return _total; } set { _total = value; OnPropertyChanged("Total"); } }
+        // حالة المخزون
+        private bool _hasStock = true; public bool HasStock { get { return _hasStock; } set { _hasStock = value; OnPropertyChanged("HasStock"); } }
+        private string _stockStatus = ""; public string StockStatus { get { return _stockStatus; } set { _stockStatus = value; OnPropertyChanged("StockStatus"); } }
         public void Recalc() { Total = Math.Round(_quantity * _price - _discount, 2); }
-        public void SelectItem(ItemSearchResult it) { if (it == null) return; ItemId = it.Id; ItemName = it.Name; Barcode = it.Barcode; Price = it.SellPrice; Quantity = 1; SearchText = it.Name; FilterText = ""; OnPropertyChanged("FilteredItems"); }
+        public void SelectItem(ItemSearchResult it) { if (it == null) return; ItemId = it.Id; ItemName = it.Name; Barcode = it.Barcode; Price = it.SellPrice; Quantity = 1; SearchText = it.Name; FilterText = ""; HasStock = it.HasStock; StockStatus = it.StockStatus; OnPropertyChanged("FilteredItems"); }
     }
 
     public class InvoicePaymentRow : ViewModelBase
@@ -177,10 +186,94 @@ namespace Techtoon.UI.Views
             using (var conn = new NpgsqlConnection(GetConnectionString()))
             {
                 conn.Open();
-                using (var cmd = new NpgsqlCommand("SELECT id, name, barcode, COALESCE(sell_price,0) FROM items ORDER BY name LIMIT 500", conn))
+
+                // 1) الأصناف + is_kit
+                var itemMap = new Dictionary<int, ItemSearchResult>();
+                using (var cmd = new NpgsqlCommand(
+                    "SELECT id, name, barcode, COALESCE(sell_price,0), COALESCE(is_kit,FALSE) FROM items WHERE COALESCE(is_active,TRUE) ORDER BY name LIMIT 500", conn))
                 using (var r = cmd.ExecuteReader())
                     while (r.Read())
-                        list.Add(new ItemSearchResult { Id = r.GetInt32(0), Name = r.IsDBNull(1) ? "" : r.GetString(1), Barcode = r.IsDBNull(2) ? "" : r.GetString(2), SellPrice = r.IsDBNull(3) ? 0 : (decimal)r.GetDouble(3) });
+                    {
+                        var it = new ItemSearchResult
+                        {
+                            Id = r.GetInt32(0),
+                            Name = r.IsDBNull(1) ? "" : r.GetString(1),
+                            Barcode = r.IsDBNull(2) ? "" : r.GetString(2),
+                            SellPrice = r.IsDBNull(3) ? 0 : (decimal)r.GetDouble(3),
+                            IsKit = !r.IsDBNull(4) && r.GetBoolean(4)
+                        };
+                        itemMap[it.Id] = it;
+                        list.Add(it);
+                    }
+
+                if (list.Count == 0) return list;
+
+                // 2) مخزون كل صنف (مجموع على كل المخازن)
+                var stockByItem = new Dictionary<int, decimal>();
+                try
+                {
+                    using (var cmd = new NpgsqlCommand(
+                        "SELECT item_id, COALESCE(SUM(quantity),0) FROM stock_levels GROUP BY item_id", conn))
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read())
+                            stockByItem[r.GetInt32(0)] = r.IsDBNull(1) ? 0 : (decimal)r.GetDouble(1);
+                }
+                catch { /* stock_levels may be empty */ }
+
+                // 3) مكونات الأصناف الكيت (kit)
+                var kitComponents = new Dictionary<int, List<(int compId, decimal qty)>>();
+                try
+                {
+                    using (var cmd = new NpgsqlCommand(
+                        "SELECT kit_item_id, component_item_id, COALESCE(quantity,1) FROM kit_components", conn))
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read())
+                        {
+                            int kitId = r.GetInt32(0), compId = r.GetInt32(1);
+                            decimal q = r.IsDBNull(2) ? 1 : (decimal)r.GetDouble(2);
+                            if (!kitComponents.ContainsKey(kitId)) kitComponents[kitId] = new List<(int, decimal)>();
+                            kitComponents[kitId].Add((compId, q));
+                        }
+                }
+                catch { /* kit_components may be empty */ }
+
+                // 4) حساب المخزون + رسالة الحالة
+                foreach (var it in list)
+                {
+                    if (it.IsKit && kitComponents.TryGetValue(it.Id, out var comps) && comps.Count > 0)
+                    {
+                        // مخزون الكيت = min over components of (component_stock / component_qty)
+                        decimal kitStock = decimal.MaxValue;
+                        string missingComp = null;
+                        foreach (var (compId, compQty) in comps)
+                        {
+                            decimal compStock = stockByItem.TryGetValue(compId, out var cs) ? cs : 0;
+                            if (compStock <= 0) { missingComp = itemMap.TryGetValue(compId, out var ci) ? ci.Name : ("#" + compId); kitStock = 0; break; }
+                            decimal available = compQty > 0 ? Math.Floor(compStock / compQty) : compStock;
+                            if (available < kitStock) kitStock = available;
+                        }
+                        it.StockQuantity = (kitStock == decimal.MaxValue) ? 0 : kitStock;
+                        if (it.StockQuantity <= 0)
+                            it.StockStatus = missingComp != null
+                                ? "الصنف «" + missingComp + "» (مكوّن الكيت) غير متوفر في المخزن"
+                                : "لا يوجد مخزون (مكونات الكيت غير متوفرة)";
+                        else
+                            it.StockStatus = "متوفر: " + it.StockQuantity.ToString("N0") + " (كيت)";
+                    }
+                    else if (it.IsKit)
+                    {
+                        // كيت بلا مكونات — لا مخزون
+                        it.StockQuantity = 0;
+                        it.StockStatus = "الكيت لا يحتوي على مكونات";
+                    }
+                    else
+                    {
+                        it.StockQuantity = stockByItem.TryGetValue(it.Id, out var s) ? s : 0;
+                        it.StockStatus = it.StockQuantity > 0
+                            ? "متوفر: " + it.StockQuantity.ToString("N0")
+                            : "لا يوجد مخزون";
+                    }
+                }
             }
             return list;
         }
