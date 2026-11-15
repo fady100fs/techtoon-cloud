@@ -1,0 +1,122 @@
+# TECHTOON — REMAINING ISSUES
+
+> جولة 2026-11-15 · OpenCode (GLM 5.3)
+
+---
+
+## 1. مشاكل NOT VERIFIED (لم يتم التحقق منها)
+
+| # | المشكلة | السبب | التأثير | التوصية |
+|---|---------|-------|---------|---------|
+| 1 | Flutter/PWA build | لا Flutter SDK في البيئة | Mobile/PWA لم يُبنَ | تثبيت Flutter SDK ثم `flutter pub get && flutter analyze && flutter build web` |
+| 2 | Streamlit smoke_test.py | Python قد لا يكون مُثبَّتًا | Dashboard لم يُختبَر E2E | تثبيت Python 3.x + `pip install -r requirements.txt` ثم `streamlit run app.py` |
+| 3 | Flutter test/widget_test.dart | قالب افتراضي فاشل (خارج النطاق) | `flutter test` يفشل | حذف أو إصلاح test/widget_test.dart |
+| 4 | Mobile/PWA E2E | لا جهاز/متصفح اختبار | التكامل Mobile ↔ API لم يُختبَر | اختبار على جهاز Android/iOS أو Chrome DevTools |
+
+---
+
+## 2. مشاكل NEEDS APPROVAL (تحتاج موافقة)
+
+| # | المشكلة | السبب | التأثير | التوصية |
+|---|---------|-------|---------|---------|
+| 1 | Migration لـ `parties.email` / `tax_number` | ترحيل إنتاجي | API تحوّل إلى فحص وجود العمود (يعمل على المخطط الحالي) | موافقة ثم `ALTER TABLE parties ADD COLUMN email VARCHAR, tax_number VARCHAR` |
+| 2 | قيد فريد على `user_devices(user_id, device_id)` | ترحيل إنتاجي | API تحوّل إلى UPDATE+INSERT (يعمل بلا ترحيل) | موافقة ثم `CREATE UNIQUE INDEX` |
+| 3 | حذف نسخ متكررة (`techtoon_deployment_package/`, `Backup/Old_Projects/`, `techtoon-cloud/`) | حذف ملفات قديمة ممنوع دون إثبات عدم الاستخدام | تكرار في المستودع | إثبات عدم الاستخدام (grep) ثم حذف |
+| 4 | تعديل التصميم المحاسبي (قيمة افتراضية لحساب الأطراف) | قرار محاسبي | استُخدم حساب افتراضي موجود (`DEFAULT-PARTY` من نوع ASSET) | موافقة على التصميم |
+| 5 | توحيد `techtoon-cloud/` (مستودع فارغ) | خارج الحل | مستودع فارغ | دمج أو حذف |
+
+---
+
+## 3. مشاكل NOT VERIFIED (بيئية)
+
+| # | المشكلة | السبب | التأثير |
+|---|---------|-------|---------|
+| 1 | Streamlit (E2E) | Python may not be installed | Dashboard لم يُختبَر |
+| 2 | Flutter (E2E) | لا Flutter SDK | Mobile/PWA لم يُختبَر |
+| 3 | Install on clean machine | لا VM متاحة | التثبيت على جهاز نظيف لم يُختبَر |
+| 4 | License activation on client | لا جهاز عميل | تفعيل الترخيص لم يُختبَر على جهاز عميل |
+
+---
+
+## 4. مشاكل معمارية (Architectural)
+
+| # | المشكلة | التأثير | التوصية |
+|---|---------|---------|---------|
+| 1 | Integrity is app-level (only 5 FK constraints in DB) | خطر سجلات يتيمة عند حذف مباشر من DB | إضافة FK constraints (needs approval) |
+| 2 | `RoleCatalog` لا يُحدِّث الأدوار (merge only) | صلاحيات قديمة قد تبقى | Seed logic to remove extras (already implemented) |
+| 3 | `techtoon-cloud/` (empty repo) | تكرار | دمج أو حذف |
+
+---
+
+## 5. مشاكل أمنية (Security)
+
+| # | المشكلة | الحالة | ملاحظة |
+|---|---------|--------|--------|
+| 1 | Exposed Neon password in 13 files | **OUT OF SCOPE** (Exemption C1) | لا تغير كلمة المرور أو بيانات الاتصال |
+| 2 | Plaintext password fallback (Streamlit) | ✅ أُصلح (bcrypt only) | — |
+| 3 | CORS / Rate limiting | ✅ مُكوَّن | — |
+| 4 | Input validation | ✅ مُنفَّذ | — |
+
+---
+
+## 6. مشاكل UX/Design
+
+| # | المشكلة | التأثير | التوصية |
+|---|---------|---------|---------|
+| 1 | Arabic text in XAML must use `&#xNNNN;` | خطأ في scan_cjk.ps1 | scan_cjk.ps1 detects foreign chars |
+| 2 | Some error messages still in English | UX | ErrorMessages.Describe covers most cases |
+
+---
+
+## 7. مشاكل أداء (Performance)
+
+| # | المشكلة | التأثير | التوصية |
+|---|---------|---------|---------|
+| 1 | `dotnet test` takes 20+ min | CI/CD slow | Parallelize tests (disable isolation per test) |
+| 2 | `verify-distribution.ps1` takes 10+ min | Verification slow | SkipBuild flag helps |
+| 3 | Neon latency (remote DB) | Slow queries | Connection pooling (already configured) |
+
+---
+
+## 8. مشاكل بيئة (Environment)
+
+| # | المشكلة | التأثير | التوصية |
+|---|---------|---------|---------|
+| 1 | No Flutter SDK | Mobile/PWA not built | Install Flutter SDK |
+| 2 | No Python (possibly) | Streamlit not tested | Install Python 3.x |
+| 3 | Inno Setup 6.7.4 | Installer built | ✅ |
+
+---
+
+## 9. مشاكل بيانات (Data)
+
+| # | المشكلة | الحالة | ملاحظة |
+|---|---------|--------|--------|
+| 1 | `techtoon_test` has 288 parties (from production import) | Expected (user's own import) | User's data — not touched |
+| 2 | `techtoon_test` has 0 items/payments | User's own actions | Not touched by us |
+| 3 | `neondb` (production) | ✅ Untouched | 3 parties / 112 items / 31 accounts |
+
+---
+
+## 10. خلاصة
+
+**0 أخطاء حرجة/عالية غير معالجة.**
+
+**NOT VERIFIED:**
+- Flutter/PWA (no SDK)
+- Streamlit smoke test (Python not confirmed)
+- Clean machine install (no VM)
+- License activation on client (no client device)
+
+**NEEDS APPROVAL:**
+- 2 production migrations (email/tax_number, user_devices unique)
+- Delete duplicate folders
+- Architectural changes (FK constraints, techtoon-cloud merge)
+
+**NEEDS ENVIRONMENT:**
+- Flutter SDK
+- Python 3.x
+- VM for clean install testing
+
+---
+*Generated by OpenCode audit — 2026-11-15*
